@@ -1,0 +1,7 @@
+# Kênh sở hữu: website demo của shop. Được gửi link, so sánh kênh.
+channel: WEB
+display_name: Website
+owned: true
+max_length: 2000
+rules: []
+fallback_message: "Dạ, shop xin lỗi, nhân viên sẽ phản hồi bạn ngay ạ."

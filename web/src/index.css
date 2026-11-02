@@ -1,0 +1,67 @@
+:root {
+  --bg: #f7f6f9;
+  --surface: #ffffff;
+  --ink: #1f1b2d;
+  --muted: #625c74;
+  --line: #e2dfe9;
+  --accent: #a3245a;
+  --warn-bg: #fdf1d8;
+  --warn-ink: #7a4b00;
+  font-family: "Be Vietnam Pro", "Segoe UI", system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; }
+button { font: inherit; cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.muted { color: var(--muted); }
+.error { color: #b42318; }
+
+.demo-banner { background: var(--warn-bg); color: var(--warn-ink); text-align: center; padding: 8px 16px; font-size: 14px; font-weight: 600; }
+
+.topbar { display: flex; align-items: center; gap: 8px; padding: 12px 24px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.logo { margin-right: auto; color: var(--accent); }
+.tab { border: 0; background: none; padding: 6px 12px; border-radius: 6px; color: var(--muted); }
+.tab-active { background: var(--bg); color: var(--ink); font-weight: 600; }
+
+.store, .admin { max-width: 1100px; margin: 0 auto; padding: 24px; }
+.store-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.chip { border: 1px solid var(--line); background: var(--surface); padding: 6px 14px; border-radius: 999px; }
+.chip-active { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.product-grid { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
+.product-card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 6px; align-content: start; }
+.product-card h3 { margin: 0; font-size: 16px; }
+.product-brand { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.product-inci { margin: 0; font-size: 13px; color: var(--muted); }
+.product-price { margin: 0; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.product-stock { margin: 0; font-size: 13px; }
+
+.chat, .chat-toggle { position: fixed; right: 20px; bottom: 20px; }
+.chat-toggle { background: var(--accent); color: #fff; border: 0; border-radius: 999px; padding: 12px 20px; }
+.chat { width: min(380px, calc(100vw - 40px)); height: 480px; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 10px 30px rgb(0 0 0 / .12); }
+.chat-header { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); font-weight: 600; }
+.chat-status { margin-left: auto; font-size: 12px; font-weight: 400; color: var(--muted); }
+.chat-status-closed { color: #b42318; }
+.chat-close { border: 0; background: none; font-size: 18px; }
+.chat-lines { flex: 1; overflow-y: auto; list-style: none; margin: 0; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.chat-hint { color: var(--muted); font-size: 14px; }
+.chat-line { max-width: 85%; padding: 8px 12px; border-radius: 12px; white-space: pre-wrap; font-size: 14px; }
+.chat-line-me { align-self: flex-end; background: var(--accent); color: #fff; }
+.chat-line-bot { align-self: flex-start; background: var(--bg); }
+.chat-handoff { display: block; margin-top: 4px; font-size: 12px; color: var(--muted); }
+.chat-form { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--line); }
+.chat-form input { flex: 1; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
+.chat-form button, .sim-form button { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 8px 14px; }
+.chat-form button:disabled { opacity: .5; cursor: not-allowed; }
+
+.sim-form { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin: 16px 0; }
+.sim-form label { grid-column: 1 / -1; font-weight: 600; }
+.sim-form input { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
+.table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 600; }
+.row-blocked td:nth-child(3) { background: var(--warn-bg); }

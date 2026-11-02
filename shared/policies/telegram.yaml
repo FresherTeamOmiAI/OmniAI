@@ -1,0 +1,7 @@
+# Kênh sở hữu: Telegram bot của shop. Được gửi link (deep-link liên kết tài khoản), so sánh kênh.
+channel: TELEGRAM
+display_name: Telegram
+owned: true
+max_length: 4000
+rules: []
+fallback_message: "Dạ, shop xin lỗi, nhân viên sẽ phản hồi bạn ngay ạ."

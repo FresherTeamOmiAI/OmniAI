@@ -1,0 +1,13 @@
+# Luật áp dụng cho MỌI kênh. Owner: HungDQ.
+# action:
+#   block   -> thay toàn bộ câu trả lời bằng fallback_message của kênh
+#   redact  -> thay đoạn khớp bằng "[đã ẩn]"
+#   replace -> thay đoạn khớp bằng `replacement`
+# Regex được biên dịch không phân biệt hoa thường, hỗ trợ Unicode (cả Java và Python bench).
+channel: "*"
+rules:
+  - id: no-medical-claim
+    description: Mỹ phẩm không được quảng cáo như thuốc (không "điều trị", "chữa", "đặc trị", "trị mụn"...)
+    pattern: '\b(điều trị|chữa khỏi|chữa|đặc trị|trị (mụn|nám|thâm|sẹo|tàn nhang))\b'
+    action: replace
+    replacement: "hỗ trợ cải thiện"

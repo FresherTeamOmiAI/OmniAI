@@ -1,0 +1,20 @@
+# Kênh sàn: TikTok Shop. Tương tự Shopee: không điều hướng ra ngoài sàn.
+# BẢN NHÁP - cần đối chiếu chính sách TikTok Shop hiện hành trước khi dùng thật.
+channel: TIKTOK
+display_name: TikTok Shop
+owned: false
+max_length: 1000
+rules:
+  - id: no-external-link
+    description: Không gửi link ra ngoài sàn
+    pattern: '(https?://|www\.)\S+'
+    action: redact
+  - id: no-phone
+    description: Không cho/xin số điện thoại
+    pattern: '(\+?84|0)([\s.\-]?\d){8,10}'
+    action: redact
+  - id: no-other-channel
+    description: Không nhắc tới kênh bán/liên hệ khác
+    pattern: '\b(shopee|lazada|tiki|zalo|facebook|messenger|telegram|website|trang web|web của shop|web shop)\b'
+    action: block
+fallback_message: "Dạ, shop xin phép tư vấn trong phạm vi TikTok Shop ạ. Bạn theo dõi livestream và voucher của shop ngay trên TikTok Shop nhé!"

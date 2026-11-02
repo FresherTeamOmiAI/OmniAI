@@ -1,0 +1,7 @@
+# Chạy nhanh khi chưa bật Docker: mvn spring-boot:run -Dspring-boot.run.profiles=h2
+# Dữ liệu mất khi tắt app. Không dùng được pgvector.
+spring:
+  datasource:
+    url: jdbc:h2:mem:omniai;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
