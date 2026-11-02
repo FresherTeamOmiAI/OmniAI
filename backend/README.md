@@ -11,9 +11,8 @@ Spring Boot 4.1 · Java 21 · Maven. Modular monolith, mỗi package có 1 owner
 | `catalog`, `customer`, `identity`, `promotion`, `order` | LucVT | Entity, repository, `GET /api/products` |
 
 ```bash
-mvn spring-boot:run                                  # Postgres (docker compose up -d)
-mvn spring-boot:run -Dspring-boot.run.profiles=h2    # không cần Docker
-mvn test
+mvn spring-boot:run      # cần Postgres: docker compose up -d (ở thư mục gốc)
+mvn test                 # cần Docker đang chạy (Testcontainers tự bật Postgres + pgvector)
 ```
 
-Migration ở `src/main/resources/db/migration` (Flyway). Viết SQL sao cho chạy được trên cả PostgreSQL và H2. Riêng phần dùng pgvector thì để ở migration riêng và chỉ chạy trên Postgres.
+Migration ở `src/main/resources/db/migration` (Flyway, PostgreSQL 16 + pgvector). Không sửa migration đã chạy, luôn thêm file `V<n>__mô_tả.sql` mới.

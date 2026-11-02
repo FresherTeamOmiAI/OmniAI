@@ -54,7 +54,7 @@ BUG_TYPE = ["Functional", "UI", "AI-Hallucination", "Policy-Violation", "Adapter
 CHANNELS = ["Web", "Telegram", "Messenger", "Shopee", "TikTok", "Simulator", "All"]
 MODULES = ["Gateway/Adapter", "Policy", "Bench", "AI Brain", "Identity", "Customer", "Catalog", "Promotion",
            "Order", "Web Store", "Admin", "Infra", "Docs"]
-ENVS = ["Local", "Dev (H2)", "Dev (Docker)", "Demo"]
+ENVS = ["Local", "Dev (Docker)", "Demo"]
 ISSUE_STATUS = ["Open", "Monitoring", "Closed"]
 QA_STATUS = ["Open", "Answered", "Closed"]
 SPRINT_CODES = [f"S{n}" for n in range(len(SPRINT_GOALS))]

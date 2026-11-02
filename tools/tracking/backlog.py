@@ -143,7 +143,7 @@ BACKLOG = [
        "Là admin, tôi muốn hội thoại ở mọi kênh được lưu để xem lại.",
        "Given khách chat ở bất kỳ kênh nào\nWhen tin vào/ra\nThen lưu đủ kênh, conversation_id, rawText, finalText, luật vi phạm",
        "Gateway/Adapter", "All",
-       [("Schema + repository conversation/message", "BE", T, 1.5, "Migration Flyway chạy trên Postgres và H2"),
+       [("Schema + repository conversation/message", "BE", T, 1.5, "Migration Flyway chạy được trên Postgres (Testcontainers)"),
         ("API GET /api/conversations (lọc kênh, phân trang)", "API", T, 1, "Test lọc theo kênh"),
         ("Test lưu tin khi AI Brain lỗi", "Test", T, 0.5, "Tin vẫn được lưu, handoff=true")]),
     us("US-12", "A", "Must have", "P0", 2, H, "Bộ bench 50 ca",

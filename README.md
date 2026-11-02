@@ -53,7 +53,7 @@ tools/        tracking/generate_tracking.py: sinh file Excel từ backlog.py
 
 ## Cài đặt
 
-Cần: **JDK 21**, **Maven 3.9+**, **Python 3.11+**, **Node.js 20.19+**, **Docker Desktop** (có thể bỏ qua lúc đầu, xem profile `h2`).
+Cần: **JDK 21**, **Maven 3.9+**, **Python 3.11+**, **Node.js 20.19+**, **Docker Desktop** (bắt buộc: Postgres khi chạy app, Testcontainers khi chạy test).
 
 ```bash
 cp .env.example .env          # sửa nếu cần; giá trị mặc định đã chạy được
@@ -76,8 +76,7 @@ uvicorn app.main:app --reload --port 8000
 **2. Backend** (cổng 8080)
 ```bash
 cd backend
-mvn spring-boot:run                                      # dùng Postgres trong Docker
-mvn spring-boot:run -Dspring-boot.run.profiles=h2        # chưa có Docker: DB trong bộ nhớ
+mvn spring-boot:run              # cần docker compose up -d trước
 ```
 
 **3. Web** (cổng 5173)
@@ -100,7 +99,7 @@ python -m bench.run              # cần backend + ai-brain đang chạy; báo c
 ### Chạy test
 
 ```bash
-cd backend  && mvn test                      # PolicyEngine, MessageRouter, khởi động Spring (H2)
+cd backend  && mvn test                      # PolicyEngine, MessageRouter, khởi động Spring trên Postgres thật (Testcontainers, cần Docker)
 cd ai-brain && .venv\Scripts\python -m pytest
 cd bench    && .venv\Scripts\python -m pytest
 cd web      && npm run build
