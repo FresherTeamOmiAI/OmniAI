@@ -24,7 +24,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 
 .topbar { display: flex; align-items: center; gap: 8px; padding: 12px 24px; background: var(--surface); border-bottom: 1px solid var(--line); }
 .logo { margin-right: auto; color: var(--accent); }
-.tab { border: 0; background: none; padding: 6px 12px; border-radius: 6px; color: var(--muted); }
+.tab { text-decoration: none; border: 0; background: none; padding: 6px 12px; border-radius: 6px; color: var(--muted); }
 .tab-active { background: var(--bg); color: var(--ink); font-weight: 600; }
 
 .store, .admin { max-width: 1100px; margin: 0 auto; padding: 24px; }
@@ -65,3 +65,4 @@ table { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 14p
 th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--line); }
 th { color: var(--muted); font-weight: 600; }
 .row-blocked td:nth-child(3) { background: var(--warn-bg); }
+.page-empty { max-width: 1100px; margin: 0 auto; padding: 24px; color: var(--muted); }

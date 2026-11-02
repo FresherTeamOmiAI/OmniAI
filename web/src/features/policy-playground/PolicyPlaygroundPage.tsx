@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { simulate, type BotReply, type ChannelType } from '../api'
+import type { BotReply, ChannelType } from '../../shared/types'
+import { simulate } from './api'
 
 const CHANNELS: ChannelType[] = ['WEB', 'TELEGRAM', 'SHOPEE', 'TIKTOK']
 
-// Admin: hiện có công cụ "Thử luật kênh". Sprint sau: inbox hội thoại (TuTM), duyệt gộp danh tính, báo cáo bench (HungDQ).
-export function AdminPage() {
+// Admin > Thử luật kênh. Owner: HungDQ (policy) + TuTM (admin).
+export function PolicyPlaygroundPage() {
   const [text, setText] = useState('Web shop có rẻ hơn không? cho mình xin link')
   const [results, setResults] = useState<BotReply[]>([])
   const [error, setError] = useState<string | null>(null)

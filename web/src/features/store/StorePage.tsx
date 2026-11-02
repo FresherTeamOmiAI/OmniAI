@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
-import { fetchProducts, formatVnd, type Product } from '../api'
+import { formatVnd } from '../../shared/lib/format'
+import { fetchProducts } from './api'
+import type { Product } from './types'
 
 const SKIN_TYPES = [
   { value: '', label: 'Tất cả' },

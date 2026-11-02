@@ -44,7 +44,7 @@ Hạ tầng (`docker-compose.yml`): PostgreSQL 16 + pgvector, Redis, RabbitMQ.
 backend/      Spring Boot modular monolith: channel, policy, brain, catalog, customer, identity, promotion, order
 ai-brain/     FastAPI: /chat, LLMProvider (fake mặc định), agent, rules/ingredients.py
 bench/        Bench chạy qua API simulator, chấm lại theo shared/policies
-web/          React + Vite + TS: store demo, chat widget, admin (#admin: "Thử luật kênh")
+web/          React + Vite + TS, modular theo feature (app/, shared/, features/): store, chat, thử luật kênh
 shared/       policies/*.yaml (luật kênh, dùng chung Java + Python), schemas/ (CanonicalMessage)
 infra/        script khởi tạo Postgres (bật extension vector)
 docs/         đề xuất, file tracking Excel
@@ -86,7 +86,7 @@ cd web
 npm install
 npm run dev
 ```
-Mở http://localhost:5173 để vào cửa hàng có chat widget. Mở http://localhost:5173/#admin để vào trang "Thử luật kênh": gửi 1 câu vào 4 kênh và so sánh câu AI nói với câu khách nhận.
+Mở http://localhost:5173 để vào cửa hàng có chat widget. Mở http://localhost:5173/admin/policy để vào trang "Thử luật kênh": gửi 1 câu vào 4 kênh và so sánh câu AI nói với câu khách nhận.
 
 **4. Bench**
 ```bash
@@ -112,7 +112,7 @@ cd web      && npm run build
 curl -X POST http://localhost:8080/api/simulator/shopee/messages \
   -H "Content-Type: application/json" -d '{"userId":"u1","text":"cho minh xin link web"}'
 ```
-Trên Windows, curl có thể gửi tiếng Việt sai mã hóa (lỗi 400 "Invalid UTF-8"). Khi đó dùng trang `#admin`, bench, hoặc `-d @file.json`.
+Trên Windows, curl có thể gửi tiếng Việt sai mã hóa (lỗi 400 "Invalid UTF-8"). Khi đó dùng trang `/admin/policy`, bench, hoặc `-d @file.json`.
 
 ## Làm việc với code
 
