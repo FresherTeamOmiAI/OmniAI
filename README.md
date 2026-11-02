@@ -7,6 +7,21 @@
 
 > Cửa hàng trong dự án là **bản demo**: thương hiệu hư cấu, không bán, không thanh toán, không giao hàng thật.
 
+## Bài toán
+
+**Vấn đề.** Shop mỹ phẩm bán cùng lúc trên Shopee, TikTok Shop và web riêng, nhưng mỗi kênh chỉ nhớ phần của mình. Vì vậy khách phải khai lại loại da và dị ứng ở từng kênh, không ai cảnh báo khi đồ mua ở các kênh khác nhau xung đột hoạt chất, và tư vấn giữa các kênh không nhất quán.
+
+**Khoảng trống.**
+- Ghép một bộ não chung thì AI không biết luật riêng của từng kênh. Ví dụ Shopee cấm nhắc tới web, gửi link hay số điện thoại; bot vi phạm thì shop có thể bị khóa.
+- Không có cách hợp pháp để tự nhận ra 3 tài khoản ở 3 kênh là cùng một người. Sàn che thông tin người mua, còn Luật Bảo vệ dữ liệu cá nhân 91/2025 yêu cầu phải có sự đồng ý của khách.
+- Hầu như không ai đo chất lượng chatbot theo từng kênh: có bịa giá không, có vi phạm luật sàn không, có nhớ đúng khách không.
+
+**Giải pháp: "Một bộ não, nhiều luật kênh".**
+- **Adapter** cho mỗi kênh chuyển tin nhắn về một định dạng chung. **Policy engine** áp luật của kênh, chặn hoặc viết lại câu trả lời trước khi gửi cho khách.
+- **AI Brain dùng chung:** RAG trên catalog, luật thành phần cố định (ví dụ retinol với AHA, khi mang thai), tư vấn săn sale theo kênh.
+- **Liên kết danh tính có sự đồng ý của khách:** mã OMNI-xxxx, deep-link, mã đơn hàng. Hệ thống chỉ gợi ý gộp tài khoản, khách xác nhận mới gộp.
+- **Bench** đo theo từng kênh: tỉ lệ vi phạm luật, tỉ lệ bịa số, độ nhớ khi đổi kênh, độ trễ. Đây là đóng góp chính của dự án.
+
 ## Team
 
 | Thành viên | Vai trò | Phụ trách code |
