@@ -6,9 +6,15 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 
-# Env
+# Env: chứa mật khẩu/API key, chỉ gửi nội bộ team, KHÔNG commit
 .env
-*.env.local
+.env.*
+*.env
+!.env.example
+ai-brain/.env
+backend/.env
+*.pem
+*.key
 
 # Java / Maven
 backend/target/
