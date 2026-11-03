@@ -1,6 +1,6 @@
 # Tổng quan hệ thống
 
-> Cập nhật: 2026-11-03 · commit c88bfc6
+> Cập nhật: 2026-11-03 · commit 1ae3440
 > Nguồn: `README.md`, `docker-compose.yml`, `.env.example`, `backend/src/main/resources/application.yml`, `web/vite.config.ts`, `tools/systembat/`
 
 ## Mục tiêu
@@ -60,4 +60,4 @@ Lệnh tay (macOS/Linux) xem `README.md` gốc.
 ## Quy ước chung
 - Commit theo Conventional Commits, kèm mã task: `feat(channel): ... [T-17.1]`. Không thêm attribution AI (xem `CLAUDE.md`).
 - Mọi con số (giá, tồn kho, khuyến mãi) do AI nói ra phải lấy từ tool gọi API backend, không để LLM tự nói.
-- Nhánh: README ghi `develop`, `docs/TEAM_GIT_WORKFLOW.md` ghi `dev`. **Team chưa chốt**, khi chốt thì sửa dòng này.
+- Nhánh (chốt 2026-11-03): `main` (ổn định, chỉ nhận PR) và `dev` (tích hợp). Nhánh tạm `feature/`, `bugfix/`, `docs/`, `chore/` tách từ `dev` rồi PR vào `dev`; `hotfix/` tách từ `main`. Chi tiết: `docs/TEAM_GIT_WORKFLOW.md`.
