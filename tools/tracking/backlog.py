@@ -173,7 +173,7 @@ BACKLOG = [
         ("Agent loop gọi tool (LangGraph)", "AI", C, 2, "Agent chọn đúng tool trong 10 ca mẫu"),
         ("20 ca bench giá/tồn kho", "Bench", H, 0.5, "Tỉ lệ bịa số = 0")]),
     us("US-16", "A", "Should have", "P1", 3, H, "CI: build + test + bench",
-       "Là Lead, tôi muốn mỗi lần push đều tự build, test và chạy bench để không ai làm hỏng nhánh develop.",
+       "Là Lead, tôi muốn mỗi lần push đều tự build, test và chạy bench để không ai làm hỏng nhánh dev.",
        "Given push lên nhánh bất kỳ\nWhen CI chạy\nThen backend test, ai-brain pytest, bench pytest, web build đều chạy; fail thì báo đỏ",
        "Infra", "All",
        [("Pipeline CI (GitHub Actions hoặc script local)", "BE", H, 1.5, "Cố tình làm hỏng 1 test -> CI báo fail")]),

@@ -1,6 +1,6 @@
 # Trạng thái hiện tại
 
-> Cập nhật: 2026-11-03 · commit c88bfc6 · Sprint hiện tại: **S0 (03–09/11/2026)**
+> Cập nhật: 2026-11-03 · commit 1ae3440 · Sprint hiện tại: **S0 (03–09/11/2026)**
 
 Bảng này cho biết cái gì đã chạy được, cái gì mới là khung, cái gì chưa có. Agent đọc file này **trước khi** đi tìm code để khỏi tìm thứ chưa tồn tại. Kế hoạch chi tiết: `tools/tracking/backlog.py` và GitHub Issues (milestone Sprint 0–12).
 
@@ -37,7 +37,6 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 - `GET /api/products/{id}` vẫn trả sản phẩm `active=false`.
 - Backend/ai-brain không tự đọc `.env` (script `.bat` nạp hộ, IDE thì phải tự cấu hình).
 - Chưa có `mvnw`, mỗi máy phải tự cài Maven.
-- Quy ước tên nhánh `develop` hay `dev` chưa thống nhất (README và TEAM_GIT_WORKFLOW ghi khác nhau).
 
 ## Sprint S0–S1 (tóm tắt)
 - **S0** (03–09/11): SRS, US, UC (HungDQ + cả team review) · setup môi trường (cả 4) · spike chat API Shopee/TikTok (TuTM) · schema + 80 SKU (LucVT) · so sánh ≥3 LLM (ChienPX).

@@ -153,9 +153,9 @@ Trước khi sửa code, đọc [docs/specs/](docs/specs/README.md): hợp đồ
 
 ## Quy ước Git
 
-- Nhánh: `main` (bản ổn định, demo), `develop` (tích hợp), `feature/<tên>-<US-xx>`, ví dụ `feature/tutm-US-17-telegram`.
+- Nhánh: `main` (bản ổn định, demo, gắn tag), `dev` (tích hợp), nhánh tạm `<type>/<mã>-<mô-tả>` tách từ `dev`, ví dụ `feature/us-17-telegram`. Chi tiết: [docs/TEAM_GIT_WORKFLOW.md](docs/TEAM_GIT_WORKFLOW.md).
 - Commit theo Conventional Commits, kèm mã task trong file tracking: `feat(channel): telegram webhook adapter [T-17.1]`, `fix(policy): ...`, `test(bench): ...`, `docs: ...`.
-- Merge vào `develop` qua Pull Request, cần **1 người review**; test và bench phải pass.
+- Merge vào `dev` qua Pull Request (không push thẳng lên `main`/`dev`), cần **1 người review**; test và bench phải pass.
 - Không commit `.env`, API key, `node_modules`, `.venv`, `target`.
 - File Excel tracking: đưa lên Google Drive/OneDrive để cả team sửa cùng lúc. Bản trong repo là baseline, chỉ HungDQ commit file này.
 
