@@ -61,9 +61,8 @@ ai-brain/     FastAPI: /chat, LLMProvider (fake mặc định), agent, rules/ing
 bench/        Bench chạy qua API simulator, chấm lại theo shared/policies
 web/          React + Vite + TS, modular theo feature (app/, shared/, features/): store, chat, thử luật kênh
 shared/       policies/*.yaml (luật kênh, dùng chung Java + Python), schemas/ (CanonicalMessage)
-infra/        script khởi tạo Postgres (bật extension vector)
-docs/         đề xuất, file tracking Excel
-tools/        tracking/generate_tracking.py: sinh file Excel từ backlog.py
+docs/         đề xuất, file tracking Excel, specs/ (bản đồ hệ thống cho người và agent)
+tools/        tracking/ (sinh Excel, đồng bộ GitHub), systembat/ (script .bat chạy dự án), agent/ (hook kiểm tra specs)
 ```
 
 ## Cài đặt
@@ -76,6 +75,15 @@ docker compose up -d          # postgres, redis, rabbitmq
 ```
 
 Backend không tự đọc file `.env`. Giá trị mặc định trong `application.yml` đã khớp `.env.example`. Muốn đổi thì đặt biến môi trường hoặc cấu hình trong IDE.
+
+### Chạy nhanh trên Windows (không cần gõ lệnh)
+
+Double-click các file trong `tools/systembat/` (chi tiết ở [tools/systembat/README.md](tools/systembat/README.md)):
+- Lần đầu: `setup.bat`, để cài venv, thư viện Python, npm và tạo `.env`.
+- Chạy tất cả: `run-all.bat`. Script bật Docker, mở 3 cửa sổ Brain/Backend/Web rồi mở trình duyệt. Tắt bằng `stop-all.bat`.
+- Test: `test-all.bat`. Bench: `run-bench.bat`.
+
+Các script này nạp `.env` thành biến môi trường, nên đổi giá trị trong `.env` là có hiệu lực.
 
 ### Chạy từng phần (mỗi phần 1 terminal)
 
@@ -129,6 +137,8 @@ curl -X POST http://localhost:8080/api/simulator/shopee/messages \
 Trên Windows, curl có thể gửi tiếng Việt sai mã hóa (lỗi 400 "Invalid UTF-8"). Khi đó dùng trang `/admin/policy`, bench, hoặc `-d @file.json`.
 
 ## Làm việc với code
+
+Trước khi sửa code, đọc [docs/specs/](docs/specs/README.md): hợp đồng API, mô hình dữ liệu, trạng thái từng module. Nếu đổi hợp đồng, DB, luật, cách chạy hoặc trạng thái tính năng thì cập nhật spec trong cùng PR.
 
 **Thêm / sửa luật kênh:** sửa `shared/policies/<kênh>.yaml` (`action`: `block` | `redact` | `replace`). Sau đó thêm test vào `backend/src/test/.../PolicyEngineTest.java` và `bench/tests/test_policy_check.py`. Khi thêm luật phải có cả test khớp đúng và test không khớp nhầm (vd. giá tiền không bị tưởng là SĐT, "giá trị" không bị tưởng là "trị").
 

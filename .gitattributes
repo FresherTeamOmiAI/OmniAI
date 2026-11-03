@@ -3,3 +3,6 @@
 *.png binary
 *.jpg binary
 *.svg text eol=lf
+# Script Windows phải dùng CRLF, LF làm cmd hiểu sai goto/label
+*.bat text eol=crlf
+*.cmd text eol=crlf

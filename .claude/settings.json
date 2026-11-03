@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"$CLAUDE_PROJECT_DIR/tools/agent/specs_guard.py\"",
+            "timeout": 15,
+            "statusMessage": "Kiểm tra docs/specs..."
+          }
+        ]
+      }
+    ]
+  }
+}
