@@ -1,6 +1,6 @@
 # AI Brain (FastAPI)
 
-> Cập nhật: 2026-11-04 · commit b177a3b · Owner: ChienPX
+> Cập nhật: 2026-11-04 · commit 3922a5c · Owner: ChienPX
 > Nguồn: `ai-brain/app/**`, `ai-brain/tests/**`, `ai-brain/requirements.txt`
 
 Python 3.11, FastAPI, Pydantic 2, uvicorn, httpx. Chưa có LangGraph hay SDK LLM nào. Chạy bằng `uvicorn app.main:app --port 8000` (hoặc `run-brain.bat`). Hợp đồng API xem [api-contracts.md](api-contracts.md).
