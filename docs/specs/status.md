@@ -1,6 +1,6 @@
 # Trạng thái hiện tại
 
-> Cập nhật: 2026-11-03 · commit 1ae3440 · Sprint hiện tại: **S0 (03–09/11/2026)**
+> Cập nhật: 2026-11-04 · commit 3922a5c · Sprint hiện tại: **S0 (03–09/11/2026)**
 
 Bảng này cho biết cái gì đã chạy được, cái gì mới là khung, cái gì chưa có. Agent đọc file này **trước khi** đi tìm code để khỏi tìm thứ chưa tồn tại. Kế hoạch chi tiết: `tools/tracking/backlog.py` và GitHub Issues (milestone Sprint 0–12).
 
@@ -28,7 +28,7 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | Order, Promotion | Chưa | Mới có package-info | US-09, 33 |
 | Web store (list + lọc loại da) | Khung | Chưa có trang chi tiết, chưa đặt hàng ảo | US-09 |
 | Trang thử luật kênh `/admin/policy` | Done | | UC-24 |
-| Bench runner + policy_check | Done | 10 ca mẫu | US-12 |
+| Bench runner + policy_check | Done | 10 ca mẫu qua simulator + 5 ca luồng web qua WebSocket (`transport: ws`) | US-06, US-12 |
 | CI | Chưa | | US-16 |
 | docs/specs + rule cho agent | Done | Stop hook `tools/agent/specs_guard.py` | |
 

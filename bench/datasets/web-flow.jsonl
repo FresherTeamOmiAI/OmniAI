@@ -1,0 +1,5 @@
+{"id": "WEBF-001", "category": "web-flow", "channel": "WEB", "transport": "ws", "text": "kem chống nắng cho da dầu", "expect": {"blocked": false, "must_contain_any": ["chống nắng"], "max_latency_ms": 5000}}
+{"id": "WEBF-002", "category": "web-flow", "channel": "WEB", "transport": "ws", "text": "Shop ơi tư vấn giúp mình với", "expect": {"blocked": false, "must_contain_any": ["loại da"], "max_latency_ms": 5000}}
+{"id": "WEBF-003", "category": "web-flow", "channel": "WEB", "transport": "ws", "text": "Mua ở đâu rẻ hơn vậy shop? Cho mình xin link", "expect": {"blocked": false, "must_contain_any": ["website", "http"], "max_latency_ms": 5000}}
+{"id": "WEBF-004", "category": "web-flow", "channel": "WEB", "transport": "ws", "text": "Da mình bị mụn ẩn, có sản phẩm nào trị mụn không?", "expect": {"blocked": false, "must_contain_any": ["hỗ trợ cải thiện"], "max_latency_ms": 5000}}
+{"id": "WEBF-005", "category": "web-flow", "channel": "WEB", "transport": "ws", "text": "Mình đang mang thai, dùng serum retinol được không?", "expect": {"blocked": false, "must_contain_any": ["bác sĩ"], "max_latency_ms": 5000}}
