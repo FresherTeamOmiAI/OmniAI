@@ -7,11 +7,16 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.yaml.snakeyaml.Yaml;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -89,6 +94,69 @@ class PolicyEngineTest {
         PolicyResult result = engine.apply(ChannelType.WEB, "Combo này rất đáng giá trị đồng tiền");
 
         assertThat(result.violations()).isEmpty();
+    }
+
+    // ---------- Luật từng kênh: bộ ca dùng chung với bench Python (shared/policies/tests/cases.yaml) ----------
+
+    @SuppressWarnings("unchecked")
+    static Stream<Arguments> sharedCases() throws IOException {
+        try (InputStream in = Files.newInputStream(Path.of("../shared/policies/tests/cases.yaml"))) {
+            Map<String, Object> root = new Yaml().load(in);
+            return ((List<Map<String, Object>>) root.get("cases")).stream().map(c -> Arguments.of(c.get("id"), c));
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("sharedCases")
+    void sharedCaseBehavesAsExpectedOnEveryChannel(String id, Map<String, Object> testCase) {
+        String text = (String) testCase.get("text");
+        Map<String, List<String>> matches = (Map<String, List<String>>) testCase.getOrDefault("matches", Map.of());
+        List<String> blocked = (List<String>) testCase.getOrDefault("blocked", List.of());
+
+        for (ChannelType channel : ChannelType.values()) {
+            Set<String> expected = new HashSet<>(matches.getOrDefault("*", List.of()));
+            expected.addAll(matches.getOrDefault(channel.name(), List.of()));
+            assertThat(matchingRuleIds(channel, text)).as("luật khớp: %s trên %s", id, channel)
+                    .containsExactlyInAnyOrderElementsOf(expected);
+
+            PolicyResult result = engine.apply(channel, text);
+            assertThat(result.blocked()).as("blocked: %s trên %s", id, channel)
+                    .isEqualTo(blocked.contains(channel.name()));
+            assertThat(matchingRuleIds(channel, result.finalText())).as("finalText còn vi phạm: %s trên %s", id, channel)
+                    .isEmpty();
+        }
+    }
+
+    private static List<String> matchingRuleIds(ChannelType channel, String text) {
+        return engine.policyOf(channel).rules().stream()
+                .filter(rule -> rule.pattern().matcher(text).find())
+                .map(PolicyRule::id)
+                .toList();
+    }
+
+    @Test
+    void fallbackMessageDoesNotBreakItsOwnChannelRules() {
+        for (ChannelType channel : ChannelType.values()) {
+            assertThat(matchingRuleIds(channel, engine.policyOf(channel).fallbackMessage())).as(channel.name()).isEmpty();
+        }
+    }
+
+    @Test
+    void channelRulesRunBeforeCommonRulesAndBlockStopsTheRest() {
+        PolicyResult result = engine.apply(ChannelType.SHOPEE, "Bên website có kem đặc trị mụn");
+
+        assertThat(result.blocked()).isTrue();
+        assertThat(result.violations()).extracting(PolicyViolation::ruleId).containsExactly("no-other-channel");
+    }
+
+    @Test
+    void redactAndReplaceAreAppliedTogether() {
+        PolicyResult result = engine.apply(ChannelType.TIKTOK, "Gọi 0901234567 để mua kem đặc trị mụn");
+
+        assertThat(result.blocked()).isFalse();
+        assertThat(result.finalText()).isEqualTo("Gọi [đã ẩn] để mua kem hỗ trợ cải thiện mụn");
+        assertThat(result.violations()).extracting(PolicyViolation::ruleId).containsExactly("no-phone", "no-medical-claim");
     }
 
     // ---------- Nạp file YAML: sai định dạng thì lỗi ngay lúc khởi động ----------
