@@ -1,6 +1,6 @@
 # Trạng thái hiện tại
 
-> Cập nhật: 2026-11-03 · commit 1ae3440 · Sprint hiện tại: **S0 (03–09/11/2026)**
+> Cập nhật: 2026-11-04 · commit 3922a5c · Sprint hiện tại: **S0 (03–09/11/2026)**
 
 Bảng này cho biết cái gì đã chạy được, cái gì mới là khung, cái gì chưa có. Agent đọc file này **trước khi** đi tìm code để khỏi tìm thứ chưa tồn tại. Kế hoạch chi tiết: `tools/tracking/backlog.py` và GitHub Issues (milestone Sprint 0–12).
 
@@ -17,7 +17,7 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | Kênh WEB (WebSocket) | Khung | channelUserId = session id, widget chưa reconnect | US-06 |
 | Simulator API | Done | Dùng cho bench và `/admin/policy` | US-07 |
 | Kênh Telegram / Shopee / TikTok / Messenger | Chưa | Đã có YAML luật | US-17, 21, 25 |
-| PolicyEngine + YAML | Done (v0) | YAML sàn là bản nháp | US-07, US-20 |
+| PolicyEngine + YAML | Done (v0) | Kiểm tra YAML lúc khởi động. YAML sàn là bản nháp | US-07, US-20 |
 | AI Brain `/chat` + LLMProvider | Khung | Chỉ có `fake` | US-06 |
 | Luật thành phần | Khung | Bản mẫu, cần chuyên gia review | US-27 |
 | RAG / tool / agent loop | Chưa | | US-10, US-15 |
