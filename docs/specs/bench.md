@@ -30,8 +30,9 @@ Summary (`summarize()`): `total`, `passed`, `latency_p95_ms`, và `by_channel` g
 - `datasets/web-flow.jsonl`: 5 ca luồng web qua WebSocket (WEBF-001..005, T-06.5), là phần tự động của `docs/testcases/US-06.md`. WEBF-001..004 dựa vào câu của FakeProvider; WEBF-005 dựa vào luật tất định nên không phụ thuộc model.
 
 ## Test
-- `tests/test_policy_check.py`: nạp đủ kênh, Shopee bắt được link/SĐT/kênh khác, WEB cho phép link, claim y khoa bị bắt ở mọi kênh.
-- `tests/test_run.py`: hàm chấm `grade()` (pass, lọt luật, sai `blocked`, thiếu chuỗi, quá chậm) và cách suy URL WebSocket từ `--base-url`. Không cần server.
+`tests/test_policy_check.py`: nạp đủ kênh, Shopee bắt được link/SĐT/kênh khác, WEB cho phép link, claim y khoa bị bắt ở mọi kênh.
+
+`tests/test_run.py`: hàm chấm `grade()` (pass, lọt luật, sai `blocked`, thiếu chuỗi, quá chậm) và cách suy URL WebSocket từ `--base-url`. Không cần server.
 
 ## Lộ trình
 - S1: 5 ca luồng web qua WebSocket (T-06.5): đã có, 5/5 pass với FakeProvider.
