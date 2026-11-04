@@ -1,6 +1,6 @@
 # AI Brain (FastAPI)
 
-> Cập nhật: 2026-11-03 · commit c88bfc6 · Owner: ChienPX
+> Cập nhật: 2026-11-04 · commit b177a3b · Owner: ChienPX
 > Nguồn: `ai-brain/app/**`, `ai-brain/tests/**`, `ai-brain/requirements.txt`
 
 Python 3.11, FastAPI, Pydantic 2, uvicorn, httpx. Chưa có LangGraph hay SDK LLM nào. Chạy bằng `uvicorn app.main:app --port 8000` (hoặc `run-brain.bat`). Hợp đồng API xem [api-contracts.md](api-contracts.md).
@@ -22,6 +22,7 @@ Python 3.11, FastAPI, Pydantic 2, uvicorn, httpx. Chưa có LangGraph hay SDK LL
 - Con số (giá, tồn kho, khuyến mãi) lấy qua tool gọi API backend, không để LLM tự sinh.
 - Provider thật phải tự tuân thủ luật kênh. Policy bên backend chỉ là lưới an toàn.
 - Không hard-code API key, đọc `LLM_MODEL`, `LLM_API_KEY` từ env.
+- Chỉ dùng provider **miễn phí** (decisions #13): free tier hoặc model mở chạy local, chỉ gửi dữ liệu tổng hợp. Model được chọn theo tiêu chí trong `docs/llm-eval/README.md`.
 - Đổi hành vi `FakeProvider` sẽ làm hỏng `bench/datasets/sample.jsonl`, nên phải sửa dataset cùng lúc.
 
 ## Test
