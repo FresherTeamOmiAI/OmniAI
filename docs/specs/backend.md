@@ -1,6 +1,6 @@
 # Backend (Spring Boot)
 
-> Cập nhật: 2026-11-04 · commit 46e4a18
+> Cập nhật: 2026-11-04 · commit 3922a5c
 > Nguồn: `backend/pom.xml`, `backend/src/main/java/com/omniai/**`, `backend/src/test/**`
 
 Spring Boot 4.1.2, Java 21, Maven (chưa có `mvnw`). Starter đang dùng: webmvc, websocket, validation, data-jpa, flyway (+postgresql), actuator, lombok. Test dùng spring-boot-starter-test + Testcontainers (postgresql). Kiến trúc modular monolith: mỗi package là một module.

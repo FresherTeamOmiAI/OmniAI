@@ -1,6 +1,6 @@
 # Policy: luật kênh
 
-> Cập nhật: 2026-11-04 · commit 46e4a18 · Owner: HungDQ
+> Cập nhật: 2026-11-04 · commit 3922a5c · Owner: HungDQ
 > Nguồn: `shared/policies/*.yaml`, `shared/policies/tests/cases.yaml`, `backend/.../policy/*`, `bench/bench/policy_check.py`
 
 Cùng một bộ YAML được dùng ở **2 nơi**: backend Java (`PolicyEngine`, lọc trước khi gửi khách) và bench Python (`policy_check.py`, chấm lại `finalText`). Đổi định dạng YAML thì phải sửa cả hai.

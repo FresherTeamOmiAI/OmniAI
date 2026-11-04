@@ -1,6 +1,6 @@
 # Bench
 
-> Cập nhật: 2026-11-04 · commit 46e4a18 · Owner: HungDQ
+> Cập nhật: 2026-11-04 · commit 3922a5c · Owner: HungDQ
 > Nguồn: `bench/bench/run.py`, `bench/bench/policy_check.py`, `bench/datasets/*.jsonl`, `bench/tests/*`
 
 Bench đo chất lượng bot theo từng kênh. Đây là **đóng góp chính** của dự án. Bench gọi API simulator của backend (cần backend + ai-brain đang chạy), rồi tự chấm lại `finalText` bằng cùng bộ YAML luật.
