@@ -1,0 +1,154 @@
+{
+  "model": "openai/gpt-oss-20b",
+  "tool": "get_price_and_stock",
+  "request_1": {
+    "model": "openai/gpt-oss-20b",
+    "temperature": 0.2,
+    "max_tokens": 400,
+    "reasoning_effort": "low",
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "get_price_and_stock",
+          "description": "Tra giá và tồn kho một SKU trong catalog. Không bịa số.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "sku": {
+                "type": "string",
+                "description": "Mã SKU, ví dụ LUMI-SUN-01"
+              }
+            },
+            "required": [
+              "sku"
+            ]
+          }
+        }
+      }
+    ],
+    "tool_choice": "required",
+    "messages": [
+      {
+        "role": "system",
+        "content": "Khi khách hỏi giá hoặc tồn, gọi get_price_and_stock. Không tự nêu số trước khi có kết quả tool."
+      },
+      {
+        "role": "user",
+        "content": "Kem chống nắng Lumi Lab mã LUMI-SUN-01 giá bao nhiêu và còn hàng không?"
+      }
+    ]
+  },
+  "response_1": {
+    "id": "chatcmpl-843b2361-5457-4560-8e7d-706a3df53a29",
+    "object": "chat.completion",
+    "created": 1793865864,
+    "model": "openai/gpt-oss-20b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "reasoning": "Need to call tool.",
+          "tool_calls": [
+            {
+              "id": "fc_80551570-9d6a-4c8c-bdf4-bf3151d8ce3f",
+              "type": "function",
+              "function": {
+                "name": "get_price_and_stock",
+                "arguments": "{\"sku\":\"LUMI-SUN-01\"}"
+              }
+            }
+          ]
+        },
+        "logprobs": null,
+        "finish_reason": "tool_calls"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.473491734,
+      "prompt_tokens": 196,
+      "prompt_time": 0.011342055,
+      "completion_tokens": 37,
+      "completion_time": 0.049856868,
+      "total_tokens": 233,
+      "total_time": 0.061198923,
+      "completion_tokens_details": {
+        "reasoning_tokens": 6
+      }
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_e189667b30",
+    "x_groq": {
+      "id": "req_01m6nbsn37e7b87cztq8ss3fww",
+      "seed": 2080256077
+    },
+    "service_tier": "on_demand"
+  },
+  "tool_result": {
+    "sku": "LUMI-SUN-01",
+    "name": "Kem chống nắng kiềm dầu SPF50+ PA++++",
+    "price_web": 289000,
+    "stock": 120
+  },
+  "request_2": {
+    "model": "openai/gpt-oss-20b",
+    "temperature": 0.2,
+    "max_tokens": 400,
+    "reasoning_effort": "low",
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "get_price_and_stock",
+          "description": "Tra giá và tồn kho một SKU trong catalog. Không bịa số.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "sku": {
+                "type": "string",
+                "description": "Mã SKU, ví dụ LUMI-SUN-01"
+              }
+            },
+            "required": [
+              "sku"
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "response_2": {
+    "id": "chatcmpl-fd1e726b-84c0-48fc-bb47-4923f0c1db5c",
+    "object": "chat.completion",
+    "created": 1793865865,
+    "model": "openai/gpt-oss-20b",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "Kem chống nắng Lumi Lab (mã **LUMI‑SUN‑01**) hiện đang có giá **289 000 đ** và còn **120 sản phẩm** trong kho."
+        },
+        "logprobs": null,
+        "finish_reason": "stop"
+      }
+    ],
+    "usage": {
+      "queue_time": 0.562435905,
+      "prompt_tokens": 284,
+      "prompt_time": 0.020600644,
+      "completion_tokens": 45,
+      "completion_time": 0.049165977,
+      "total_tokens": 329,
+      "total_time": 0.069766621
+    },
+    "usage_breakdown": null,
+    "system_fingerprint": "fp_75c733514d",
+    "x_groq": {
+      "id": "req_01m6nbsnvmex3vta4qzs37087f",
+      "seed": 412469999
+    },
+    "service_tier": "on_demand"
+  }
+}
