@@ -1,6 +1,6 @@
 # Trạng thái hiện tại
 
-> Cập nhật: 2026-11-03 · commit 1ae3440 · Sprint hiện tại: **S0 (03–09/11/2026)**
+> Cập nhật: 2026-11-05 · commit af8e70c · Sprint hiện tại: **S0 (03–09/11/2026)**
 
 Bảng này cho biết cái gì đã chạy được, cái gì mới là khung, cái gì chưa có. Agent đọc file này **trước khi** đi tìm code để khỏi tìm thứ chưa tồn tại. Kế hoạch chi tiết: `tools/tracking/backlog.py` và GitHub Issues (milestone Sprint 0–12).
 
@@ -22,6 +22,7 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | Luật thành phần | Khung | Bản mẫu, cần chuyên gia review | US-27 |
 | RAG / tool / agent loop | Chưa | | US-10, US-15 |
 | Catalog: GET list/detail | Done | 8 SKU mẫu | |
+| Catalog: schema đợt 1 (V4) | Done | Thêm mô tả, vấn đề da, buổi dùng; NOT NULL + CHECK. Chưa có cột embedding (US-10) | US-04 |
 | Catalog: CRUD admin, 80 SKU | Chưa | | US-04, US-08 |
 | Customer / ChannelIdentity entity | Khung | Chưa có API | |
 | Identity (OTP, deep-link, OMNI-code) | Chưa | Mới có package-info | US-13, 18, 22 |
