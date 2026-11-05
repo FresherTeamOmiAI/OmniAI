@@ -16,9 +16,10 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | MessageRouter + idempotency | Khung | Idempotency in-memory, chưa lưu hội thoại | US-06, US-11, US-29 |
 | Kênh WEB (WebSocket) | Khung | channelUserId = session id, widget chưa reconnect | US-06 |
 | Simulator API | Done | Dùng cho bench và `/admin/policy` | US-07 |
-| Kênh Telegram / Shopee / TikTok / Messenger | Chưa | Đã có YAML luật | US-17, 21, 25 |
+| Kênh Telegram / Messenger | Chưa | Đã có YAML luật | US-17 |
+| Kênh Shopee / TikTok | Chưa | Đã có YAML luật. Làm simulator theo schema thật trước, adapter thật chờ sàn duyệt app (decisions #12) | US-21, 25 |
 | PolicyEngine + YAML | Done (v0) | YAML sàn là bản nháp | US-07, US-20 |
-| AI Brain `/chat` + LLMProvider | Khung | Chỉ có `fake` | US-06 |
+| AI Brain `/chat` + LLMProvider | Khung | Chỉ có `fake`. Provider thật phải miễn phí (decisions #13), đang so sánh model (US-05) | US-05, US-06 |
 | Luật thành phần | Khung | Bản mẫu, cần chuyên gia review | US-27 |
 | RAG / tool / agent loop | Chưa | | US-10, US-15 |
 | Catalog: GET list/detail | Done | 8 SKU mẫu | |
