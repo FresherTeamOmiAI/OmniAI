@@ -6,6 +6,7 @@
 | Phiên bản | Ngày | Người sửa | Nội dung |
 |---|---|---|---|
 | 0.1 | 2026-11-04 | HungDQ | Bản nháp đầu: chốt 34 US P0 và 21 UC P0 để cả team review |
+| 0.1.1 | 2026-11-05 | LucVT | Review T-01.3: chốt Q-01, Q-02 (mục 9), điền ký duyệt (mục 10) |
 
 ## 1. Giới thiệu
 
@@ -531,8 +532,8 @@ Cách chạy và định dạng dataset: [bench.md](../specs/bench.md).
 ## 9. Câu hỏi mở cho buổi review
 | # | Câu hỏi | Đề xuất của PO | Người chốt |
 |---|---|---|---|
-| Q-01 | US-08 (S1) cần "đăng nhập admin" nhưng chưa có US nào cho đăng nhập admin | S1–S2 dùng một tài khoản admin cấu hình qua biến môi trường (Spring Security in-memory); làm đầy đủ ở S3 cùng US-13 | LucVT |
-| Q-02 | OTP (US-13) gửi qua đâu? SMS thường tốn phí | Chỉ gửi qua email; khi dev thì in mã ra log. SĐT để sau | LucVT |
+| Q-01 | US-08 (S1) cần "đăng nhập admin" nhưng chưa có US nào cho đăng nhập admin | S1–S2 dùng một tài khoản admin cấu hình qua biến môi trường (Spring Security in-memory); làm đầy đủ ở S3 cùng US-13 | LucVT · **Đã chốt 05/11: theo đề xuất.** API quản trị nằm dưới `/api/admin/**`, xác thực HTTP Basic bằng `ADMIN_USERNAME`/`ADMIN_PASSWORD` (thêm vào `.env.example` ở T-08.1). API đọc của store vẫn mở |
+| Q-02 | OTP (US-13) gửi qua đâu? SMS thường tốn phí | Chỉ gửi qua email; khi dev thì in mã ra log. SĐT để sau | LucVT · **Đã chốt 05/11: theo đề xuất.** SMTP miễn phí, khi dev in mã ra log. SĐT chỉ là trường hồ sơ, không dùng để đăng nhập trong P0 |
 | Q-03 | Messenger đã có trong `ChannelType` và YAML nhưng không có US | Ngoài phạm vi P0; giữ enum và YAML cho simulator và bench; chỉ làm nếu Telegram bị chặn | TuTM |
 | Q-04 | Telegram webhook cần HTTPS công khai | Khi dev dùng long polling hoặc tunnel (ngrok/cloudflared); demo dùng tunnel | TuTM |
 | Q-05 | Model miễn phí có thể không đạt p95 < 5 s (US-06, US-17) | Chờ kết quả US-05. Nếu không model nào đạt cổng G4 thì cả team quyết định nới AC hay đổi cách chạy | ChienPX, PO |
@@ -547,5 +548,5 @@ Cách review: đọc phần được giao, góp ý trực tiếp trên PR (hoặ
 |---|---|---|---|---|
 | HungDQ | PO + Lead | Toàn bộ | 2026-11-04 | Tác giả |
 | TuTM | Dev kênh & adapter | Mục 3.2, UC-01–04, 19, 22, 24, Q-03, Q-04 (T-01.2) | | |
-| LucVT | Dev dữ liệu & danh tính | Mục 3.3, 3.4, UC-05–09, 12, 20, 21, Q-01, Q-02 (T-01.3) | | |
+| LucVT | Dev dữ liệu & danh tính | Mục 3.3, 3.4, UC-05–09, 12, 20, 21, Q-01, Q-02 (T-01.3) | 2026-11-05 | Có góp ý (PR T-01.3): chốt Q-01, Q-02; 10 góp ý cho US-04, 08, 13, 22, UC-05, 06, 08, 09, 12, 20, 21 chờ PO quyết |
 | ChienPX | Dev AI | Mục 3.3, 3.5, UC-13–17, Q-05, Q-06 (T-01.4) | | |
