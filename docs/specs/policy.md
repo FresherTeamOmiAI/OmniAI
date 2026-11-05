@@ -1,7 +1,7 @@
 # Policy: luật kênh
 
-> Cập nhật: 2026-11-03 · commit c88bfc6 · Owner: HungDQ
-> Nguồn: `shared/policies/*.yaml`, `backend/.../policy/*`, `bench/bench/policy_check.py`
+> Cập nhật: 2026-11-04 · commit 3922a5c · Owner: HungDQ
+> Nguồn: `shared/policies/*.yaml`, `shared/policies/tests/cases.yaml`, `backend/.../policy/*`, `bench/bench/policy_check.py`
 
 Cùng một bộ YAML được dùng ở **2 nơi**: backend Java (`PolicyEngine`, lọc trước khi gửi khách) và bench Python (`policy_check.py`, chấm lại `finalText`). Đổi định dạng YAML thì phải sửa cả hai.
 
@@ -21,12 +21,17 @@ rules:
 fallback_message: "..."  # câu thay thế khi block
 ```
 
+## Nạp file (lúc backend khởi động)
+- Đọc mọi `*.yaml` nằm **ngay trong** `shared/policies/` (không đọc thư mục con), theo tên đã sort.
+- Gặp lỗi thì backend **không khởi động**. `IllegalStateException` ghi rõ tên file và id luật. Các lỗi được bắt: YAML sai cú pháp hoặc không phải object; `channel` không phải `"*"` hay một giá trị của `ChannelType`; 2 file cùng một kênh; luật thiếu `id`/`pattern`/`action`; action không phải block/redact/replace; regex sai cú pháp; trùng id luật trong một kênh (tính cả luật chung); `max_length` không phải số nguyên dương; kênh có luật `block` mà thiếu `fallback_message`; còn `ChannelType` nào chưa có file.
+- `policy_check.py` của bench không kiểm tra các lỗi này. Không cần, vì khi đó backend đã không chạy được.
+
 ## Ngữ nghĩa (`PolicyEngine.apply`)
 - Thứ tự luật: **luật riêng của kênh trước, luật chung (`*`) sau.** Các file được đọc theo tên đã sort.
 - Luật đầu tiên khớp mà là `block`: dừng ngay, trả `fallback_message` với `blocked=true`.
 - `redact`: thay mọi đoạn khớp bằng `[đã ẩn]`. `replace`: thay bằng `replacement`.
 - Mỗi luật khớp thêm 1 `PolicyViolation(ruleId, action, matched)` (lấy đoạn khớp đầu tiên).
-- Áp xong các luật mới cắt theo `max_length`.
+- Áp xong các luật mới cắt theo `max_length`. Độ dài tính theo ký tự Unicode (code point) để không tách đôi emoji; ký tự cuối là `…`.
 - Regex Java dùng `CASE_INSENSITIVE | UNICODE_CASE | UNICODE_CHARACTER_CLASS`, Python dùng `re.IGNORECASE`. Viết regex sao cho chạy giống nhau ở cả hai (nhất là `\b` với chữ có dấu).
 
 ## Luật hiện có
@@ -44,10 +49,13 @@ YAML của sàn là **bản nháp**, chưa đối chiếu quy định hiện hà
 
 ## Thêm/sửa luật
 1. Sửa `shared/policies/<kenh>.yaml`.
-2. Thêm test vào `backend/src/test/.../PolicyEngineTest.java` **và** `bench/tests/test_policy_check.py`: cần cả ca khớp đúng và ca không khớp nhầm (giá tiền ≠ SĐT, "giá trị" ≠ "trị").
+2. Thêm ít nhất 2 ca vào `shared/policies/tests/cases.yaml`: 1 ca khớp đúng, 1 ca không được khớp nhầm (ví dụ giá tiền ≠ SĐT, "giá trị" ≠ "trị"). `PolicyEngineTest` và `bench/tests/test_policy_check.py` đều chạy file này trên cả 5 kênh, nên không cần viết test riêng ở mỗi bên. Backend còn kiểm tra thêm cờ `blocked` và việc `finalText` không còn vi phạm.
 3. Nếu cần thì thêm ca bench vào `bench/datasets/`.
 4. Cập nhật bảng "Luật hiện có" ở trên.
 
+## Lỗ hổng đã biết
+- `\bchữa\b` trong `no-medical-claim` khớp cả "sửa chữa", vốn không phải claim y khoa. Để T-20.2 (S4) xử lý cùng các ca không khớp nhầm khác.
+
 ## Kế hoạch
-- US-20 (S4): đủ luật 4 kênh, mỗi luật có ít nhất 2 test.
+- US-20 (S4): đủ luật 4 kênh, mỗi luật có ít nhất 2 ca trong `shared/policies/tests/cases.yaml`.
 - US-28 (S6): khi bị block thì gọi brain viết lại câu trả lời (tối đa 1 lần) thay vì dùng câu mẫu.

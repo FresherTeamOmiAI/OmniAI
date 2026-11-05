@@ -1,6 +1,6 @@
 # Bench
 
-> Cập nhật: 2026-11-03 · commit c88bfc6 · Owner: HungDQ
+> Cập nhật: 2026-11-04 · commit 3922a5c · Owner: HungDQ
 > Nguồn: `bench/bench/run.py`, `bench/bench/policy_check.py`, `bench/datasets/*.jsonl`, `bench/tests/*`
 
 Bench đo chất lượng bot theo từng kênh. Đây là **đóng góp chính** của dự án. Bench gọi API simulator của backend (cần backend + ai-brain đang chạy), rồi tự chấm lại `finalText` bằng cùng bộ YAML luật.
@@ -28,7 +28,7 @@ Summary (`summarize()`): `total`, `passed`, `latency_p95_ms`, và `by_channel` g
 `datasets/sample.jsonl`: 10 ca (WEB-xxx, POL-xxx...), viết dựa trên câu trả lời của **FakeProvider**. Khi đổi sang provider thật, các ca `must_contain_any` có thể phải sửa.
 
 ## Test
-`tests/test_policy_check.py`: nạp đủ kênh, Shopee bắt được link/SĐT/kênh khác, WEB cho phép link, claim y khoa bị bắt ở mọi kênh.
+`tests/test_policy_check.py`: nạp đủ kênh, Shopee bắt được link/SĐT/kênh khác, WEB cho phép link, claim y khoa bị bắt ở mọi kênh. Ngoài ra chạy bộ ca dùng chung `shared/policies/tests/cases.yaml` (18 ca × 5 kênh, cùng bộ với `PolicyEngineTest`), để chắc regex cho kết quả giống nhau ở Python và Java.
 
 ## Lộ trình
 - S1: 5 ca luồng web (T-06.5).
