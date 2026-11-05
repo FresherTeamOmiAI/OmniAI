@@ -11,6 +11,7 @@ Specs không chép lại code. Khi spec và code mâu thuẫn thì **code là ch
 | Task | Đọc |
 |---|---|
 | Bắt đầu bất kỳ task nào | [overview.md](overview.md), [status.md](status.md) |
+| Phạm vi, yêu cầu, User Story / Use Case P0, NFR | [../srs/SRS.md](../srs/SRS.md) |
 | Thêm/sửa endpoint, DTO, WebSocket, gọi Brain | [api-contracts.md](api-contracts.md) + spec của module đó |
 | Kênh / adapter / MessageRouter (TuTM) | [backend.md](backend.md), [api-contracts.md](api-contracts.md) |
 | Luật kênh, PolicyEngine (HungDQ) | [policy.md](policy.md) |

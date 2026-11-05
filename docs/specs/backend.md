@@ -1,6 +1,6 @@
 # Backend (Spring Boot)
 
-> Cập nhật: 2026-11-03 · commit c88bfc6
+> Cập nhật: 2026-11-04 · commit 3922a5c
 > Nguồn: `backend/pom.xml`, `backend/src/main/java/com/omniai/**`, `backend/src/test/**`
 
 Spring Boot 4.1.2, Java 21, Maven (chưa có `mvnw`). Starter đang dùng: webmvc, websocket, validation, data-jpa, flyway (+postgresql), actuator, lombok. Test dùng spring-boot-starter-test + Testcontainers (postgresql). Kiến trúc modular monolith: mỗi package là một module.
@@ -26,15 +26,23 @@ Spring Boot 4.1.2, Java 21, Maven (chưa có `mvnw`). Starter đang dùng: webmv
 
 ## Thêm kênh mới
 1. Thêm giá trị vào enum `ChannelType` (owned hay không).
-2. Tạo `shared/policies/<kenh>.yaml`. Thiếu file thì `PolicyEngine.apply` ném `IllegalStateException`.
+2. Tạo `shared/policies/<kenh>.yaml`. Thiếu file thì backend không khởi động: `PolicyEngine` báo kênh nào còn thiếu.
 3. Viết class implement `ChannelAdapter<P>`: chuyển payload của kênh thành `CanonicalMessage`, gọi `MessageRouter.handle`, rồi gửi `finalText` ra kênh.
 4. Thêm kênh vào `web/src/shared/types.ts`, schema JSON và [api-contracts.md](api-contracts.md).
+
+## Kênh sàn (quyết định #12)
+Shopee và TikTok Shop chạy bằng simulator **theo schema thật** cho tới khi sàn duyệt app. Phải đủ 3 điều kiện để khi được duyệt chỉ cần đổi cấu hình và khóa, không sửa adapter hay `MessageRouter`:
+1. JSON webhook vào và request/response gửi tin ra chép đúng mẫu trong tài liệu chính thức của sàn, ghi nguồn (URL) và ngày lấy. Lưu thành fixture test, ví dụ `backend/src/test/resources/channel/shopee/*.json`.
+2. Adapter sàn gồm `toCanonical()` đọc đúng webhook thật, và một interface client gửi tin có 2 bản: simulated (giữ tin trong bộ nhớ, trả response mẫu) và live (gọi API sàn). Chọn theo từng sàn bằng cấu hình, ví dụ `omniai.channels.shopee.mode: simulator|live`.
+3. Webhook có chữ ký thì simulator ký bằng khóa test và adapter luôn kiểm chữ ký, kể cả khi đang giả lập.
+
+Simulator chung `/api/simulator/{channel}/messages` vẫn giữ cho bench và `/admin/policy`. Simulator theo schema sàn làm trong US-21 (S5) và US-25 (S6).
 
 ## Cấu hình (`application.yml`)
 `omniai.policy-dir`, `omniai.brain.url`, `omniai.brain.timeout` (10s), `omniai.web.allowed-origins`. Datasource đọc từ env `DB_*`.
 
 ## Test hiện có
-- `policy/PolicyEngineTest`: link, SĐT, chặn tên kênh khác (Shopee/TikTok), WEB giữ link, làm mềm claim y khoa, giá tiền không bị tưởng là SĐT, "giá trị" không bị tưởng là "trị".
+- `policy/PolicyEngineTest`: link, SĐT, chặn tên kênh khác (Shopee/TikTok), WEB giữ link, làm mềm claim y khoa, giá tiền không bị tưởng là SĐT, "giá trị" không bị tưởng là "trị". File YAML sai (11 ca) hoặc thiếu kênh thì lỗi lúc khởi động; cắt `max_length` không tách emoji. Chạy bộ ca dùng chung với bench `shared/policies/tests/cases.yaml` trên cả 5 kênh.
 - `channel/MessageRouterTest`: cùng câu trả lời nhưng mỗi kênh lọc khác nhau, trùng messageId chỉ trả lời 1 lần, brain lỗi thì handoff. Dùng mock BrainClient.
 - `OmniAiApplicationTests`: Flyway + pgvector trên Testcontainers.
 

@@ -1,6 +1,6 @@
 # Trạng thái hiện tại
 
-> Cập nhật: 2026-11-04 · commit 3922a5c · Sprint hiện tại: **S0 (03–09/11/2026)**
+> Cập nhật: 2026-11-05 · commit a79fc37 · Sprint hiện tại: **S0 (03–09/11/2026)**
 
 Bảng này cho biết cái gì đã chạy được, cái gì mới là khung, cái gì chưa có. Agent đọc file này **trước khi** đi tìm code để khỏi tìm thứ chưa tồn tại. Kế hoạch chi tiết: `tools/tracking/backlog.py` và GitHub Issues (milestone Sprint 0–12).
 
@@ -16,13 +16,16 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | MessageRouter + idempotency | Khung | Idempotency in-memory, chưa lưu hội thoại | US-06, US-11, US-29 |
 | Kênh WEB (WebSocket) | Khung | channelUserId = session id, widget chưa reconnect | US-06 |
 | Simulator API | Done | Dùng cho bench và `/admin/policy` | US-07 |
-| Kênh Telegram / Shopee / TikTok / Messenger | Chưa | Đã có YAML luật | US-17, 21, 25 |
+| Kênh Telegram / Messenger | Chưa | Đã có YAML luật | US-17 |
+| Kênh Shopee / TikTok | Chưa | Đã có YAML luật. Làm simulator theo schema thật trước, adapter thật chờ sàn duyệt app (decisions #12) | US-21, 25 |
 | PolicyEngine + YAML | Done (v0) | YAML sàn là bản nháp | US-07, US-20 |
-| AI Brain `/chat` + LLMProvider | Khung | Chỉ có `fake` | US-06 |
+| AI Brain `/chat` + LLMProvider | Khung | Chỉ có `fake`. Provider thật phải miễn phí (decisions #13), đang so sánh model (US-05) | US-05, US-06 |
 | Luật thành phần | Khung | Bản mẫu, cần chuyên gia review | US-27 |
 | RAG / tool / agent loop | Chưa | | US-10, US-15 |
 | Catalog: GET list/detail | Done | 8 SKU mẫu | |
-| Catalog: CRUD admin, 80 SKU | Chưa | | US-04, US-08 |
+| Catalog: schema đợt 1 (V4) | Done | Thêm mô tả, vấn đề da, buổi dùng; NOT NULL + CHECK. Chưa có cột embedding (US-10) | US-04 |
+| Catalog: file 80 SKU (`shared/catalog/products.csv`) | Done | Có validator `tools/catalog/validate_catalog.py`. Chưa import vào DB (T-08.2) | US-04 |
+| Catalog: CRUD admin, import CSV | Chưa | | US-08 |
 | Customer / ChannelIdentity entity | Khung | Chưa có API | |
 | Identity (OTP, deep-link, OMNI-code) | Chưa | Mới có package-info | US-13, 18, 22 |
 | Order, Promotion | Chưa | Mới có package-info | US-09, 33 |

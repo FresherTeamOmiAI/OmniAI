@@ -1,0 +1,94 @@
+# Ca kiểm thử luật kênh, dùng chung cho backend (PolicyEngineTest) và bench (tests/test_policy_check.py).
+# Cả hai bên chạy cùng các ca này trên cả 5 kênh, nên chứng minh được regex chạy giống nhau ở Java và Python.
+#
+#   text:     câu trả lời của AI cần kiểm tra
+#   matches:  id luật phải khớp trên câu gốc, theo kênh. "*" = mọi kênh. Kênh không ghi = không khớp luật nào.
+#   blocked:  các kênh mà PolicyEngine phải chặn cả câu (thay bằng fallback_message)
+#
+# Backend còn kiểm tra thêm: sau khi apply() thì finalText không còn khớp luật nào của kênh đó.
+# Thêm hoặc sửa luật trong shared/policies/*.yaml thì thêm ít nhất 2 ca: 1 ca khớp đúng, 1 ca không được khớp nhầm.
+# File nằm trong thư mục con nên PolicyEngine và policy_check.py (chỉ đọc *.yaml ngay trong shared/policies/) không nạp nhầm.
+
+cases:
+  # --- Link ra ngoài sàn ---
+  - id: link-https
+    text: "Bạn xem thêm tại https://omni-demo.local/p/1 nhé"
+    matches: {SHOPEE: [no-external-link], TIKTOK: [no-external-link]}
+
+  - id: link-www
+    text: "Vào www.omni-demo.local để xem chi tiết ạ"
+    matches: {SHOPEE: [no-external-link], TIKTOK: [no-external-link]}
+
+  # --- Số điện thoại ---
+  - id: phone-spaces
+    text: "Gọi shop qua số 0901 234 567 nha"
+    matches: {SHOPEE: [no-phone], TIKTOK: [no-phone]}
+
+  - id: phone-plus84
+    text: "Liên hệ +84 901 234 567 để được tư vấn"
+    matches: {SHOPEE: [no-phone], TIKTOK: [no-phone]}
+
+  - id: phone-dots
+    text: "SĐT của shop là 090.123.4567"
+    matches: {SHOPEE: [no-phone], TIKTOK: [no-phone]}
+
+  # --- Nhắc kênh khác: sàn chặn cả câu ---
+  - id: other-website
+    text: "Mua trên website của shop sẽ rẻ hơn ạ"
+    matches: {SHOPEE: [no-other-channel], TIKTOK: [no-other-channel]}
+    blocked: [SHOPEE, TIKTOK]
+
+  - id: other-zalo
+    text: "Bạn nhắn Zalo cho shop nhé"
+    matches: {SHOPEE: [no-other-channel], TIKTOK: [no-other-channel]}
+    blocked: [SHOPEE, TIKTOK]
+
+  - id: other-shopee-on-tiktok
+    text: "Bên Shopee đang có voucher đó bạn"
+    matches: {TIKTOK: [no-other-channel]}
+    blocked: [TIKTOK]
+
+  - id: other-tiktok-on-shopee
+    text: "Shop đang livestream trên TikTok nè"
+    matches: {SHOPEE: [no-other-channel]}
+    blocked: [SHOPEE]
+
+  # --- Claim y khoa: mọi kênh, làm mềm thành "hỗ trợ cải thiện" ---
+  - id: medical-dac-tri
+    text: "Sản phẩm này đặc trị mụn rất tốt"
+    matches: {"*": [no-medical-claim]}
+
+  - id: medical-dieu-tri
+    text: "Serum giúp điều trị nám hiệu quả"
+    matches: {"*": [no-medical-claim]}
+
+  - id: medical-chua-khoi
+    text: "Kem này chữa khỏi mụn trứng cá"
+    matches: {"*": [no-medical-claim]}
+
+  # --- Không được khớp nhầm ---
+  - id: fp-price
+    text: "Giá hiện tại là 1.290.000đ ạ"
+
+  - id: fp-gia-tri
+    text: "Combo này rất đáng giá trị đồng tiền"
+
+  - id: fp-date-volume
+    text: "Ngày 09/11/2026 có sale, chai 50ml giá 289.000đ"
+
+  - id: fp-own-platform
+    text: "Bạn xem voucher trên trang Shopee của shop nhé"
+    matches: {TIKTOK: [no-other-channel]}
+    blocked: [TIKTOK]
+
+  # --- Nhiều luật cùng lúc ---
+  - id: combo-link-phone-channel
+    text: "Mua trên website https://omni-demo.local hoặc gọi 0901234567 nhé"
+    matches:
+      SHOPEE: [no-external-link, no-phone, no-other-channel]
+      TIKTOK: [no-external-link, no-phone, no-other-channel]
+    blocked: [SHOPEE, TIKTOK]
+
+  - id: combo-phone-and-claim
+    text: "Gọi 0901234567 để mua kem đặc trị mụn"
+    matches: {"*": [no-medical-claim], SHOPEE: [no-phone], TIKTOK: [no-phone]}

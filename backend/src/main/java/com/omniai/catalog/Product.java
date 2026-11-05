@@ -5,12 +5,15 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/** Sản phẩm mỹ phẩm. Giá lưu theo từng kênh (VND). Owner: LucVT. */
+import java.time.Instant;
+
+/** Sản phẩm mỹ phẩm. Giá lưu theo từng kênh (VND). Owner: LucVT. Schema: V1 + V4. */
 @Entity
 @Table(name = "product")
 @Getter
@@ -28,36 +31,58 @@ public class Product {
     @Column(nullable = false)
     private String name;
 
+    @Column(nullable = false)
     private String brand;
 
     /** vd. sunscreen, cleanser, serum, moisturizer, toner */
+    @Column(nullable = false)
     private String category;
 
     /** Loại da phù hợp, phân tách bằng dấu phẩy: oily,dry,combination,sensitive,normal */
-    @Column(name = "skin_types")
+    @Column(name = "skin_types", nullable = false)
     private String skinTypes;
 
+    /** Vấn đề da sản phẩm nhắm tới, phân tách bằng dấu phẩy: acne,pores,dark-spots,... (xem data-model.md) */
+    @Column(name = "skin_concerns")
+    private String skinConcerns;
+
+    /** Buổi dùng trong routine: am | pm | am,pm */
+    @Column(name = "usage_time", length = 10)
+    private String usageTime;
+
+    /** Mô tả ngắn tiếng Việt (công dụng, kết cấu, cách dùng), dùng cho trang chi tiết và RAG. */
+    @Column(length = 2000)
+    private String description;
+
     /** Danh sách thành phần INCI, phân tách bằng dấu phẩy. */
-    @Column(name = "ingredients_inci", length = 4000)
+    @Column(name = "ingredients_inci", nullable = false, length = 4000)
     private String ingredientsInci;
 
-    @Column(name = "size_ml")
+    @Column(name = "size_ml", nullable = false)
     private Integer sizeMl;
 
     /** Period After Opening: dùng trong bao nhiêu tháng sau khi mở. */
-    @Column(name = "pao_months")
+    @Column(name = "pao_months", nullable = false)
     private Integer paoMonths;
 
-    @Column(name = "price_web")
+    @Column(name = "price_web", nullable = false)
     private Long priceWeb;
 
-    @Column(name = "price_shopee")
+    @Column(name = "price_shopee", nullable = false)
     private Long priceShopee;
 
-    @Column(name = "price_tiktok")
+    @Column(name = "price_tiktok", nullable = false)
     private Long priceTiktok;
 
     private int stock;
 
     private boolean active = true;
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt = Instant.now();
+
+    @PreUpdate
+    void touch() {
+        updatedAt = Instant.now();
+    }
 }
