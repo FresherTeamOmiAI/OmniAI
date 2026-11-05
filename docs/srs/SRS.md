@@ -548,5 +548,5 @@ Cách review: đọc phần được giao, góp ý trực tiếp trên PR (hoặ
 |---|---|---|---|---|
 | HungDQ | PO + Lead | Toàn bộ | 2026-11-04 | Tác giả |
 | TuTM | Dev kênh & adapter | Mục 3.2, UC-01–04, 19, 22, 24, Q-03, Q-04 (T-01.2) | | |
-| LucVT | Dev dữ liệu & danh tính | Mục 3.3, 3.4, UC-05–09, 12, 20, 21, Q-01, Q-02 (T-01.3) | 2026-11-05 | Có góp ý (PR T-01.3): chốt Q-01, Q-02; 10 góp ý cho US-04, 08, 13, 22, UC-05, 06, 08, 09, 12, 20, 21 chờ PO quyết |
+| LucVT | Dev dữ liệu & danh tính | Mục 3.3, 3.4, UC-05–09, 12, 20, 21, Q-01, Q-02 (T-01.3) | 2026-11-05 | Có góp ý (PR T-01.3): chốt Q-01, Q-02; 11 góp ý (G-01–G-11) cho US-04, 08, 13, 22, UC-05, 06, 08, 09, 12, 20, 21 chờ PO quyết |
 | ChienPX | Dev AI | Mục 3.3, 3.5, UC-13–17, Q-05, Q-06 (T-01.4) | | |
