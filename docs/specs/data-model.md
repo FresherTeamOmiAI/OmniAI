@@ -1,6 +1,6 @@
 # Mô hình dữ liệu
 
-> Cập nhật: 2026-11-05 · commit af8e70c · Owner: LucVT (catalog, customer, identity, order, promotion)
+> Cập nhật: 2026-11-05 · commit a79fc37 · Owner: LucVT (catalog, customer, identity, order, promotion)
 > Nguồn: `backend/src/main/resources/db/migration/*.sql`, `backend/.../catalog/*`, `backend/.../customer/*`
 
 DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flyway** quản lý, JPA để `ddl-auto: validate`. Vì vậy mọi thay đổi bảng đều phải viết migration mới `V<n>__<mo_ta>.sql`. **Không sửa migration đã merge.**
@@ -36,6 +36,16 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 - `confidence`: 1.0 nếu liên kết tất định, nhỏ hơn 1 nếu đến từ gợi ý xác suất đã được khách xác nhận.
 - `consent_at`.
 - Nguyên tắc: chỉ gắn vào customer khi có bằng chứng + consent (Luật BVDLCN 91/2025). **Không bao giờ tự gộp.**
+
+## Dữ liệu catalog (`shared/catalog/products.csv`)
+
+- 80 SKU, 5 thương hiệu **hư cấu** (Lumi Lab, Sen Việt, Hydra Mint, Mộc Nhiên, Vân Khê), 10 danh mục. Gồm 8 SKU của V2 (cùng mã, giá, INCI). Có 4 SKU hết hàng (`stock=0`) và 2 SKU ẩn (`active=false`) để test.
+- Cột = cột bảng `product` (trừ `id`, `updated_at`), cùng thứ tự với header. UTF-8, phân cách `,`, ô có dấu phẩy được đặt trong `"..."`. `active` là `true|false`.
+- INCI tham khảo cấu trúc trên Open Beauty Facts, viết lại cho thương hiệu hư cấu. Không dùng tên INCI có dấu phẩy (vd. `1,2-Hexanediol`), vì cột INCI tách theo dấu phẩy.
+- Phủ đủ nhóm hoạt chất của `ingredients.py`: retinoid 7, AHA 7, BHA 5, vitamin C 2, BPO 2. Có thêm lựa chọn thay thế (bakuchiol, azelaic, PHA) và sản phẩm có `Parfum`/`Alcohol Denat.` để test dị ứng sau này. Lưu ý: `Sodium Ascorbyl Phosphate` (HYD-SER-36) chưa được `ingredients.py` nhận là vitamin C (T-27.4).
+- Giá: Shopee ≈ web + 4%, TikTok ≈ web − 3%, làm tròn nghìn đồng (8 SKU cũ giữ giá V2).
+- Kiểm tra: `python tools/catalog/validate_catalog.py` (chỉ dùng thư viện chuẩn, mã thoát 1 nếu lỗi). Script kiểm header, ≥ 80 SKU, trùng SKU, trường bắt buộc, bộ từ vựng, số hợp lệ, claim y khoa trong tên/mô tả.
+- Import vào DB là việc của T-08.2 (S1). Đã thử `\copy` vào schema V1–V4 trên Postgres: 80/80 dòng qua đủ ràng buộc.
 
 ## Repository
 - `ProductRepository`: `findByActiveTrue`, `findByActiveTrueAndSkinTypesContainingIgnoreCase`.
