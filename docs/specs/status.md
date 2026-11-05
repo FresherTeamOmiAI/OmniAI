@@ -31,7 +31,7 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | Order, Promotion | Chưa | Mới có package-info | US-09, 33 |
 | Web store (list + lọc loại da) | Khung | Chưa có trang chi tiết, chưa đặt hàng ảo | US-09 |
 | Trang thử luật kênh `/admin/policy` | Done | | UC-24 |
-| Bench runner + policy_check | Done | 10 ca mẫu | US-12 |
+| Bench runner + policy_check | Done | 10 ca mẫu qua simulator + 5 ca luồng web qua WebSocket (`transport: ws`) | US-06, US-12 |
 | CI | Chưa | | US-16 |
 | docs/specs + rule cho agent | Done | Stop hook `tools/agent/specs_guard.py` | |
 
