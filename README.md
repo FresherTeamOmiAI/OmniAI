@@ -60,9 +60,9 @@ backend/      Spring Boot modular monolith: channel, policy, brain, catalog, cus
 ai-brain/     FastAPI: /chat, LLMProvider (fake mặc định), agent, rules/ingredients.py
 bench/        Bench chạy qua API simulator, chấm lại theo shared/policies
 web/          React + Vite + TS, modular theo feature (app/, shared/, features/): store, chat, thử luật kênh
-shared/       policies/*.yaml (luật kênh, dùng chung Java + Python), schemas/ (CanonicalMessage)
+shared/       policies/*.yaml (luật kênh, dùng chung Java + Python), schemas/ (CanonicalMessage), catalog/ (80 SKU dạng CSV)
 docs/         đề xuất, file tracking Excel, specs/ (bản đồ hệ thống cho người và agent)
-tools/        tracking/ (sinh Excel, đồng bộ GitHub), systembat/ (script .bat chạy dự án), agent/ (hook kiểm tra specs)
+tools/        tracking/ (sinh Excel, đồng bộ GitHub), systembat/ (script .bat chạy dự án), agent/ (hook kiểm tra specs), catalog/ (kiểm tra file catalog)
 ```
 
 ## Cài đặt

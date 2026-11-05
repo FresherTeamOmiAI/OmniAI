@@ -4,11 +4,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Chạy toàn bộ app với PostgreSQL + pgvector thật trong container (cần Docker đang chạy). */
 @SpringBootTest
@@ -29,6 +31,22 @@ class OmniAiApplicationTests {
     @Test
     void flywayMigratesAndSeedsProducts() {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM product", Integer.class)).isEqualTo(8);
+    }
+
+    @Test
+    void productRejectsNegativePriceAndUnknownUsageTime() {
+        String insert = "INSERT INTO product (sku, name, brand, category, skin_types, ingredients_inci, size_ml, pao_months,"
+                + " price_web, price_shopee, price_tiktok, usage_time) VALUES (?, 'x', 'x', 'serum', 'oily', 'Aqua', 30, 6, ?, 1, 1, ?)";
+
+        assertThatThrownBy(() -> jdbc.update(insert, "T-NEG", -1, "am")).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> jdbc.update(insert, "T-USE", 1, "noon")).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void productRequiresPriceOnEveryChannel() {
+        assertThatThrownBy(() -> jdbc.update("INSERT INTO product (sku, name, brand, category, skin_types, ingredients_inci,"
+                + " size_ml, pao_months, price_web, price_shopee) VALUES ('T-NULL', 'x', 'x', 'serum', 'oily', 'Aqua', 30, 6, 1, 1)"))
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test
