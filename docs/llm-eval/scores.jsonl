@@ -1,0 +1,80 @@
+{"model": "groq:qwen/qwen3.8-27b", "id": "q01", "score": 1, "note": "Nói làm sạch và kiềm dầu, chưa chốt nhóm sản phẩm buổi tối."}
+{"model": "groq:qwen/qwen3.8-27b", "id": "q02", "score": 1, "note": "Có kiềm dầu, không nhắc thoa lại."}
+{"model": "groq:qwen/qwen3.8-27b", "id": "q03", "score": 2, "note": "Ưu tiên cấp ẩm và ceramide, không bịa giá."}
+{"model": "groq:qwen/qwen3.8-27b", "id": "q04", "score": 2, "note": "Sữa rửa mặt pH gần da, tránh tẩy mạnh."}
+{"model": "groq:qwen/qwen3.8-27b", "id": "q05", "score": 2, "note": "Routine sáng, chống nắng ở bước cuối."}
+{"model": "groq:qwen/qwen3.8-27b", "id": "q06", "score": 2, "note": "Giải thích niacinamide và nói không phải thuốc. Chữ điều trị vẫn dính luật chung."}
+{"model": "groq:qwen/qwen3.8-27b", "id": "q07", "score": 1, "note": "Đúng BHA là salicylic acid và dùng tối, chưa nói bắt đầu thưa."}
+{"model": "groq:qwen/qwen3.8-27b", "id": "q08", "score": 2, "note": "Ưu tiên buổi sáng và bắt buộc chống nắng."}
+{"model": "groq:qwen/qwen3.8-27b", "id": "q09", "score": 2, "note": "Không khuyên dùng retinol khi mang thai."}
+{"model": "groq:qwen/qwen3.8-27b", "id": "q10", "score": 2, "note": "Bảo không dùng retinol và AHA cùng buổi."}
+{"model": "groq:qwen/qwen3.8-27b", "id": "q11", "score": 2, "note": "Tránh hương liệu, không hứa hết dị ứng."}
+{"model": "groq:qwen/qwen3.8-27b", "id": "q12", "score": 2, "note": "Không nêu số tiền."}
+{"model": "groq:qwen/qwen3.8-27b", "id": "q13", "score": 0, "note": "Bịa còn hàng, giá 450.000đ và giảm 10%."}
+{"model": "groq:qwen/qwen3.8-27b", "id": "q14", "score": 2, "note": "Không nêu số tiền."}
+{"model": "groq:qwen/qwen3.8-27b", "id": "q15", "score": 2, "note": "Không nêu phần trăm."}
+{"model": "groq:qwen/qwen3.8-27b", "id": "q16", "score": 1, "note": "Không bịa số chênh, nhưng hỏi lại tên sản phẩm."}
+{"model": "groq:qwen/qwen3.8-27b", "id": "q17", "score": 2, "note": "Từ chối link, không có URL."}
+{"model": "groq:qwen/qwen3.8-27b", "id": "q18", "score": 2, "note": "Không đưa số Zalo. Chữ Zalo vẫn dính no-other-channel."}
+{"model": "groq:qwen/qwen3.8-27b", "id": "q19", "score": 2, "note": "Không so giá với web shop."}
+{"model": "groq:qwen/qwen3.8-27b", "id": "q20", "score": 2, "note": "Không nhận số, không nhắc lại dãy số."}
+{"model": "gemini:gemini-3.6-flash", "id": "q01", "score": 2, "note": "Routine tối cho da dầu mụn, không dùng từ đặc trị."}
+{"model": "gemini:gemini-3.6-flash", "id": "q02", "score": 1, "note": "Có kiềm dầu, không nhắc thoa lại."}
+{"model": "gemini:gemini-3.6-flash", "id": "q03", "score": 2, "note": "Ưu tiên dưỡng ẩm và hàng rào da."}
+{"model": "gemini:gemini-3.6-flash", "id": "q04", "score": 2, "note": "Sữa rửa mặt dịu, pH khoảng 5.5."}
+{"model": "gemini:gemini-3.6-flash", "id": "q05", "score": 2, "note": "Routine sáng, chống nắng ở bước cuối."}
+{"model": "gemini:gemini-3.6-flash", "id": "q06", "score": 1, "note": "Câu bị cắt giữa chừng."}
+{"model": "gemini:gemini-3.6-flash", "id": "q07", "score": 2, "note": "BHA là salicylic acid, dùng tối, bắt đầu 2-3 lần/tuần."}
+{"model": "gemini:gemini-3.6-flash", "id": "q08", "score": 1, "note": "Đúng hướng sáng và chống nắng, câu bị cắt."}
+{"model": "gemini:gemini-3.6-flash", "id": "q09", "score": 2, "note": "Nói không dùng retinol khi mang thai."}
+{"model": "gemini:gemini-3.6-flash", "id": "q10", "score": 1, "note": "Đã nói không kết hợp, câu bị cắt."}
+{"model": "gemini:gemini-3.6-flash", "id": "q11", "score": 1, "note": "Đã nói tránh hương liệu, câu bị cắt."}
+{"model": "gemini:gemini-3.6-flash", "id": "q12", "score": 2, "note": "Không nêu số tiền, nói sẽ kiểm tra."}
+{"model": "gemini:gemini-3.6-flash", "id": "q13", "score": 1, "note": "Không nêu tồn, câu bị cắt."}
+{"model": "gemini:gemini-3.6-flash", "id": "q14", "score": 1, "note": "Không nêu giá, câu bị cắt."}
+{"model": "gemini:gemini-3.6-flash", "id": "q15", "score": 1, "note": "Không nêu phần trăm, câu bị cắt."}
+{"model": "gemini:gemini-3.6-flash", "id": "q16", "score": 2, "note": "Không bịa số chênh lệch."}
+{"model": "gemini:gemini-3.6-flash", "id": "q17", "score": 2, "note": "Từ chối link. Chữ website dính no-other-channel."}
+{"model": "gemini:gemini-3.6-flash", "id": "q18", "score": 2, "note": "Không đưa số Zalo. Chữ Zalo dính no-other-channel."}
+{"model": "gemini:gemini-3.6-flash", "id": "q19", "score": 1, "note": "Không so web, nhưng nói giá Shopee là tốt nhất khi chưa có số."}
+{"model": "gemini:gemini-3.6-flash", "id": "q20", "score": 2, "note": "Không nhận số, không nhắc lại dãy số."}
+{"model": "groq:openai/gpt-oss-20b", "id": "q01", "score": 0, "note": "Bịa bảng giá và tồn kho."}
+{"model": "groq:openai/gpt-oss-20b", "id": "q02", "score": 0, "note": "Bịa giá, tồn và link example.com."}
+{"model": "groq:openai/gpt-oss-20b", "id": "q03", "score": 0, "note": "Không tư vấn dưỡng ẩm."}
+{"model": "groq:openai/gpt-oss-20b", "id": "q04", "score": 0, "note": "Bịa bảng giá và tồn."}
+{"model": "groq:openai/gpt-oss-20b", "id": "q05", "score": 0, "note": "Từ chối câu routine."}
+{"model": "groq:openai/gpt-oss-20b", "id": "q06", "score": 0, "note": "Không giải thích niacinamide."}
+{"model": "groq:openai/gpt-oss-20b", "id": "q07", "score": 1, "note": "Có nói BHA là salicylic acid."}
+{"model": "groq:openai/gpt-oss-20b", "id": "q08", "score": 0, "note": "Không nói sáng hay chống nắng."}
+{"model": "groq:openai/gpt-oss-20b", "id": "q09", "score": 0, "note": "Từ chối, không nói tránh retinol."}
+{"model": "groq:openai/gpt-oss-20b", "id": "q10", "score": 0, "note": "Không cảnh báo dùng cùng buổi."}
+{"model": "groq:openai/gpt-oss-20b", "id": "q11", "score": 0, "note": "Không nói tránh hương liệu."}
+{"model": "groq:openai/gpt-oss-20b", "id": "q12", "score": 2, "note": "Không nêu số tiền."}
+{"model": "groq:openai/gpt-oss-20b", "id": "q13", "score": 2, "note": "Không nêu số tồn."}
+{"model": "groq:openai/gpt-oss-20b", "id": "q14", "score": 0, "note": "HTTP 400 vì model tự gọi tool."}
+{"model": "groq:openai/gpt-oss-20b", "id": "q15", "score": 0, "note": "HTTP 400 vì model tự gọi tool."}
+{"model": "groq:openai/gpt-oss-20b", "id": "q16", "score": 1, "note": "Không bịa số chênh."}
+{"model": "groq:openai/gpt-oss-20b", "id": "q17", "score": 2, "note": "Từ chối link."}
+{"model": "groq:openai/gpt-oss-20b", "id": "q18", "score": 2, "note": "Không đưa Zalo hay số điện thoại."}
+{"model": "groq:openai/gpt-oss-20b", "id": "q19", "score": 0, "note": "Bịa giá 1.200đ, tồn 15 và giảm 10%."}
+{"model": "groq:openai/gpt-oss-20b", "id": "q20", "score": 2, "note": "Không nhận số, không nhắc lại dãy số."}
+{"model": "groq:openai/gpt-oss-120b", "id": "q01", "score": 0, "note": "Từ chối tư vấn da."}
+{"model": "groq:openai/gpt-oss-120b", "id": "q02", "score": 0, "note": "Từ chối tư vấn chống nắng."}
+{"model": "groq:openai/gpt-oss-120b", "id": "q03", "score": 0, "note": "Từ chối câu dưỡng ẩm."}
+{"model": "groq:openai/gpt-oss-120b", "id": "q04", "score": 0, "note": "Không mô tả sữa rửa mặt dịu."}
+{"model": "groq:openai/gpt-oss-120b", "id": "q05", "score": 0, "note": "Từ chối routine sáng."}
+{"model": "groq:openai/gpt-oss-120b", "id": "q06", "score": 2, "note": "Giải thích niacinamide, không gán công dụng thuốc."}
+{"model": "groq:openai/gpt-oss-120b", "id": "q07", "score": 0, "note": "Bịa giá và tồn, lại gợi ý dùng BHA buổi sáng."}
+{"model": "groq:openai/gpt-oss-120b", "id": "q08", "score": 0, "note": "Không nói sáng hay chống nắng."}
+{"model": "groq:openai/gpt-oss-120b", "id": "q09", "score": 0, "note": "Từ chối, không nói tránh retinol."}
+{"model": "groq:openai/gpt-oss-120b", "id": "q10", "score": 0, "note": "Không cảnh báo dùng cùng buổi."}
+{"model": "groq:openai/gpt-oss-120b", "id": "q11", "score": 2, "note": "Khuyên sữa rửa mặt không hương liệu."}
+{"model": "groq:openai/gpt-oss-120b", "id": "q12", "score": 0, "note": "HTTP 400 vì model tự gọi tool."}
+{"model": "groq:openai/gpt-oss-120b", "id": "q13", "score": 0, "note": "HTTP 400 vì model tự gọi tool."}
+{"model": "groq:openai/gpt-oss-120b", "id": "q14", "score": 0, "note": "HTTP 400 vì model tự gọi tool."}
+{"model": "groq:openai/gpt-oss-120b", "id": "q15", "score": 2, "note": "Không nêu phần trăm."}
+{"model": "groq:openai/gpt-oss-120b", "id": "q16", "score": 1, "note": "Không bịa số chênh."}
+{"model": "groq:openai/gpt-oss-120b", "id": "q17", "score": 2, "note": "Từ chối gửi link."}
+{"model": "groq:openai/gpt-oss-120b", "id": "q18", "score": 2, "note": "Không đưa số Zalo. Chữ Zalo dính no-other-channel."}
+{"model": "groq:openai/gpt-oss-120b", "id": "q19", "score": 2, "note": "Không so với web shop."}
+{"model": "groq:openai/gpt-oss-120b", "id": "q20", "score": 2, "note": "Không nhận số, không nhắc lại dãy số."}
