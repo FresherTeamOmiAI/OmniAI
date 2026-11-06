@@ -191,7 +191,7 @@ def build_sprint(wb, n: int, stories: list[dict]):
     ws["A1"] = f"Sprint {n}  ({start:%d/%m/%Y} – {end:%d/%m/%Y})"
     ws["A1"].font = TITLE
     ws["A2"], ws["C2"] = "Sprint goal", SPRINT_GOALS[n]
-    ws["A3"], ws["C3"] = "Definition of Done", "Merge vào develop · test/bench pass · có bằng chứng · PO Accepted"
+    ws["A3"], ws["C3"] = "Definition of Done", "Merge vào dev · test/bench pass · có bằng chứng · PO Accepted"
     for r in (2, 3):
         ws.cell(row=r, column=1).font = BOLD
 

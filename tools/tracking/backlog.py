@@ -400,6 +400,16 @@ ISSUES = [
      "Luật thành phần tất định, không chẩn đoán, khuyên gặp bác sĩ; nhờ người có chuyên môn review rule"),
     ("Dữ liệu cá nhân (Luật 91/2025/QH15)", "Risk", "Cao", "Thấp", "Medium", L,
      "Consent khi liên kết, trang xem/xóa dữ liệu, không tự gộp danh tính"),
+    # Thêm 06/11 sau review Sprint 0
+    ("LLM miễn phí chậm: gemini-3.6-flash p95 7,65 s > 5 s (NFR-01)", "Risk", "Cao", "Cao", "High", C,
+     "Duyệt có điều kiện (decisions #14): T-06.4 tách token suy nghĩ khỏi max_tokens, đo lại p95 trước 16/11; "
+     "vẫn > 5 s thì PO chọn nới NFR-01 hoặc đổi model chính sang qwen"),
+    ("Quota free tier chưa đủ cho bench (Groq trả 429, Gemini 3.8 trả 503)", "Risk", "Trung bình", "Cao", "Medium", C,
+     "Chạy thử 50 request liên tiếp trước bench 50 ca S2; giãn request khi bench model thật; luôn có model dự phòng"),
+    ("LLM tự bịa giá, tồn kho (qwen câu q13 nêu 450.000đ)", "Risk", "Cao", "Cao", "High", H,
+     "T-06.6: rules/grounding.py bỏ số giá/tồn/khuyến mãi khi chưa có tool; US-15 đo bằng 20 ca bench"),
+    ("Thầy chưa xác nhận kênh sàn dùng simulator theo schema thật (SRS Q-08)", "Issue", "Cao", "Trung bình", "High", H,
+     "Tạm theo decisions #12; HungDQ hỏi thầy trước 08/12; nếu không được thì điều chỉnh US-21, US-25"),
 ]
 
 QUESTIONS = [
