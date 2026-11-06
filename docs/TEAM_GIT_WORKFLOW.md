@@ -323,7 +323,8 @@ git push --force-with-lease
    (Kiểm tra kỹ base là `dev`, **không phải** `main`.)
 3. Tiêu đề PR theo Conventional Commits, kèm mã task, ví dụ: `feat(auth): add login endpoint [PROJ-101]`.
 4. Mô tả: làm gì, cách test, ảnh chụp (nếu có UI).
-5. Gán **Reviewer** (ít nhất 1 người).
+5. Dán kết quả test/bench đã chạy ở máy mình vào mô tả PR.
+6. **Không cần gán Reviewer cụ thể.** Ai trong team rảnh thì vào review và approve. Không tự approve PR của chính mình.
 
 Hoặc dùng GitHub CLI:
 
@@ -333,7 +334,7 @@ gh pr create --base dev --title "feat(auth): add login endpoint [PROJ-101]"
 
 ## Bước 6: Review và merge
 
-1. Cần **ít nhất 1 người review và approve**.
+1. Cần **1 approve** của bất kỳ thành viên nào khác (ruleset của `main`/`dev` đã bắt buộc điều này). Không review chéo theo cặp cố định. Nếu có vấn đề thì cả team họp để giải quyết.
 2. Nếu reviewer yêu cầu sửa: sửa ở local → commit → `git push` (PR tự cập nhật, **không cần tạo PR mới**).
 3. Đủ điều kiện (xem Mục 8) → merge vào `dev`.
 4. Xóa nhánh feature trên GitHub (nút **Delete branch**) và ở local:
@@ -460,7 +461,8 @@ PR càng nhỏ thì càng dễ review và ít lỗi.
 Một PR chỉ được merge khi:
 
 * CI/CD chạy thành công.
-* Có ít nhất 1 người review và approve.
+* Có 1 approve của thành viên khác (không cần reviewer chỉ định).
+* Mô tả PR có kết quả test/bench (khi chưa có CI).
 * Không còn comment chưa xử lý.
 * Không còn conflict với nhánh đích.
 
