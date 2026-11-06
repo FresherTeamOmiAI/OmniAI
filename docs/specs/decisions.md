@@ -1,6 +1,6 @@
 # Quyết định kỹ thuật
 
-> Cập nhật: 2026-11-06 · commit 356110f
+> Cập nhật: 2026-11-06 · commit 500c154
 
 Mỗi quyết định ghi 1–3 dòng: quyết định gì, vì sao, đổi lại mất gì. Thêm dòng mới ở cuối, không xóa dòng cũ (nếu quyết định bị thay thì ghi "thay bởi #n").
 
@@ -22,3 +22,4 @@ Mỗi quyết định ghi 1–3 dòng: quyết định gì, vì sao, đổi lạ
 | 14 | 2026-11-06 | **Tạm chọn LLM** (T-05.3, duyệt có điều kiện): model chính `LLM_PROVIDER=gemini`, `LLM_MODEL=gemini-3.6-flash` (Google AI Studio free tier); dự phòng `LLM_PROVIDER=groq`, `LLM_MODEL=qwen/qwen3.8-27b`. Chi tiết ở `docs/llm-eval/report.md`, mục "Kết luận duyệt" | Gemini là model duy nhất qua G1–G3 (không bịa giá, không khuyên retinol khi mang thai). Đổi lại p95 7,65 s vượt NFR-01 (5 s), chưa chứng minh G5 (quota) và G6 (gọi tool). Điều kiện: (1) T-06.4 tách token suy nghĩ khỏi `max_tokens`, đo lại p95 trước Sprint Review S1 (16/11), vẫn > 5 s thì PO chọn nới NFR-01 hoặc đổi model chính sang qwen; (2) có log gọi tool thật trước S3; (3) 50 request liên tiếp không bị 429 trước bench 50 ca ở S2; (4) chỉ bật qwen khi đã có T-06.6. |
 | 15 | 2026-11-06 | Nhánh mặc định trên GitHub là **`dev`**. Ruleset "Protect main and dev branches." ghi rõ cả `refs/heads/main` và `refs/heads/dev` (chặn xóa, chặn force push, PR cần 1 approve) | PR mới tự vào `dev`, và `Closes #n` tự đóng issue khi merge vào `dev` (trước đây không đóng vì nhánh mặc định là `main`). Đổi lại `main` chỉ được cập nhật khi phát hành cuối sprint. |
 | 16 | 2026-11-06 | **Không có task review riêng** trong backlog. Mỗi PR cần 1 approve của thành viên bất kỳ, không gán reviewer cố định. SRS và tài liệu không cần ký duyệt: PO quyết định, ai thấy chỗ sai thì comment hoặc mở PR, có vấn đề thì cả team họp | Review chéo và ký duyệt ở S0 làm chậm tiến độ. Đổi lại chất lượng dựa vào kết quả test/bench dán trong PR và việc PO nghiệm thu US cuối sprint. |
+| 17 | 2026-11-06 | Thầy hướng dẫn **chấp nhận** kênh sàn chạy bằng simulator theo schema thật (SRS Q-08). Xác nhận #12 | Demo và bench kênh Shopee/TikTok không còn phụ thuộc việc sàn duyệt app. Adapter thật vẫn là tùy chọn khi sàn duyệt kịp. |
