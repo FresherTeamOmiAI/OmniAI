@@ -1,6 +1,6 @@
 # Trạng thái hiện tại
 
-> Cập nhật: 2026-11-06 · Task [T-06.1] · Sprint hiện tại: **S0 (03–09/11/2026)**
+> Cập nhật: 2026-11-06 · Task [T-06.2] · Sprint hiện tại: **S0 (03–09/11/2026)**
 
 Bảng này cho biết cái gì đã chạy được, cái gì mới là khung, cái gì chưa có. Agent đọc file này **trước khi** đi tìm code để khỏi tìm thứ chưa tồn tại. Kế hoạch chi tiết: `tools/tracking/backlog.py` và GitHub Issues (milestone Sprint 0–12).
 
@@ -14,7 +14,7 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | Script chạy Windows `tools/systembat` | Done | setup / run-all / stop-all / test-all / bench | US-02 |
 | CanonicalMessage + ChannelAdapter | Done | | |
 | MessageRouter + idempotency | Khung | Idempotency in-memory, chưa lưu hội thoại | US-06, US-11, US-29 |
-| Kênh WEB (WebSocket) | Khung | T-06.1 widget đã có auto-reconnect + báo lỗi rõ ràng. Đang làm T-06.2 BE test | US-06 |
+| Kênh WEB (WebSocket) | Done | T-06.1 FE widget auto-reconnect + T-06.2 BE adapter và test hoàn chỉnh | US-06 |
 | Simulator API | Done | Dùng cho bench và `/admin/policy` | US-07 |
 | Kênh Telegram / Shopee / TikTok / Messenger | Chưa | Đã có YAML luật | US-17, 21, 25 |
 | PolicyEngine + YAML | Done (v0) | YAML sàn là bản nháp | US-07, US-20 |
