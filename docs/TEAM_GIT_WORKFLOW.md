@@ -33,6 +33,7 @@ Nguyên tắc:
 * Mỗi lần merge vào `main` đều được gắn tag `vX.Y.Z`.
 * `dev` luôn build được và chứa code mới nhất đã được review.
 * **Không commit / push trực tiếp** lên `main` và `dev` — mọi thay đổi đi qua Pull Request.
+* Nhánh mặc định trên GitHub là `dev` (decisions #15): PR mới tự chọn base `dev`, và `Closes #<số issue>` trong mô tả PR sẽ tự đóng issue khi merge vào `dev`.
 
 ---
 
@@ -320,9 +321,9 @@ git push --force-with-lease
 
 1. Vào repo trên GitHub → bấm **"Compare & pull request"** (hiện ra sau khi push), hoặc vào tab **Pull requests → New pull request**.
 2. Chọn **base: `dev`** ← **compare: `feature/PROJ-101-user-login`**.
-   (Kiểm tra kỹ base là `dev`, **không phải** `main`.)
+   (`dev` là nhánh mặc định nên thường đã được chọn sẵn. Chỉ PR phát hành và hotfix mới chọn `main`.)
 3. Tiêu đề PR theo Conventional Commits, kèm mã task, ví dụ: `feat(auth): add login endpoint [PROJ-101]`.
-4. Mô tả: làm gì, cách test, ảnh chụp (nếu có UI).
+4. Mô tả: làm gì, cách test, ảnh chụp (nếu có UI). Ghi `Closes #<số issue>` cho từng task làm xong để issue tự đóng khi merge.
 5. Dán kết quả test/bench đã chạy ở máy mình vào mô tả PR.
 6. **Không cần gán Reviewer cụ thể.** Ai trong team rảnh thì vào review và approve. Không tự approve PR của chính mình.
 
@@ -335,6 +336,7 @@ gh pr create --base dev --title "feat(auth): add login endpoint [PROJ-101]"
 ## Bước 6: Review và merge
 
 1. Cần **1 approve** của bất kỳ thành viên nào khác (ruleset của `main`/`dev` đã bắt buộc điều này). Không review chéo theo cặp cố định. Nếu có vấn đề thì cả team họp để giải quyết.
+   Backlog **không có task review riêng** (decisions #16): review chỉ là 1 approve trên PR. Tài liệu như SRS cũng không cần ký duyệt, PO quyết định, ai thấy chỗ sai thì comment hoặc mở PR sửa.
 2. Nếu reviewer yêu cầu sửa: sửa ở local → commit → `git push` (PR tự cập nhật, **không cần tạo PR mới**).
 3. Đủ điều kiện (xem Mục 8) → merge vào `dev`.
 4. Xóa nhánh feature trên GitHub (nút **Delete branch**) và ở local:
