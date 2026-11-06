@@ -1,6 +1,6 @@
 # Web (React + Vite)
 
-> Cập nhật: 2026-11-03 · commit c88bfc6
+> Cập nhật: 2026-11-06 · Task [T-06.1]
 > Nguồn: `web/src/**`, `web/vite.config.ts`, `web/package.json`
 
 React 19, Vite 8, TypeScript 7, react-router 7, lint bằng oxlint. Chưa có thư viện UI, state hay test. Chạy `npm run dev` (:5173) hoặc `run-web.bat`. Kiểm tra bằng `npm run build` (gồm `tsc -b`).
@@ -31,7 +31,7 @@ Feature chỉ import từ `shared/` hoặc qua `index.ts` của feature khác, *
 `vite.config.ts`: `/api` chuyển tới `http://localhost:8080`, `/ws` chuyển tới `ws://localhost:8080` (bật ws). Backend cho phép origin `http://localhost:5173` (`WEB_ALLOWED_ORIGINS`).
 
 ## Đã biết
-- `useChatSocket` chưa tự kết nối lại khi mất kết nối. T-06.1 (S1) cần thêm phần báo lỗi rõ / reconnect.
+- `useChatSocket` đã có auto-reconnect sau 3s và nút thử lại, ChatWidget có banner báo mất kết nối rõ ràng, typing indicator và auto-scroll (xong T-06.1).
 - Chưa có trang admin sản phẩm (T-08.3), chi tiết sản phẩm (US-09), đăng nhập (US-13), inbox (US-14).
 
 ## Thêm feature
