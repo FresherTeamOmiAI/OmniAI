@@ -12,7 +12,7 @@ Python 3.11, FastAPI, Pydantic 2, uvicorn, httpx. Chưa có LangGraph hay SDK LL
 | `app/main.py` | `GET /health`, `POST /chat`. Provider được tạo **một lần** lúc khởi động |
 | `app/schemas.py` | `ChatRequest`, `ChatResponse`, phải khớp `BrainRequest/Response` bên Java |
 | `app/llm/base.py` | `LLMProvider` (Protocol): `name`, `generate(request, system_prompt) -> str` |
-| `app/llm/factory.py` | `get_provider()` đọc `LLM_PROVIDER`. Hiện chỉ có `fake`, giá trị khác thì `ValueError` |
+| `app/llm/factory.py` | `get_provider()` đọc `LLM_PROVIDER`: `fake` (mặc định), `gemini`, `groq`. Model thật cần `LLM_API_KEY`; `LLM_MODEL` trống thì lấy default của decisions #14 |
 | `app/llm/fake.py` | `FakeProvider`: trả lời cố định và **cố tình vi phạm** (link, Zalo/SĐT, "đặc trị") để policy có cái mà chặn. Hỏi giá (`giá`, `bao nhiêu`, `còn hàng`, `tồn kho`) thì cố tình bịa "450.000đ, còn 15 sản phẩm, giảm 10%" để thử `grounding.py`. Bench offline dựa vào hành vi này |
 | `app/agent/graph.py` | `respond()`: phát hiện mang thai bằng từ khóa → `check_routine` → gọi provider → `strip_unverified_numbers` → thêm "Lưu ý: ..." nếu có cảnh báo. `system_prompt_for()` khác nhau giữa kênh owned và kênh sàn |
 | `app/rules/ingredients.py` | Luật thành phần **tất định**: nhóm hoạt chất (retinoid, aha, bha, bpo, vitamin_c), cặp xung đột, nhóm cần tránh khi mang thai. Mã cảnh báo: `conflict:<a>+<b>`, `pregnancy:<group>` |
@@ -24,11 +24,12 @@ Python 3.11, FastAPI, Pydantic 2, uvicorn, httpx. Chưa có LangGraph hay SDK LL
 - Provider thật phải tự tuân thủ luật kênh. Policy bên backend chỉ là lưới an toàn.
 - Không hard-code API key, đọc `LLM_MODEL`, `LLM_API_KEY` từ env.
 - Chỉ dùng provider **miễn phí** (decisions #13): free tier hoặc model mở chạy local, chỉ gửi dữ liệu tổng hợp. Model được chọn theo tiêu chí trong `docs/llm-eval/README.md`.
-- Model đã chọn (tạm, decisions #14): chính `gemini` / `gemini-3.6-flash`, dự phòng `groq` / `qwen/qwen3.8-27b`. Chưa tích hợp: `factory.py` vẫn chỉ có `fake` cho tới T-06.4.
+- Model đã chọn (tạm, decisions #14): chính `gemini` / `gemini-3.6-flash`, dự phòng `groq` / `qwen/qwen3.8-27b`. Factory đã chọn được hai provider này qua env (T-06.3). T-06.4 mới chạy 10 câu mẫu và đo p95.
 - Đổi hành vi `FakeProvider` sẽ làm hỏng `bench/datasets/sample.jsonl`, nên phải sửa dataset cùng lúc.
 
 ## Test
 - `tests/test_api.py`: health, chat có trả lời, mang thai + retinol thì có cảnh báo, hỏi giá thì không còn số tự bịa.
+- `tests/test_provider.py`: `LLM_PROVIDER` đổi giữa fake, gemini và groq; thiếu key thì lỗi; HTTP được giả lập, không gọi API thật.
 - `tests/test_grounding.py`: các dạng số giá/tồn/khuyến mãi bị bỏ; nồng độ %, SPF, dung tích, "3 đến 5 đêm" không bị bắt nhầm; dòng khác giữ nguyên định dạng.
 - `tests/test_ingredients.py`: nhận nhóm từ INCI, retinoid + BHA xung đột, routine dịu nhẹ không cảnh báo, cảnh báo mang thai chỉ khi đang mang thai.
 

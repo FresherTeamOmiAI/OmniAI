@@ -12,7 +12,7 @@ python -m pytest
 |---|---|
 | `app/main.py` | `/health`, `/chat` |
 | `app/schemas.py` | `ChatRequest` / `ChatResponse` (khớp `BrainRequest` / `BrainResponse` bên Java) |
-| `app/llm/` | `LLMProvider` + `FakeProvider` (mặc định, không cần key). Chọn bằng `LLM_PROVIDER` |
+| `app/llm/` | `LLMProvider`. `LLM_PROVIDER=fake` (mặc định), `gemini` hoặc `groq`. Model thật đọc `LLM_MODEL` và `LLM_API_KEY` |
 | `app/agent/graph.py` | Điều phối 1 lượt: system prompt theo kênh, luật thành phần, gọi provider. Sprint 1–3 thay bằng agent có tool |
 | `app/rules/ingredients.py` | Luật xung đột hoạt chất tất định. **Bản mẫu, cần người có chuyên môn review** |
 | `app/rules/grounding.py` | Bỏ câu có giá, tồn kho, khuyến mãi do LLM tự nêu (T-06.6). Tất định, có pytest |
