@@ -1,6 +1,6 @@
 # Hợp đồng API
 
-> Cập nhật: 2026-11-05 · commit af8e70c
+> Cập nhật: 2026-11-06 · commit 6eff49a
 > Nguồn: `backend/.../channel/simulator/*`, `channel/web/*`, `catalog/ProductController.java`, `brain/*`, `common/*`, `ai-brain/app/main.py`, `ai-brain/app/schemas.py`, `shared/schemas/canonical-message.schema.json`, `web/src/shared/types.ts`
 
 JSON phía backend dùng **camelCase**. Riêng hợp đồng backend → ai-brain dùng **snake_case**.
@@ -35,7 +35,7 @@ Chưa có: CRUD admin sản phẩm (US-08, S1), `/api/conversations` (US-11, S2)
 | POST | `/chat` | `ChatRequest` | `ChatResponse` |
 
 - `ChatRequest` (Pydantic) = `BrainRequest` (Java record): `message_id, channel, channel_owned, user_id, customer_id?, text`.
-- `ChatResponse` = `BrainResponse`: `reply, provider, warnings[] (mã cảnh báo, vd "conflict:aha+retinoid"), handoff`.
+- `ChatResponse` = `BrainResponse`: `reply, provider, warnings[] (mã cảnh báo), handoff`. Mã cảnh báo: `conflict:<a>+<b>`, `pregnancy:<nhóm>` (luật thành phần); `grounding:price|stock|promo` (AI Brain đã bỏ số giá, tồn kho, khuyến mãi do LLM tự nêu, T-06.6).
 - Backend gọi qua `HttpBrainClient` với timeout 10s (`omniai.brain.timeout`). Nếu lỗi thì trả `BrainResponse.unavailable()`: câu chờ + `handoff=true`, provider `"none"`.
 - Đổi field ở một phía thì **phải sửa cả 2 phía**: `schemas.py` và `BrainRequest`/`BrainResponse`.
 

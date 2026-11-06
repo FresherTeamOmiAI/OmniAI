@@ -1,6 +1,6 @@
 # Trạng thái hiện tại
 
-> Cập nhật: 2026-11-06 · commit 6a0a4bd · Sprint hiện tại: **S0 (03–09/11/2026)**
+> Cập nhật: 2026-11-06 · commit 6eff49a · Sprint hiện tại: **S0 (03–09/11/2026)**
 
 Bảng này cho biết cái gì đã chạy được, cái gì mới là khung, cái gì chưa có. Agent đọc file này **trước khi** đi tìm code để khỏi tìm thứ chưa tồn tại. Kế hoạch chi tiết: `tools/tracking/backlog.py` và GitHub Issues (milestone Sprint 0–12).
 
@@ -20,6 +20,7 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | Kênh Shopee / TikTok | Chưa | Đã có YAML luật. Làm simulator theo schema thật trước, adapter thật chờ sàn duyệt app (decisions #12) | US-21, 25 |
 | PolicyEngine + YAML | Done (v0) | YAML sàn là bản nháp | US-07, US-20 |
 | AI Brain `/chat` + LLMProvider | Khung | Chỉ có `fake`. Đã chọn tạm `gemini-3.6-flash`, dự phòng qwen (decisions #14). Tích hợp ở T-06.4 | US-05, US-06 |
+| AI Brain: chặn số tự bịa (`rules/grounding.py`) | Done | Bỏ câu có giá, tồn kho, khuyến mãi do LLM tự nêu (chưa có tool nên bỏ hết). US-15 sẽ cho qua số khớp kết quả tool | US-06 (T-06.6), US-15 |
 | Luật thành phần | Khung | Bản mẫu, cần chuyên gia review | US-27 |
 | RAG / tool / agent loop | Chưa | | US-10, US-15 |
 | Catalog: GET list/detail | Done | 8 SKU mẫu | |
@@ -31,7 +32,7 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | Order, Promotion | Chưa | Mới có package-info | US-09, 33 |
 | Web store (list + lọc loại da) | Khung | Chưa có trang chi tiết, chưa đặt hàng ảo | US-09 |
 | Trang thử luật kênh `/admin/policy` | Done | | UC-24 |
-| Bench runner + policy_check | Done | 10 ca mẫu qua simulator + 5 ca luồng web qua WebSocket (`transport: ws`) | US-06, US-12 |
+| Bench runner + policy_check | Done | 11 ca mẫu qua simulator + 6 ca luồng web qua WebSocket (`transport: ws`); expect `must_not_match` cho ca không bịa số | US-06, US-12 |
 | CI | Chưa | | US-16 |
 | docs/specs + rule cho agent | Done | Stop hook `tools/agent/specs_guard.py` | |
 

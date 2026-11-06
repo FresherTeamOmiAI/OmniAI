@@ -6,7 +6,7 @@ Gửi từng ca trong `datasets/*.jsonl` vào backend, qua API simulator hoặc 
 python -m venv .venv && .venv\Scripts\activate && pip install -r requirements.txt
 python -m bench.run                       # cần backend (8080) + ai-brain (8000) đang chạy
 python -m bench.run --dataset datasets/sample.jsonl --base-url http://localhost:8080
-python -m bench.run --dataset datasets/web-flow.jsonl   # 5 ca luồng web qua WebSocket (US-06)
+python -m bench.run --dataset datasets/web-flow.jsonl   # 6 ca luồng web qua WebSocket (US-06)
 python -m pytest                          # test bộ chấm policy, không cần server
 ```
 
