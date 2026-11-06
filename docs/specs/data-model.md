@@ -1,6 +1,6 @@
 # Mô hình dữ liệu
 
-> Cập nhật: 2026-11-05 · commit a79fc37 · Owner: LucVT (catalog, customer, identity, order, promotion)
+> Cập nhật: 2026-11-06 · commit 6a0a4bd · Owner: LucVT (catalog, customer, identity, order, promotion)
 > Nguồn: `backend/src/main/resources/db/migration/*.sql`, `backend/.../catalog/*`, `backend/.../customer/*`
 
 DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flyway** quản lý, JPA để `ddl-auto: validate`. Vì vậy mọi thay đổi bảng đều phải viết migration mới `V<n>__<mo_ta>.sql`. **Không sửa migration đã merge.**
@@ -25,7 +25,8 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 - `description`: mô tả tiếng Việt ≤ 2000 ký tự (công dụng, kết cấu, cách dùng), cho trang chi tiết và embedding RAG. **Không** ghi giá hay claim y khoa ("trị", "chữa").
 - `ingredients_inci`: CSV INCI, tối đa 4000 ký tự. Luật thành phần (`ai-brain/app/rules/ingredients.py`) đọc từ đây.
 - `size_ml` > 0, `pao_months` > 0 (dùng được bao lâu sau khi mở).
-- Giá theo kênh, đơn vị VND (BIGINT, ≥ 0): `price_web`, `price_shopee`, `price_tiktok`.
+- Giá theo kênh, đơn vị VND (BIGINT, ≥ 0): `price_web`, `price_shopee`, `price_tiktok`. Kênh sở hữu (WEB, TELEGRAM, MESSENGER) dùng chung `price_web`, không có cột giá riêng (SRS G-15). Đây là giá niêm yết; khuyến mãi để ở bảng riêng (US-33).
+- Đơn DEMO không trừ `stock` (SRS G-04). Sản phẩm không bao giờ bị xóa cứng, chỉ đặt `active=false` (G-07).
 - `stock` ≥ 0, `active` (false = ẩn khỏi store và AI không được gợi ý). `updated_at` tự cập nhật khi sửa qua JPA (`@PreUpdate`).
 
 **customer** (`customer/Customer.java`): khách hợp nhất. `display_name`, `email` unique, `phone` unique, `created_at`.
@@ -53,7 +54,7 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 - `ChannelIdentityRepository`: `findByChannelAndExternalId`, `findByCustomerId`.
 
 ## Dự kiến (chưa có)
-`conversation`/`message` (US-11, S2), cột vector cho product (US-10, S2), OTP/JWT (US-13, S3), mã liên kết OMNI-xxxx (US-22, S5), order (US-09/23), promotion/voucher/lịch sử giá (US-33, S8), consent log (US-30, S7).
+`conversation`/`message` (US-11, S2), cột vector cho product (US-10, S2), OTP/JWT (US-13, S3, chỉ email), mã liên kết `OMNI-XXXXXX` 6 ký tự kèm đếm số lần sai theo danh tính kênh (US-22, S5, SRS G-01), order (US-09/23), promotion/voucher/lịch sử giá (US-33, S8, mốc giờ theo `Asia/Ho_Chi_Minh`), consent log (US-30, S7).
 
 ## Test
 `OmniAiApplicationTests` chạy Flyway trên Postgres thật (Testcontainers) và kiểm tra có seed sản phẩm + extension vector, cùng các ràng buộc V4 (giá âm, `usage_time` sai, thiếu giá kênh đều bị DB từ chối). Vì vậy cần Docker.

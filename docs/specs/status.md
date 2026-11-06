@@ -1,6 +1,6 @@
 # Trạng thái hiện tại
 
-> Cập nhật: 2026-11-06 · commit 5085952 · Sprint hiện tại: **S0 (03–09/11/2026)**
+> Cập nhật: 2026-11-06 · commit 6a0a4bd · Sprint hiện tại: **S0 (03–09/11/2026)**
 
 Bảng này cho biết cái gì đã chạy được, cái gì mới là khung, cái gì chưa có. Agent đọc file này **trước khi** đi tìm code để khỏi tìm thứ chưa tồn tại. Kế hoạch chi tiết: `tools/tracking/backlog.py` và GitHub Issues (milestone Sprint 0–12).
 
@@ -37,10 +37,10 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 
 ## Lỗ hổng / nợ kỹ thuật đã biết
 - Idempotency chỉ nằm trong bộ nhớ, sẽ mất khi restart và sai khi chạy nhiều instance (S7 chuyển Redis).
-- `GET /api/products/{id}` vẫn trả sản phẩm `active=false`.
+- `GET /api/products/{id}` vẫn trả sản phẩm `active=false`. Theo SRS G-06 phải trả 404; sửa trong T-08.1.
 - Backend/ai-brain không tự đọc `.env` (script `.bat` nạp hộ, IDE thì phải tự cấu hình).
 - Chưa có `mvnw`, mỗi máy phải tự cài Maven.
 
 ## Sprint S0–S1 (tóm tắt)
-- **S0** (03–09/11): SRS, US, UC (HungDQ + cả team review) · setup môi trường (cả 4) · spike chat API Shopee/TikTok (TuTM) · schema + 80 SKU (LucVT) · so sánh ≥3 LLM (ChienPX).
+- **S0** (03–09/11): SRS 1.0, US, UC (HungDQ; LucVT, ChienPX góp ý; không ký duyệt, decisions #16) · setup môi trường (cả 4) · spike chat API Shopee/TikTok (TuTM) · schema + 80 SKU (LucVT) · so sánh ≥3 LLM (ChienPX).
 - **S1** (10–16/11): chat web hoàn chỉnh (TuTM) · LLM thật (ChienPX) · PolicyEngine v0 + 5 ca bench web (HungDQ) · CRUD sản phẩm + import 80 SKU + màn admin (LucVT).
