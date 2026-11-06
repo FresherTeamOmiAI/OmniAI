@@ -8,6 +8,7 @@
 | 0.1 | 2026-11-04 | HungDQ | Bản nháp đầu: chốt 34 US P0 và 21 UC P0 để cả team review |
 | 0.1.1 | 2026-11-05 | LucVT | Review T-01.3: chốt Q-01, Q-02 (mục 9), điền ký duyệt (mục 10) |
 | 1.0 | 2026-11-06 | HungDQ | T-01.5: trả lời 15 góp ý (mục 9.2), chốt Q-03 đến Q-08, bỏ ký duyệt (decisions #16). Bản chính thức |
+| 1.0.1 | 2026-11-06 | HungDQ | Q-08: thầy chấp nhận simulator theo schema thật (decisions #17) |
 
 ## 1. Giới thiệu
 
@@ -545,7 +546,7 @@ Mọi câu hỏi và góp ý của đợt review S0 đã được PO chốt ngà
 | Q-05 | Model miễn phí có thể không đạt p95 < 5 s (US-06, US-17) | **Chốt 06/11 (PO, T-05.3).** Tạm dùng `gemini-3.6-flash`, duyệt có điều kiện (decisions #14). Giữ NFR-01. T-06.4 đo lại p95 trước Sprint Review S1 (16/11); vẫn > 5 s thì PO chọn nới NFR-01 hoặc đổi model chính sang model dự phòng |
 | Q-06 | LLM-as-judge (US-24) cũng phải là model miễn phí | **Chốt 06/11 (PO).** Judge là model trong shortlist US-05 nhưng khác model chính đang dùng; hiện là `qwen/qwen3.8-27b` (Groq) |
 | Q-07 | BR của UC-25 cần CI (US-16, P1, S3). Trước S3 thì sao? | **Chốt 06/11 (PO).** Người mở PR dán kết quả bench/test vào mô tả PR (đã ghi trong `docs/TEAM_GIT_WORKFLOW.md`) |
-| Q-08 | Thầy chưa trả lời câu "simulator theo schema thật có được chấp nhận không" | **Chốt tạm 06/11 (PO).** Làm theo decisions #12. HungDQ hỏi thầy trước S5 (08/12); nếu thầy không chấp nhận thì Sprint Review gần nhất điều chỉnh phạm vi US-21, US-25. Không chặn SRS 1.0 |
+| Q-08 | Kênh sàn chạy bằng "simulator theo schema thật" có được thầy chấp nhận không | **Chốt 06/11: thầy chấp nhận.** Shopee và TikTok Shop dùng simulator theo schema thật (decisions #12, #17); adapter thật vẫn bật nếu sàn duyệt app kịp |
 
 ### 9.2 Góp ý review và quyết định của PO
 G-01 đến G-11 do LucVT góp ý (PR #174), G-12 đến G-15 do ChienPX góp ý (comment trên issue #1). PO đồng ý tất cả và đã sửa vào chỗ ghi ở cột cuối.
