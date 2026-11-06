@@ -1,6 +1,6 @@
 # Trạng thái hiện tại
 
-> Cập nhật: 2026-11-05 · commit a79fc37 · Sprint hiện tại: **S0 (03–09/11/2026)**
+> Cập nhật: 2026-11-06 · commit 5085952 · Sprint hiện tại: **S0 (03–09/11/2026)**
 
 Bảng này cho biết cái gì đã chạy được, cái gì mới là khung, cái gì chưa có. Agent đọc file này **trước khi** đi tìm code để khỏi tìm thứ chưa tồn tại. Kế hoạch chi tiết: `tools/tracking/backlog.py` và GitHub Issues (milestone Sprint 0–12).
 
@@ -19,7 +19,7 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | Kênh Telegram / Messenger | Chưa | Đã có YAML luật | US-17 |
 | Kênh Shopee / TikTok | Chưa | Đã có YAML luật. Làm simulator theo schema thật trước, adapter thật chờ sàn duyệt app (decisions #12) | US-21, 25 |
 | PolicyEngine + YAML | Done (v0) | YAML sàn là bản nháp | US-07, US-20 |
-| AI Brain `/chat` + LLMProvider | Khung | Chỉ có `fake`. Provider thật phải miễn phí (decisions #13), đang so sánh model (US-05) | US-05, US-06 |
+| AI Brain `/chat` + LLMProvider | Khung | Chỉ có `fake`. Đã chọn tạm `gemini-3.6-flash`, dự phòng qwen (decisions #14). Tích hợp ở T-06.4 | US-05, US-06 |
 | Luật thành phần | Khung | Bản mẫu, cần chuyên gia review | US-27 |
 | RAG / tool / agent loop | Chưa | | US-10, US-15 |
 | Catalog: GET list/detail | Done | 8 SKU mẫu | |
