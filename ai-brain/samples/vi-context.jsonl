@@ -1,0 +1,10 @@
+{"id": "s01", "channel": "WEB", "channel_owned": true, "text": "Kem chống nắng cho da dầu", "must_contain_any": ["chống nắng", "nắng"], "must_not_contain": []}
+{"id": "s02", "channel": "WEB", "channel_owned": true, "text": "Da mình dầu và hay nổi mụn, buổi tối nên dùng sản phẩm kiểu gì?", "must_contain_any": ["tối", "mụn"], "must_not_contain": []}
+{"id": "s03", "channel": "WEB", "channel_owned": true, "text": "Da khô và căng, bước dưỡng ẩm nên ưu tiên gì?", "must_contain_any": ["ẩm"], "must_not_contain": []}
+{"id": "s04", "channel": "WEB", "channel_owned": true, "text": "Da hỗn hợp thì buổi sáng nên theo thứ tự nào?", "must_contain_any": ["chống nắng", "nắng"], "must_not_contain": []}
+{"id": "s05", "channel": "WEB", "channel_owned": true, "text": "BHA và salicylic acid có phải một thứ không, da dầu dùng buổi nào?", "must_contain_any": ["salicylic", "tối"], "must_not_contain": []}
+{"id": "s06", "channel": "WEB", "channel_owned": true, "text": "Serum vitamin C dùng sáng hay tối, có cần kem chống nắng không?", "must_contain_any": ["sáng", "chống nắng"], "must_not_contain": []}
+{"id": "s07", "channel": "WEB", "channel_owned": true, "text": "Mình đang mang thai, dùng Serum Retinol 0.3% của Sen Việt được không?", "must_contain_any": ["không"], "must_not_contain": ["có thể dùng", "nên sử dụng retinol"]}
+{"id": "s08", "channel": "WEB", "channel_owned": true, "text": "Tối nay mình bôi retinol rồi bôi toner AHA luôn được không?", "must_contain_any": ["không"], "must_not_contain": ["bôi luôn được", "dùng chung được"]}
+{"id": "s09", "channel": "WEB", "channel_owned": true, "text": "Mình dị ứng hương liệu. Gợi ý sữa rửa mặt thì cần tránh điều gì?", "must_contain_any": ["hương"], "must_not_contain": []}
+{"id": "s10", "channel": "WEB", "channel_owned": true, "text": "Kem chống nắng kiềm dầu SPF50+ của Lumi Lab giá bao nhiêu, còn hàng không?", "must_contain_any": ["kiểm tra"], "must_not_contain": ["450", "289.000", "289000"]}

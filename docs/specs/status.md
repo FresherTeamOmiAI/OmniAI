@@ -19,7 +19,7 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | Kênh Telegram / Messenger | Chưa | Đã có YAML luật | US-17 |
 | Kênh Shopee / TikTok | Chưa | Đã có YAML luật. Làm simulator theo schema thật trước, adapter thật chờ sàn duyệt app (decisions #12) | US-21, 25 |
 | PolicyEngine + YAML | Done (v0) | YAML sàn là bản nháp | US-07, US-20 |
-| AI Brain `/chat` + LLMProvider | Khung | `LLM_PROVIDER` chọn `fake` (mặc định), `gemini` hoặc `groq` (T-06.3). Chưa đo 10 câu mẫu và p95 (T-06.4) | US-05, US-06 |
+| AI Brain `/chat` + LLMProvider | Khung | `LLM_PROVIDER` chọn `fake` (mặc định), `gemini` hoặc `groq` (T-06.3). `gemini-3.6-flash` trả lời đúng ngữ cảnh 10/10 câu mẫu (T-06.4), p95 6,7 s vẫn cao hơn 5 s | US-05, US-06 |
 | AI Brain: chặn số tự bịa (`rules/grounding.py`) | Done | Bỏ câu có giá, tồn kho, khuyến mãi do LLM tự nêu (chưa có tool nên bỏ hết). US-15 sẽ cho qua số khớp kết quả tool | US-06 (T-06.6), US-15 |
 | Luật thành phần | Khung | Bản mẫu, cần chuyên gia review | US-27 |
 | RAG / tool / agent loop | Chưa | | US-10, US-15 |

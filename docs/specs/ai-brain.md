@@ -34,7 +34,7 @@ Python 3.11, FastAPI, Pydantic 2, uvicorn, httpx. Chưa có LangGraph hay SDK LL
 - `tests/test_ingredients.py`: nhận nhóm từ INCI, retinoid + BHA xung đột, routine dịu nhẹ không cảnh báo, cảnh báo mang thai chỉ khi đang mang thai.
 
 ## Lộ trình (backlog)
-- S1 (US-06): T-06.4 tích hợp `gemini-3.6-flash` (decisions #14). Phải tách token suy nghĩ khỏi `max_tokens` và đo lại p95 trước Sprint Review S1 (16/11).
+- S1 (US-06): T-06.4 đã chạy 10/10 câu mẫu tiếng Việt qua `gemini-3.6-flash` (`ai-brain/samples/vi-context-results.jsonl`, 2026-11-06). API vẫn cộng token suy nghĩ vào `maxOutputTokens`, nên trần để 2048 và `thinkingLevel=low`. p95 của 10 câu là 6.716 ms, 4 câu vượt 5 s. PO chọn nới NFR-01 hoặc đổi sang qwen trước Sprint Review S1 (16/11).
 - S2 (US-10): embedding catalog vào pgvector + tool `search_product`.
 - S3 (US-15): agent loop có tool (LangGraph) + `get_price_and_stock`.
 - S4–S8: `get_customer_profile`, `get_orders_all_channels`, `check_ingredients`, routine builder, `get_promotions`, handoff.
