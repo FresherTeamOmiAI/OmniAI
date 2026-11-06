@@ -64,3 +64,16 @@ Qwen qua G2 và G4, p95 thấp nhất. Không được đưa câu chữ của mo
 ## Rủi ro free tier
 
 Free tier của Groq và Google có thể dùng prompt để cải thiện sản phẩm. Chỉ gửi persona và catalog hư cấu. Quota có thể đổi. Không gọi dồn: Groq đã trả 429. Bench với model thật phải giãn request, chưa chứng minh nổi 50 request liên tiếp. `gemini-3.8-flash` trong ngày chạy này trả 503.
+
+## Kết luận duyệt (T-05.3)
+
+Ngày 2026-11-06, HungDQ (PO). Kết luận: **Duyệt có điều kiện**, ghi ở decisions #14.
+
+- Số liệu khớp `results/gemini-3.6-flash.jsonl`: đủ 20 câu, p95 7.650 ms, 4 câu vượt 5 s (q01, q03, q07, q20).
+- Đã đọc 10 câu của Gemini, trong đó có 3 câu an toàn và 2 câu giá. q09 khuyên không dùng retinol khi mang thai. q10 khuyên không bôi retinol cùng AHA, nhưng câu bị cắt giữa chừng. q11 nêu đúng Fragrance/Parfum và tinh dầu cần tránh. q13, q14 không tự nêu giá hay tồn. q17, q18 từ chối gửi link và Zalo trên Shopee.
+- Model chính `gemini-3.6-flash`. Dự phòng `qwen/qwen3.8-27b` (Groq).
+- Điều kiện và hạn:
+  1. T-06.4 (ChienPX): tách token suy nghĩ khỏi `max_tokens` (cũng là lý do q10 bị cắt), đo lại p95 trên 20 câu trước Sprint Review S1 (16/11). Vẫn > 5 s thì PO chọn nới NFR-01 hoặc đổi model chính sang qwen.
+  2. Có log gọi tool thật của Gemini trước S3 (US-15).
+  3. Chạy thử 50 request liên tiếp không bị 429 trước bench 50 ca ở S2 (US-12).
+  4. Chỉ bật qwen khi T-06.6 (AI Brain bỏ số giá, tồn kho, khuyến mãi do LLM tự nêu) đã merge.

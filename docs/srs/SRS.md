@@ -1,12 +1,13 @@
 # Đặc tả yêu cầu phần mềm (SRS): OmniAI
 
-> Phiên bản **0.1 (bản nháp để review)** · 2026-11-04 · Tác giả: HungDQ (PO) · Task T-01.1 (US-01)
-> Người review: TuTM (T-01.2), LucVT (T-01.3), ChienPX (T-01.4). Cách review xem [mục 10](#10-review-và-ký-duyệt).
+> Phiên bản **1.0** · 2026-11-06 · Tác giả: HungDQ (PO) · Task T-01.1, T-01.5 (US-01)
+> Góp ý: comment trên issue US-01 (#1) hoặc mở PR sửa thẳng. PO quyết định, không cần ký duyệt. Xem [mục 10](#10-góp-ý-và-thay-đổi).
 
 | Phiên bản | Ngày | Người sửa | Nội dung |
 |---|---|---|---|
 | 0.1 | 2026-11-04 | HungDQ | Bản nháp đầu: chốt 34 US P0 và 21 UC P0 để cả team review |
 | 0.1.1 | 2026-11-05 | LucVT | Review T-01.3: chốt Q-01, Q-02 (mục 9), điền ký duyệt (mục 10) |
+| 1.0 | 2026-11-06 | HungDQ | T-01.5: trả lời 15 góp ý (mục 9.2), chốt Q-03 đến Q-08, bỏ ký duyệt (decisions #16). Bản chính thức |
 
 ## 1. Giới thiệu
 
@@ -100,13 +101,13 @@ Máy dev Windows chạy bằng `tools/systembat/*.bat`. Cần JDK 21, Maven 3.9+
 - A-06: Luật thành phần cần người có chuyên môn (dược sĩ hoặc bác sĩ da liễu) review trước khi demo.
 
 ## 3. Yêu cầu chức năng (User Story)
-Mỗi yêu cầu là một User Story. Mục này **chốt 34 US mức P0**: Acceptance Criteria (AC) là căn cứ PO nghiệm thu cuối sprint. Dòng đầu mỗi US ghi: ưu tiên · sprint · owner · kênh · Use Case liên quan. Những chỗ sửa so với `backlog.py` được đánh dấu *(sửa 04/11)*.
+Mỗi yêu cầu là một User Story. Mục này **chốt 34 US mức P0**: Acceptance Criteria (AC) là căn cứ PO nghiệm thu cuối sprint. Dòng đầu mỗi US ghi: ưu tiên · sprint · owner · kênh · Use Case liên quan. Những chỗ đã sửa được đánh dấu *(sửa 04/11)* hoặc *(sửa 06/11, G-xx)*, với G-xx là góp ý ở mục 9.2. `backlog.py` đã được cập nhật theo.
 
 ### 3.1 COMMON: Nền tảng & vận hành
 
 **US-01 · Tài liệu yêu cầu (SRS, US, UC)**: P0 · S0 · HungDQ · All
 Là PO, tôi muốn có SRS khung, User Story và Use Case để cả team hiểu cùng một phạm vi.
-- Given SRS khung và danh sách US/UC · When 4 thành viên review · Then mọi US P0 có Acceptance Criteria và được cả team đồng ý.
+- Given SRS và danh sách US/UC · When PO chốt mọi câu hỏi mở và góp ý · Then mọi US P0 có Acceptance Criteria; SRS 1.0 được công bố cho cả team. *(sửa 06/11: bỏ ký duyệt, decisions #16)*
 
 **US-02 · Môi trường dev chạy được trên mọi máy**: P0 · S0 · cả 4 người · WEB
 Là dev, tôi muốn chạy được toàn bộ hệ thống trên máy mình theo README.
@@ -184,21 +185,21 @@ Là chủ shop, tôi muốn bot không trả lời trùng hay mất tin khi kên
 
 **US-32 · Metric bộ nhớ & xung đột**: P0 · S7 · HungDQ · All · UC-25
 Là Lead, tôi muốn đo được bot nhớ đúng khi đổi kênh và bắt đúng xung đột hoạt chất.
-- Given dataset nhiều lượt, đổi kênh giữa chừng · When chạy bench · Then báo cáo memory recall và conflict recall.
+- Given dataset nhiều lượt, đổi kênh giữa chừng (có ca khai hồ sơ trên WEB rồi hỏi trên SHOPEE đã liên kết) · When chạy bench · Then báo cáo memory recall và conflict recall. *(sửa 06/11, G-13)*
 
 ### 3.3 Trụ B: Chuyên gia mỹ phẩm
 
 **US-04 · Catalog đợt 1 (80 SKU)**: P0 · S0 · LucVT · All · UC-05, UC-20
 Là người mua, tôi muốn shop có danh mục sản phẩm đủ thông tin thành phần để được tư vấn đúng.
-- Given file catalog · When kiểm tra · Then có ≥ 80 SKU với tên, giá theo 3 kênh, INCI, loại da, dung tích, PAO; thương hiệu hư cấu.
+- Given file catalog · When kiểm tra · Then có ≥ 80 SKU với tên, giá theo 3 kênh, INCI, loại da, dung tích, PAO; thương hiệu hư cấu; file CSV import được, không trùng SKU. Kênh sở hữu (WEB, TELEGRAM) dùng chung giá web. *(sửa 06/11, G-11, G-15)*
 
 **US-08 · Quản lý sản phẩm (admin)**: P0 · S1 · LucVT · WEB · UC-20
 Là admin shop, tôi muốn thêm/sửa/ẩn sản phẩm để catalog luôn đúng.
-- Given đăng nhập admin · When thêm/sửa/ẩn sản phẩm · Then GET /api/products phản ánh ngay; sản phẩm ẩn không hiện ở store. *(xem Q-01: chưa có US cho đăng nhập admin)*
+- Given đăng nhập admin · When thêm/sửa/ẩn sản phẩm · Then GET /api/products phản ánh ngay; sản phẩm ẩn không hiện ở store và `GET /api/products/{id}` trả 404. *(sửa 06/11, G-06; đăng nhập admin theo Q-01)*
 
 **US-10 · Gợi ý sản phẩm bằng RAG**: P0 · S2 · ChienPX · All · UC-01
 Là người mua, tôi muốn hỏi "kem chống nắng cho da dầu dưới 300k" và được gợi ý đúng sản phẩm có trong shop.
-- Given catalog 80 SKU · When hỏi kèm ràng buộc loại da/giá · Then top-3 gợi ý đều có thật trong catalog và đúng ràng buộc; không bịa tên sản phẩm.
+- Given catalog 80 SKU · When hỏi kèm ràng buộc loại da/giá · Then top-3 gợi ý đều có thật trong catalog và đúng ràng buộc; không bịa tên sản phẩm; chỉ gợi ý sản phẩm đang bán (`active`). *(sửa 06/11, G-06)*
 
 **US-15 · Giá và tồn kho đúng từ DB**: P0 · S3 · ChienPX · All · UC-16
 Là người mua, tôi muốn bot báo giá và tồn kho đúng với dữ liệu của shop.
@@ -210,13 +211,13 @@ Là người mua, tôi muốn được cảnh báo khi kết hợp hoạt chất
 
 **US-31 · Routine an toàn (mang thai, dị ứng)**: P0 · S7 · ChienPX · All · UC-15
 Là người mua, tôi muốn được gợi ý routine sáng/tối phù hợp và an toàn với tình trạng của tôi.
-- Given hồ sơ "mang thai, da dầu mụn" · When xin routine · Then không có retinoid; có lời khuyên hỏi bác sĩ; dị ứng thành phần nào thì loại sản phẩm đó.
+- Given hồ sơ "mang thai, da dầu mụn" · When xin routine · Then không có retinoid; có lời khuyên hỏi bác sĩ; dị ứng thành phần nào thì loại sản phẩm đó; mọi sản phẩm trong routine có trong catalog và đang bán. *(sửa 06/11, G-14)*
 
 ### 3.4 Trụ C: Danh tính & bộ nhớ xuyên kênh
 
 **US-13 · Tài khoản web + OTP**: P0 · S3 · LucVT · WEB · UC-07
-Là người mua, tôi muốn đăng ký/đăng nhập web bằng email hoặc SĐT + OTP để hệ thống nhớ tôi.
-- Given nhập email/SĐT · When nhập OTP 6 số trong 5 phút · Then đăng nhập thành công; sai 5 lần khóa 15 phút. *(xem Q-02: OTP gửi qua kênh nào)*
+Là người mua, tôi muốn đăng ký/đăng nhập web bằng email + OTP để hệ thống nhớ tôi.
+- Given nhập email · When nhập OTP 6 số trong 5 phút · Then đăng nhập thành công; sai 5 lần khóa 15 phút; gửi lại OTP cách nhau ≥ 60 s, tối đa 5 lần/giờ. *(sửa 06/11, G-02; OTP gửi qua email theo Q-02)*
 
 **US-18 · Liên kết Telegram bằng deep-link**: P0 · S4 · LucVT · TELEGRAM · UC-09
 Là người mua, tôi muốn liên kết Telegram với tài khoản web chỉ bằng 1 lần bấm.
@@ -228,7 +229,7 @@ Là người mua, tôi muốn bot nhớ loại da và dị ứng tôi đã khai,
 
 **US-22 · Mã liên kết OMNI-xxxx**: P0 · S5 · LucVT · SHOPEE, TIKTOK · UC-08
 Là người mua, tôi muốn liên kết tài khoản Shopee với tài khoản web mà không cần bot gửi link.
-- Given lấy mã trên web · When gõ mã vào chat Shopee trong 15 phút · Then 2 danh tính được liên kết; mã chỉ dùng 1 lần.
+- Given lấy mã `OMNI-XXXXXX` (6 ký tự) trên web · When gõ mã vào chat Shopee trong 15 phút, rồi xác nhận và tích consent trên web · Then 2 danh tính được liên kết; mã chỉ dùng 1 lần; một danh tính kênh gõ sai 5 lần trong 1 giờ thì bị khóa nhập mã. *(sửa 06/11, G-01)*
 
 **US-23 · Lịch sử đơn mọi kênh**: P0 · S5 · ChienPX · All · UC-01, UC-14
 Là người mua, tôi muốn bot biết tôi đã mua gì ở mọi kênh đã liên kết để tư vấn phù hợp.
@@ -236,7 +237,7 @@ Là người mua, tôi muốn bot biết tôi đã mua gì ở mọi kênh đã 
 
 **US-30 · Quyền dữ liệu cá nhân**: P0 · S7 · LucVT · WEB · UC-12
 Là người mua, tôi muốn xem, tải về, xóa dữ liệu và tách liên kết kênh của mình.
-- Given đã đăng nhập · When yêu cầu xóa · Then dữ liệu cá nhân bị xóa/ẩn danh, liên kết kênh bị gỡ; có log consent.
+- Given đã đăng nhập · When yêu cầu xóa · Then hồ sơ, hồ sơ da, hội thoại và vector bộ nhớ bị xóa; đơn hàng được ẩn danh; liên kết kênh bị gỡ; log consent chỉ giữ id ẩn danh, thời điểm, loại consent. *(sửa 06/11, G-03)*
 
 ### 3.5 Trụ D: Săn sale & chọn kênh
 
@@ -246,7 +247,7 @@ Là admin shop, tôi muốn nhập voucher, flash sale, giá theo từng kênh v
 
 **US-34 · Cố vấn săn sale**: P0 · S8 · ChienPX · All · UC-17
 Là người mua, tôi muốn biết nên mua ngay hay đợi sale và (trên kênh của shop) kênh nào lợi nhất.
-- Given dữ liệu khuyến mãi · When hỏi trên WEB · Then so sánh đúng giá các kênh; hỏi trên SHOPEE thì chỉ nói voucher/giờ sale Shopee; số liệu khớp DB 100%.
+- Given dữ liệu khuyến mãi · When hỏi trên WEB · Then so sánh đúng giá các kênh; hỏi trên SHOPEE thì chỉ nói voucher/giờ sale Shopee; số liệu khớp DB 100%; chỉ khuyên "đợi" khi có khuyến mãi của đúng kênh bắt đầu trong ≤ 7 ngày và rẻ hơn ≥ 10% (luật ở UC-17). *(sửa 06/11, G-12)*
 
 ### 3.6 Ngoài P0 (chưa chốt trong đợt này)
 AC của các US dưới đây xem trong `backlog.py`. Chúng sẽ được chốt ở Sprint Review trước sprint tương ứng, và có thể bị cắt nếu velocity < 80%.
@@ -325,7 +326,7 @@ Mỗi UC gồm: tiền điều kiện → hậu điều kiện, luồng chính, 
 3. AI Brain trả lời với system prompt của kênh sàn.
 4. Policy áp luật SHOPEE: ẩn link và SĐT, chặn câu nhắc kênh khác, cắt theo độ dài tối đa.
 5. Adapter gửi finalText qua API gửi tin của Shopee.
-- Luồng phụ: khách gõ mã OMNI-xxxx thì chạy UC-08.
+- Luồng phụ: khách gõ mã OMNI thì chạy UC-08.
 - Ngoại lệ: câu trả lời vi phạm luật thì bị ẩn hoặc thay bằng câu mẫu (viết lại là US-28, P1).
 - BR: không link ngoài, không SĐT, không nhắc kênh khác (C-02).
 
@@ -336,39 +337,42 @@ Mỗi UC gồm: tiền điều kiện → hậu điều kiện, luồng chính, 
 2. Lọc theo loại da, danh mục, khoảng giá.
 3. Mở chi tiết: giá, thành phần INCI, dung tích, PAO.
 - Ngoại lệ: không tải được dữ liệu thì hiện thông báo lỗi.
-- BR: banner demo luôn hiển thị; sản phẩm ẩn không xuất hiện.
+- BR: banner demo luôn hiển thị; sản phẩm ẩn không xuất hiện; lọc và hiển thị theo giá web (`price_web`). *(sửa 06/11, G-09)*
 
 **UC-06 · Đặt hàng ảo** (Người mua). Tiền điều kiện: có sản phẩm còn hàng → Hậu điều kiện: đơn trạng thái DEMO được tạo.
 1. Khách chọn sản phẩm và số lượng.
 2. Khách xác nhận đặt hàng.
 3. Hệ thống tạo đơn trạng thái DEMO và báo rõ "không thanh toán, không giao hàng".
+- Luồng phụ: ở S2 cho đặt mà không cần đăng nhập (`customer_id` để trống); từ S3 đơn gắn với khách đã đăng nhập.
 - Ngoại lệ: hết hàng thì không cho đặt.
-- BR: không gọi cổng thanh toán, không giao hàng thật (C-04).
+- BR: không gọi cổng thanh toán, không giao hàng thật (C-04); đơn DEMO không trừ tồn kho. *(sửa 06/11, G-04)*
 
-**UC-07 · Đăng ký/đăng nhập OTP** (Người mua). Tiền điều kiện: có email/SĐT → Hậu điều kiện: có phiên đăng nhập.
-1. Khách nhập email hoặc SĐT.
-2. Hệ thống gửi OTP 6 số (kênh gửi: Q-02).
+**UC-07 · Đăng ký/đăng nhập OTP** (Người mua). Tiền điều kiện: có email → Hậu điều kiện: có phiên đăng nhập.
+1. Khách nhập email.
+2. Hệ thống gửi OTP 6 số qua email (khi dev thì in mã ra log, Q-02).
 3. Khách nhập OTP trong 5 phút.
 4. Đăng nhập thành công; chưa có tài khoản thì tạo mới.
 - Ngoại lệ: OTP hết hạn thì yêu cầu mã mới; sai 5 lần thì khóa 15 phút.
-- BR: OTP hết hạn sau 5 phút.
+- BR: OTP hết hạn sau 5 phút; gửi lại cách nhau ≥ 60 s, tối đa 5 lần/giờ. *(sửa 06/11, G-02)*
 
 **UC-08 · Liên kết kênh sàn bằng mã OMNI** (Người mua). Tiền điều kiện: đã đăng nhập web → Hậu điều kiện: danh tính sàn gắn với khách (`linked_by = LINK_CODE`).
-1. Khách lấy mã OMNI-xxxx trên web; màn hình hiện thời gian còn lại.
+1. Khách lấy mã `OMNI-XXXXXX` (6 ký tự A–Z và 2–9, bỏ O, I) trên web; màn hình hiện thời gian còn lại.
 2. Khách gõ mã vào chat Shopee hoặc TikTok.
 3. Adapter nhận ra mã; hệ thống kiểm tra mã.
-4. Danh tính sàn được liên kết; bot xác nhận đã liên kết.
-- Ngoại lệ: mã hết hạn, đã dùng hoặc sai thì báo lỗi.
-- BR: mã dùng 1 lần, hết hạn sau 15 phút; bot không gửi link trên sàn.
+4. Trang web của khách hiện yêu cầu "Liên kết tài khoản Shopee ***abc?"; khách tích đồng ý xử lý dữ liệu và xác nhận.
+5. Danh tính sàn được liên kết; bot xác nhận đã liên kết.
+- Ngoại lệ: mã hết hạn, đã dùng hoặc sai thì báo lỗi; một danh tính kênh gõ sai 5 lần trong 1 giờ thì bị khóa nhập mã tới hết giờ đó.
+- BR: mã dùng 1 lần, hết hạn sau 15 phút; chỉ gắn sau khi khách xác nhận và có consent trên web (C-01); bot không gửi link trên sàn. *(sửa 06/11, G-01)*
 
-**UC-09 · Liên kết Telegram bằng deep-link** (Người mua). Tiền điều kiện: đã đăng nhập web → Hậu điều kiện: đã liên kết, có consent.
+**UC-09 · Liên kết Telegram bằng deep-link** (Người mua). Tiền điều kiện: khách có tài khoản web → Hậu điều kiện: đã liên kết, có consent.
 1. Khách yêu cầu liên kết trong Telegram.
 2. Bot gửi deep-link.
 3. Khách bấm, mở trang xác nhận trên web.
 4. Khách tích đồng ý xử lý dữ liệu và xác nhận.
 5. Hai danh tính được gắn cùng một khách (`linked_by = DEEP_LINK`).
+- Luồng phụ: trình duyệt chưa đăng nhập web thì chuyển sang UC-07, xong quay lại trang xác nhận.
 - Ngoại lệ: link hết hạn hoặc đã dùng thì yêu cầu link mới.
-- BR: link dùng 1 lần, hết hạn sau 10 phút; bắt buộc có consent (C-01).
+- BR: link dùng 1 lần, hết hạn sau 10 phút; token trong link gắn với đúng Telegram chat id đã yêu cầu; bắt buộc có consent (C-01). *(sửa 06/11, G-05)*
 
 **UC-12 · Quản lý dữ liệu cá nhân** (Người mua). Tiền điều kiện: đã đăng nhập → Hậu điều kiện: dữ liệu cập nhật theo yêu cầu, có log.
 1. Khách mở trang dữ liệu cá nhân.
@@ -376,13 +380,13 @@ Mỗi UC gồm: tiền điều kiện → hậu điều kiện, luồng chính, 
 3. Với yêu cầu xóa: xác nhận 2 bước.
 4. Hệ thống xóa hoặc ẩn danh dữ liệu, gỡ liên kết, ghi log.
 - Ngoại lệ: hủy ở bước xác nhận thì không có gì thay đổi.
-- BR: Luật 91/2025/QH15 (C-01).
+- BR: Luật 91/2025/QH15 (C-01). Khi xóa: xóa hồ sơ, hồ sơ da, hội thoại, vector bộ nhớ; ẩn danh đơn hàng (giữ cho thống kê); log consent chỉ giữ id ẩn danh, thời điểm, loại consent. *(sửa 06/11, G-03)*
 
 **UC-13 · Khai & cập nhật hồ sơ da** (Người mua). Hậu điều kiện: hồ sơ lưu theo khách.
 1. Khách khai loại da, vấn đề da, dị ứng, mang thai qua form hoặc qua chat.
 2. Nếu khai qua chat: AI trích hồ sơ và hỏi lại để khách xác nhận.
 3. Hồ sơ được lưu; mọi kênh đã liên kết dùng chung hồ sơ này.
-- BR: thông tin sức khỏe là dữ liệu nhạy cảm, cần consent.
+- BR: thông tin sức khỏe là dữ liệu nhạy cảm, cần consent. Hồ sơ khai qua chat chỉ được lưu sau khi khách xác nhận ở bước 2; chưa xác nhận thì chỉ dùng trong phiên đó. Kênh sàn đã liên kết cũng dùng chung hồ sơ, nghiệm thu ở US-32. *(sửa 06/11, G-13)*
 
 **UC-14 · Kiểm tra xung đột hoạt chất** (Người mua). Hậu điều kiện: có cảnh báo nếu xung đột.
 1. Khách hỏi về việc kết hợp hoạt chất hoặc về routine.
@@ -396,21 +400,21 @@ Mỗi UC gồm: tiền điều kiện → hậu điều kiện, luồng chính, 
 3. Lọc theo luật an toàn.
 4. Trả routine kèm lưu ý.
 - Luồng phụ: thiếu hồ sơ thì hỏi thêm.
-- BR: mang thai thì loại retinoid và khuyên hỏi bác sĩ; dị ứng thành phần nào thì loại sản phẩm chứa thành phần đó.
+- BR: mang thai thì loại retinoid và khuyên hỏi bác sĩ; dị ứng thành phần nào thì loại sản phẩm chứa thành phần đó; mọi sản phẩm trong routine phải lấy từ catalog và đang bán. *(sửa 06/11, G-14)*
 
 **UC-16 · Hỏi giá & tồn kho** (Người mua). Tiền điều kiện: sản phẩm có trong catalog.
 1. Khách hỏi giá hoặc tồn kho.
 2. Agent gọi tool `get_price_and_stock` theo kênh hiện tại.
 3. Bot trả lời đúng số trong DB.
 - Ngoại lệ: hết hàng thì báo hết và gợi ý sản phẩm thay thế.
-- BR: số liệu chỉ lấy từ DB, giá theo đúng kênh (C-07).
+- BR: số liệu chỉ lấy từ DB, giá theo đúng kênh (C-07); kênh sở hữu (WEB, TELEGRAM, MESSENGER) dùng giá web; sản phẩm thay thế phải có trong catalog, đang bán và còn hàng. *(sửa 06/11, G-14, G-15)*
 
 **UC-17 · Tư vấn săn sale** (Người mua). Tiền điều kiện: có dữ liệu khuyến mãi.
 1. Khách hỏi nên mua ngay hay đợi.
 2. Agent gọi tool `get_promotions`.
 3. Trên kênh sở hữu: so sánh giá giữa các kênh và gợi ý mua ngay hay đợi.
 - Luồng phụ: trên kênh sàn chỉ nói voucher và giờ sale của chính sàn đó.
-- BR: không so sánh kênh trên Shopee/TikTok; số liệu khớp DB.
+- BR: không so sánh kênh trên Shopee/TikTok; số liệu khớp DB. Chỉ khuyên "đợi" khi DB có khuyến mãi của đúng kênh, bắt đầu trong ≤ 7 ngày và giá sau khuyến mãi thấp hơn giá hiện tại ≥ 10%; còn lại khuyên mua ngay. Quyết định này do code tất định, LLM chỉ diễn giải (C-07). *(sửa 06/11, G-12)*
 
 **UC-19 · Chuyển nhân viên** (Người mua, Admin). Hậu điều kiện: hội thoại nằm trong hàng chờ.
 1. Bot lỗi, hoặc khách yêu cầu gặp người.
@@ -421,16 +425,15 @@ Mỗi UC gồm: tiền điều kiện → hậu điều kiện, luồng chính, 
 
 **UC-20 · Quản lý sản phẩm** (Admin). Tiền điều kiện: đăng nhập admin (Q-01) → Hậu điều kiện: catalog cập nhật.
 1. Admin mở danh sách sản phẩm.
-2. Thêm hoặc sửa (giá 3 kênh, INCI, loại da, dung tích, PAO), hoặc ẩn sản phẩm.
+2. Thêm hoặc sửa (giá niêm yết 3 kênh, INCI, loại da, dung tích, PAO), hoặc ẩn sản phẩm.
 3. Hệ thống kiểm tra dữ liệu và lưu; `GET /api/products` phản ánh ngay.
 - Ngoại lệ: trùng SKU thì báo lỗi.
-- BR: sản phẩm ẩn không hiện ở store và AI không được gợi ý.
+- BR: sản phẩm ẩn không hiện ở store và AI không được gợi ý; không xóa cứng, chỉ ẩn (`active=false`); UC-20 chỉ quản lý giá niêm yết, khuyến mãi thuộc UC-21. *(sửa 06/11, G-07, G-08)*
 
 **UC-21 · Quản lý khuyến mãi** (Admin). Tiền điều kiện: đăng nhập admin.
-1. Admin nhập voucher, flash sale, giá theo kênh.
+1. Admin nhập voucher, flash sale theo kênh, chồng lên giá niêm yết của UC-20.
 2. Hệ thống lưu và ghi lịch sử giá.
-- Ngoại lệ: voucher hết hạn thì tự tắt.
-- BR: lưu lịch sử giá mỗi lần đổi.
+- BR: lưu lịch sử giá mỗi lần đổi, tính từ S8 (US-33); voucher hết hạn thì tự tắt; mọi mốc giờ khuyến mãi lưu theo `Asia/Ho_Chi_Minh`. *(sửa 06/11, G-08, G-10)*
 
 **UC-22 · Xem hội thoại** (Admin). Tiền điều kiện: đăng nhập admin.
 1. Admin mở inbox, lọc theo kênh, khoảng ngày, có vi phạm hay không.
@@ -467,7 +470,7 @@ Mỗi UC gồm: tiền điều kiện → hậu điều kiện, luồng chính, 
 | NFR-05 | Độ tin cậy kênh | Không trả lời trùng khi kênh gửi lại; ≥ 99% thành công khi bật fault injection | Bench adapter | US-17, 29 |
 | NFR-06 | Khả dụng | AI Brain lỗi hoặc quá 10 s thì trả câu chờ và handoff; tin vẫn được lưu | Test router | US-11, 35 |
 | NFR-07 | Dữ liệu cá nhân | Consent trước khi liên kết; xem, xuất, xóa được; không tự gộp; hồ sơ sức khỏe là dữ liệu nhạy cảm | Test API, review | US-18, 22, 30 |
-| NFR-08 | Xác thực | OTP 6 số hết hạn sau 5 phút, sai 5 lần khóa 15 phút; deep-link 1 lần, 10 phút; mã OMNI 1 lần, 15 phút | Test API | US-13, 18, 22 |
+| NFR-08 | Xác thực | OTP 6 số hết hạn sau 5 phút, sai 5 lần khóa 15 phút, gửi lại cách nhau ≥ 60 s và ≤ 5 lần/giờ; deep-link 1 lần, 10 phút; mã OMNI 6 ký tự, 1 lần, 15 phút, sai 5 lần/giờ thì khóa *(sửa 06/11, G-01, G-02)* | Test API | US-13, 18, 22 |
 | NFR-09 | An toàn nội dung | Không chẩn đoán, không claim y khoa; bắt được 100% xung đột và chống chỉ định trong bench | Bench xung đột, routine | US-27, 31 |
 | NFR-10 | Bí mật | Không commit `.env`, API key; key đọc từ biến môi trường | Review PR | All |
 | NFR-11 | Kiểm thử được | Mỗi luật kênh có ≥ 2 test (khớp đúng và không khớp nhầm), chạy giống nhau ở Java và Python | `PolicyEngineTest`, `test_policy_check.py` | US-07, 20 |
@@ -494,7 +497,7 @@ Cách chạy và định dạng dataset: [bench.md](../specs/bench.md).
 ## 8. Ma trận truy vết (US P0)
 | US | Sprint | Owner | UC | Kiểm chứng khi nghiệm thu |
 |---|---|---|---|---|
-| US-01 | S0 | HungDQ | | Bảng ký duyệt mục 10 đủ 4 người |
+| US-01 | S0 | HungDQ | | SRS 1.0; mục 9 không còn câu hỏi mở |
 | US-02 | S0 | Cả 4 | | Ảnh chụp chat widget có phản hồi trên máy từng người |
 | US-03 | S0 | TuTM | UC-03, 04 | Báo cáo spike kèm bằng chứng; decisions #12 |
 | US-04 | S0 | LucVT | UC-05, 20 | File CSV ≥ 80 SKU, không trùng SKU |
@@ -506,7 +509,7 @@ Cách chạy và định dạng dataset: [bench.md](../specs/bench.md).
 | US-10 | S2 | ChienPX | UC-01 | 10 ca bench RAG |
 | US-11 | S2 | TuTM | UC-01–04, 22 | Test lưu tin khi AI Brain lỗi |
 | US-12 | S2 | HungDQ | UC-25 | 50 ca, ≥ 5 nhóm, báo cáo theo kênh |
-| US-13 | S3 | LucVT | UC-07 | Test OTP hết hạn, sai OTP, khóa |
+| US-13 | S3 | LucVT | UC-07 | Test OTP hết hạn, sai OTP, khóa, giới hạn gửi lại |
 | US-14 | S3 | TuTM | UC-22 | Test 3 bộ lọc |
 | US-15 | S3 | ChienPX | UC-16 | 20 ca bench, bịa số = 0 |
 | US-17 | S4 | TuTM | UC-02 | Gửi lại webhook 3 lần → 1 phản hồi |
@@ -514,7 +517,7 @@ Cách chạy và định dạng dataset: [bench.md](../specs/bench.md).
 | US-19 | S4 | ChienPX | UC-13 | 10 ca bench, memory recall ≥ 90% |
 | US-20 | S4 | HungDQ | UC-24 | Mỗi luật ≥ 2 test, có ghi nguồn quy định |
 | US-21 | S5 | TuTM | UC-03 | 5 ca bench kênh Shopee |
-| US-22 | S5 | LucVT | UC-08 | Test mã hết hạn, dùng lại, sai mã |
+| US-22 | S5 | LucVT | UC-08 | Test mã hết hạn, dùng lại, sai mã, khóa sau 5 lần sai; chưa xác nhận trên web thì chưa gắn |
 | US-23 | S5 | ChienPX | UC-01, 14 | 5 ca bench |
 | US-24 | S5 | HungDQ | UC-25 | 20 ca bẫy, 0 lọt; judge ≥ 80% |
 | US-25 | S6 | TuTM | UC-04 | 5 ca bench kênh TikTok |
@@ -529,24 +532,43 @@ Cách chạy và định dạng dataset: [bench.md](../specs/bench.md).
 | US-45 | S11 | HungDQ | mọi UC P0 | Kịch bản E2E 7/7 bước |
 | US-46 | S12 | HungDQ | | Diễn tập demo ≤ 15 phút |
 
-## 9. Câu hỏi mở cho buổi review
-| # | Câu hỏi | Đề xuất của PO | Người chốt |
-|---|---|---|---|
-| Q-01 | US-08 (S1) cần "đăng nhập admin" nhưng chưa có US nào cho đăng nhập admin | S1–S2 dùng một tài khoản admin cấu hình qua biến môi trường (Spring Security in-memory); làm đầy đủ ở S3 cùng US-13 | LucVT · **Đã chốt 05/11: theo đề xuất.** API quản trị nằm dưới `/api/admin/**`, xác thực HTTP Basic bằng `ADMIN_USERNAME`/`ADMIN_PASSWORD` (thêm vào `.env.example` ở T-08.1). API đọc của store vẫn mở |
-| Q-02 | OTP (US-13) gửi qua đâu? SMS thường tốn phí | Chỉ gửi qua email; khi dev thì in mã ra log. SĐT để sau | LucVT · **Đã chốt 05/11: theo đề xuất.** SMTP miễn phí, khi dev in mã ra log. SĐT chỉ là trường hồ sơ, không dùng để đăng nhập trong P0 |
-| Q-03 | Messenger đã có trong `ChannelType` và YAML nhưng không có US | Ngoài phạm vi P0; giữ enum và YAML cho simulator và bench; chỉ làm nếu Telegram bị chặn | TuTM |
-| Q-04 | Telegram webhook cần HTTPS công khai | Khi dev dùng long polling hoặc tunnel (ngrok/cloudflared); demo dùng tunnel | TuTM |
-| Q-05 | Model miễn phí có thể không đạt p95 < 5 s (US-06, US-17) | Chờ kết quả US-05. Nếu không model nào đạt cổng G4 thì cả team quyết định nới AC hay đổi cách chạy | ChienPX, PO |
-| Q-06 | LLM-as-judge (US-24) cũng phải là model miễn phí | Dùng model khác model chính để tránh tự chấm cho mình | HungDQ |
-| Q-07 | BR của UC-25 cần CI (US-16, P1, S3). Trước S3 thì sao? | Người mở PR dán kết quả bench vào mô tả PR | HungDQ |
-| Q-08 | Thầy chưa trả lời câu "simulator theo schema thật có được chấp nhận không" (sheet Q&A) | HungDQ hỏi thầy trong tuần này, vì decisions #12 dựa vào câu trả lời đó | HungDQ |
+## 9. Câu hỏi mở và góp ý review
+Mọi câu hỏi và góp ý của đợt review S0 đã được PO chốt ngày 06/11/2026 (T-01.5). Câu hỏi mới thì thêm dòng từ Q-09 và ghi người chốt.
 
-## 10. Review và ký duyệt
-Cách review: đọc phần được giao, góp ý trực tiếp trên PR (hoặc ghi vào sheet Q&A). Đồng ý thì **Approve PR** và điền dòng của mình bên dưới. Khi đủ 4 người đồng ý và mọi câu hỏi Q-xx đã có người chốt, SRS lên phiên bản 1.0 và US-01 được nghiệm thu.
+### 9.1 Câu hỏi mở
+| # | Câu hỏi | Kết luận |
+|---|---|---|
+| Q-01 | US-08 (S1) cần "đăng nhập admin" nhưng chưa có US nào cho đăng nhập admin | **Chốt 05/11 (LucVT).** S1–S2 dùng một tài khoản admin cấu hình qua biến môi trường (Spring Security in-memory), làm đầy đủ ở S3 cùng US-13. API quản trị nằm dưới `/api/admin/**`, xác thực HTTP Basic bằng `ADMIN_USERNAME`/`ADMIN_PASSWORD` (thêm vào `.env.example` ở T-08.1). API đọc của store vẫn mở |
+| Q-02 | OTP (US-13) gửi qua đâu? SMS thường tốn phí | **Chốt 05/11 (LucVT).** Chỉ gửi qua email (SMTP miễn phí), khi dev in mã ra log. SĐT chỉ là trường hồ sơ, không dùng để đăng nhập trong P0 |
+| Q-03 | Messenger đã có trong `ChannelType` và YAML nhưng không có US | **Chốt 06/11 (PO).** Ngoài phạm vi P0; giữ enum và YAML cho simulator và bench; chỉ làm nếu Telegram bị chặn |
+| Q-04 | Telegram webhook cần HTTPS công khai | **Chốt 06/11 (PO).** Khi dev dùng long polling hoặc tunnel (ngrok/cloudflared); demo dùng tunnel |
+| Q-05 | Model miễn phí có thể không đạt p95 < 5 s (US-06, US-17) | **Chốt 06/11 (PO, T-05.3).** Tạm dùng `gemini-3.6-flash`, duyệt có điều kiện (decisions #14). Giữ NFR-01. T-06.4 đo lại p95 trước Sprint Review S1 (16/11); vẫn > 5 s thì PO chọn nới NFR-01 hoặc đổi model chính sang model dự phòng |
+| Q-06 | LLM-as-judge (US-24) cũng phải là model miễn phí | **Chốt 06/11 (PO).** Judge là model trong shortlist US-05 nhưng khác model chính đang dùng; hiện là `qwen/qwen3.8-27b` (Groq) |
+| Q-07 | BR của UC-25 cần CI (US-16, P1, S3). Trước S3 thì sao? | **Chốt 06/11 (PO).** Người mở PR dán kết quả bench/test vào mô tả PR (đã ghi trong `docs/TEAM_GIT_WORKFLOW.md`) |
+| Q-08 | Thầy chưa trả lời câu "simulator theo schema thật có được chấp nhận không" | **Chốt tạm 06/11 (PO).** Làm theo decisions #12. HungDQ hỏi thầy trước S5 (08/12); nếu thầy không chấp nhận thì Sprint Review gần nhất điều chỉnh phạm vi US-21, US-25. Không chặn SRS 1.0 |
 
-| Thành viên | Vai trò | Phần review | Ngày | Kết quả (Đồng ý / Có góp ý) |
+### 9.2 Góp ý review và quyết định của PO
+G-01 đến G-11 do LucVT góp ý (PR #174), G-12 đến G-15 do ChienPX góp ý (comment trên issue #1). PO đồng ý tất cả và đã sửa vào chỗ ghi ở cột cuối.
+
+| # | Người góp ý | Chỗ | Quyết định | Đã sửa |
 |---|---|---|---|---|
-| HungDQ | PO + Lead | Toàn bộ | 2026-11-04 | Tác giả |
-| TuTM | Dev kênh & adapter | Mục 3.2, UC-01–04, 19, 22, 24, Q-03, Q-04 (T-01.2) | | |
-| LucVT | Dev dữ liệu & danh tính | Mục 3.3, 3.4, UC-05–09, 12, 20, 21, Q-01, Q-02 (T-01.3) | 2026-11-05 | Có góp ý (PR T-01.3): chốt Q-01, Q-02; 11 góp ý (G-01–G-11) cho US-04, 08, 13, 22, UC-05, 06, 08, 09, 12, 20, 21 chờ PO quyết |
-| ChienPX | Dev AI | Mục 3.3, 3.5, UC-13–17, Q-05, Q-06 (T-01.4) | | |
+| G-01 | LucVT | UC-08, US-22 | Mã 4 chữ số dễ bị dò. Đổi thành `OMNI-XXXXXX` (6 ký tự A–Z và 2–9, bỏ O, I); mỗi danh tính kênh sai tối đa 5 lần/giờ; gõ đúng mã thì khách phải xác nhận và tích consent trên web mới gắn | US-22, UC-08, NFR-08 |
+| G-02 | LucVT | US-13 | Chỉ email + OTP (khớp Q-02); gửi lại OTP cách nhau ≥ 60 s, tối đa 5 lần/giờ | US-13, UC-07, NFR-08 |
+| G-03 | LucVT | UC-12, US-30 | Xóa hồ sơ, hồ sơ da, hội thoại, vector bộ nhớ; ẩn danh đơn hàng; giữ log consent tối thiểu (id ẩn danh, thời điểm, loại consent) | US-30, UC-12 |
+| G-04 | LucVT | UC-06 | Đơn DEMO không trừ tồn kho. S2 đặt không cần đăng nhập, từ S3 đơn gắn với khách đã đăng nhập | UC-06 |
+| G-05 | LucVT | UC-09 | Thêm luồng phụ: chưa đăng nhập web thì qua UC-07 rồi quay lại; token gắn với đúng Telegram chat id đã yêu cầu | UC-09 |
+| G-06 | LucVT | US-08, US-10 | Sản phẩm ẩn: `GET /api/products/{id}` trả 404; RAG chỉ gợi ý sản phẩm `active` | US-08, US-10 |
+| G-07 | LucVT | UC-20 | Không xóa cứng, chỉ ẩn | UC-20 |
+| G-08 | LucVT | UC-20, UC-21 | UC-20 quản lý giá niêm yết theo kênh, UC-21 quản lý khuyến mãi chồng lên; lịch sử giá tính từ S8 | UC-20, UC-21 |
+| G-09 | LucVT | UC-05, US-09 | Store lọc và hiển thị theo `price_web`; so sánh giá các kênh chỉ có ở US-34 trên kênh sở hữu | UC-05 |
+| G-10 | LucVT | UC-21 | "Voucher hết hạn thì tự tắt" là BR, không phải ngoại lệ; mốc giờ khuyến mãi lưu theo `Asia/Ho_Chi_Minh` | UC-21 |
+| G-11 | LucVT | US-04 | AC thêm "file CSV import được, không trùng SKU" cho khớp mục 8 | US-04 |
+| G-12 | ChienPX | UC-17, US-34 | Luật tất định cho "mua ngay hay đợi": chỉ khuyên đợi khi DB có khuyến mãi của đúng kênh, bắt đầu trong ≤ 7 ngày và rẻ hơn giá hiện tại ≥ 10%; LLM chỉ diễn giải | UC-17, US-34 |
+| G-13 | ChienPX | UC-13, US-19 | Mọi kênh đã liên kết dùng chung hồ sơ. US-19 (S4) nghiệm thu WEB → TELEGRAM; ca WEB → SHOPEE nghiệm thu ở US-32 (S7). Hồ sơ khai qua chat chỉ lưu khi khách xác nhận | UC-13, US-32 |
+| G-14 | ChienPX | UC-15, UC-16 | Sản phẩm trong routine và sản phẩm thay thế phải lấy từ catalog, đang bán (thay thế thì phải còn hàng) | UC-15, UC-16, US-31 |
+| G-15 | ChienPX | US-04, UC-16, UC-17 | Kênh sở hữu (WEB, TELEGRAM, MESSENGER) dùng chung `price_web`, không thêm cột giá | US-04, UC-16, `data-model.md` |
+
+## 10. Góp ý và thay đổi
+SRS không cần ký duyệt (decisions #16). Ai thấy chỗ sai hoặc thiếu thì comment trên issue US-01 (#1) hoặc mở PR sửa thẳng. PO quyết định, ghi vào bảng phiên bản ở đầu file và đánh dấu *(sửa <ngày>)* ở chỗ đã sửa. Có vấn đề lớn thì cả team họp.
+
+Đợt review S0 (03–05/11): LucVT góp ý phần dữ liệu và danh tính (PR #174), ChienPX góp ý phần AI (issue #1); PO đã trả lời ở mục 9.2. Phần kênh và adapter (T-01.2) không review riêng nữa vì backlog đã bỏ task review.

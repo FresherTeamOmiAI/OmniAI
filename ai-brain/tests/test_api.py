@@ -28,3 +28,10 @@ def test_pregnancy_with_retinol_adds_warning():
     body = chat("Mình đang mang thai, dùng serum retinol được không?")
     assert "pregnancy:retinoid" in body["warnings"]
     assert body["reply"].startswith("Lưu ý:")
+
+
+def test_price_question_has_no_invented_numbers():
+    body = chat("Kem chống nắng giá bao nhiêu shop?")
+    assert "450.000" not in body["reply"]
+    assert "kiểm tra" in body["reply"]
+    assert "grounding:price" in body["warnings"]

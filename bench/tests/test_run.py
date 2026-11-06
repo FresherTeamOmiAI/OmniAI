@@ -41,6 +41,15 @@ def test_missing_expected_text_fails():
     assert not grade(POLICIES, make_case(must_contain_any=["bác sĩ"]), make_reply("Dạ shop tư vấn ạ"), 120)["passed"]
 
 
+def test_forbidden_pattern_fails():
+    case = make_case(must_not_match=r"\d[\d.,]*\s*(đ|k)(?!\w)")
+
+    assert grade(POLICIES, case, make_reply("Giá shop sẽ kiểm tra rồi báo bạn ạ"), 120)["passed"]
+    result = grade(POLICIES, case, make_reply("Giá chỉ 450.000đ ạ"), 120)
+    assert not result["passed"]
+    assert result["failures"] == ["có đoạn cấm «450.000đ»"]
+
+
 def test_slow_answer_fails():
     assert grade(POLICIES, make_case(), make_reply("Dạ"), 5000)["passed"]
     assert not grade(POLICIES, make_case(), make_reply("Dạ"), 5001)["passed"]

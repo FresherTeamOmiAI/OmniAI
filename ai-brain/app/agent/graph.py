@@ -6,6 +6,7 @@ check_ingredients, get_promotions, create_handoff.
 """
 
 from app.llm.base import LLMProvider
+from app.rules.grounding import strip_unverified_numbers
 from app.rules.ingredients import check_routine
 from app.schemas import ChatRequest, ChatResponse
 
@@ -30,7 +31,9 @@ def respond(request: ChatRequest, provider: LLMProvider) -> ChatResponse:
     warnings = check_routine(request.text, pregnant=pregnant)
 
     reply = provider.generate(request, system_prompt_for(request))
+    # C-07: chưa có tool giá/tồn kho (US-15, S3), nên số loại này trong câu LLM đều là tự nêu (T-06.6).
+    reply, grounding = strip_unverified_numbers(reply)
     if warnings:
         reply = "Lưu ý: " + " ".join(w.message for w in warnings) + "\n" + reply
 
-    return ChatResponse(reply=reply, provider=provider.name, warnings=[w.code for w in warnings])
+    return ChatResponse(reply=reply, provider=provider.name, warnings=[w.code for w in warnings] + grounding)

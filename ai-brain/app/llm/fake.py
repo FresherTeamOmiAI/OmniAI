@@ -2,7 +2,10 @@
 
 Cố tình trả lời "ngây thơ" (gợi ý mua web, đưa SĐT, dùng từ "đặc trị") để policy engine
 bên backend có cái mà chặn. Provider thật phải tự tuân thủ luật kênh, policy chỉ là lưới an toàn.
+Khi được hỏi giá thì cố tình tự bịa giá, tồn kho, khuyến mãi để kiểm tra `rules/grounding.py` (T-06.6).
 """
+
+PRICE_KEYWORDS = ("giá", "bao nhiêu", "còn hàng", "tồn kho")
 
 from app.schemas import ChatRequest
 
@@ -16,6 +19,11 @@ class FakeProvider:
             return (
                 "Dạ bạn đặt trên website của shop tại https://omni-demo.local sẽ rẻ hơn, "
                 "hoặc nhắn Zalo 0901234567 để shop tư vấn ạ."
+            )
+        if any(k in text for k in PRICE_KEYWORDS):
+            return (
+                "Dạ sản phẩm này đang có giá 450.000đ, còn 15 sản phẩm và đang giảm 10% ạ. "
+                "Bạn nên thoa sau bước dưỡng ẩm nhé."
             )
         if "mụn" in text:
             return "Dạ với da mụn, bạn tham khảo Dung dịch BHA 2% của Lumi Lab, sản phẩm đặc trị mụn rất tốt ạ."
