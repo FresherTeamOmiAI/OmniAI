@@ -28,9 +28,25 @@ class OmniAiApplicationTests {
     @Autowired
     JdbcTemplate jdbc;
 
+    /** V5 (T-08.2) nạp 80 SKU từ shared/catalog/products.csv, gồm 2 SKU ẩn và 4 SKU hết hàng. */
     @Test
-    void flywayMigratesAndSeedsProducts() {
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM product", Integer.class)).isEqualTo(8);
+    void flywayImportsCatalogOf80Skus() {
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM product", Integer.class)).isEqualTo(80);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM product WHERE active", Integer.class)).isEqualTo(78);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM product WHERE stock = 0", Integer.class)).isEqualTo(4);
+        assertThat(jdbc.queryForObject("SELECT COUNT(DISTINCT brand) FROM product", Integer.class)).isEqualTo(5);
+        assertThat(jdbc.queryForObject("SELECT COUNT(DISTINCT category) FROM product", Integer.class)).isEqualTo(10);
+    }
+
+    /** SKU có sẵn từ V2 được upsert: giữ giá cũ, có thêm các trường của V4. */
+    @Test
+    void catalogImportUpdatesSkusSeededByV2() {
+        var row = jdbc.queryForMap("SELECT price_web, usage_time, skin_concerns, description FROM product"
+                + " WHERE sku = 'LUMI-SUN-01'");
+        assertThat(row.get("price_web")).isEqualTo(289000L);
+        assertThat(row.get("usage_time")).isEqualTo("am");
+        assertThat(row.get("skin_concerns")).isEqualTo("oil-control,sun-protection");
+        assertThat((String) row.get("description")).isNotBlank();
     }
 
     @Test

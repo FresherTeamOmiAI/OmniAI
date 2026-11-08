@@ -1,6 +1,6 @@
 # Tổng quan hệ thống
 
-> Cập nhật: 2026-11-05 · commit a79fc37
+> Cập nhật: 2026-11-08 · commit 1fd584f
 > Nguồn: `README.md`, `docker-compose.yml`, `.env.example`, `backend/src/main/resources/application.yml`, `web/vite.config.ts`, `tools/systembat/`
 
 ## Mục tiêu
@@ -28,7 +28,7 @@ Bench gọi /api/simulator và chấm lại finalText bằng chính bộ YAML đ
 | `ai-brain/` | FastAPI, Python 3.11 | ChienPX | [ai-brain.md](ai-brain.md) |
 | `web/` | React 19 + Vite 8 + TS, react-router 7 | ai làm phần nào tự làm UI phần đó | [web.md](web.md) |
 | `shared/policies/`, `shared/schemas/` | YAML, JSON Schema | HungDQ | [policy.md](policy.md), [api-contracts.md](api-contracts.md) |
-| `shared/catalog/`, `tools/catalog/` | CSV 80 SKU + validator Python | LucVT | [data-model.md](data-model.md) |
+| `shared/catalog/`, `tools/catalog/` | CSV 80 SKU + validator + script sinh migration (Python) | LucVT | [data-model.md](data-model.md) |
 
 ## Cổng
 
