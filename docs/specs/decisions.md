@@ -1,6 +1,6 @@
 # Quyết định kỹ thuật
 
-> Cập nhật: 2026-11-06 · commit 500c154
+> Cập nhật: 2026-11-09 · commit c08554e
 
 Mỗi quyết định ghi 1–3 dòng: quyết định gì, vì sao, đổi lại mất gì. Thêm dòng mới ở cuối, không xóa dòng cũ (nếu quyết định bị thay thì ghi "thay bởi #n").
 
@@ -23,3 +23,6 @@ Mỗi quyết định ghi 1–3 dòng: quyết định gì, vì sao, đổi lạ
 | 15 | 2026-11-06 | Nhánh mặc định trên GitHub là **`dev`**. Ruleset "Protect main and dev branches." ghi rõ cả `refs/heads/main` và `refs/heads/dev` (chặn xóa, chặn force push, PR cần 1 approve) | PR mới tự vào `dev`, và `Closes #n` tự đóng issue khi merge vào `dev` (trước đây không đóng vì nhánh mặc định là `main`). Đổi lại `main` chỉ được cập nhật khi phát hành cuối sprint. |
 | 16 | 2026-11-06 | **Không có task review riêng** trong backlog. Mỗi PR cần 1 approve của thành viên bất kỳ, không gán reviewer cố định. SRS và tài liệu không cần ký duyệt: PO quyết định, ai thấy chỗ sai thì comment hoặc mở PR, có vấn đề thì cả team họp | Review chéo và ký duyệt ở S0 làm chậm tiến độ. Đổi lại chất lượng dựa vào kết quả test/bench dán trong PR và việc PO nghiệm thu US cuối sprint. |
 | 17 | 2026-11-06 | Thầy hướng dẫn **chấp nhận** kênh sàn chạy bằng simulator theo schema thật (SRS Q-08). Xác nhận #12 | Demo và bench kênh Shopee/TikTok không còn phụ thuộc việc sàn duyệt app. Adapter thật vẫn là tùy chọn khi sàn duyệt kịp. |
+| 18 | 2026-11-08 | Catalog nạp vào DB bằng **migration SQL sinh từ CSV** (`tools/catalog/csv_to_sql.py`, upsert theo `sku`), không dùng Java migration đọc CSV lúc chạy, cũng không xoá-rồi-nạp lại (T-08.2) | Mọi máy và Testcontainers có cùng dữ liệu qua Flyway, đọc được trong PR, không đụng `id` của 8 SKU cũ. Đổi lại CSV và DB có thể lệch nếu sửa CSV mà quên sinh migration V<n> mới. |
+| 19 | 2026-11-08 | API admin sản phẩm (T-08.1): **không có DELETE**, ẩn bằng `PATCH /{id}/active`; **SKU không đổi được** sau khi tạo; validate theo cùng luật với `validate_catalog.py`, kể cả chặn claim y khoa; mật khẩu admin mặc định `admin/admin` khi dev, có log WARN | Đúng G-07; bench và báo cáo LLM-eval tham chiếu theo SKU; dữ liệu vào bằng CSV hay API đều qua cùng luật; máy chưa cập nhật `.env` vẫn chạy được. Đổi lại luật nằm ở 2 nơi (Python và `CatalogVocabulary.java`) phải sửa cùng nhau, và nhập sai SKU thì phải ẩn rồi tạo SKU mới. |
+| 20 | 2026-11-09 | Màn admin sản phẩm (T-08.3) **không tự kiểm luật dữ liệu**, chỉ hiện lỗi `errors[]` backend trả về dưới từng ô. Đăng nhập bằng chính HTTP Basic của API, token giữ trong `sessionStorage`, request gửi `X-Requested-With` để không bật hộp đăng nhập của trình duyệt | Luật chỉ nằm ở backend + validator CSV, không thêm bản thứ 3 bằng TypeScript. Không phải sửa backend. Đổi lại mỗi lần sai phải chờ 1 vòng gọi API, và token Basic nằm trong `sessionStorage` (chấp nhận được khi chỉ chạy dev; tài khoản thật ở US-13) |

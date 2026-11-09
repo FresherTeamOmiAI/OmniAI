@@ -1,6 +1,6 @@
 # Mô hình dữ liệu
 
-> Cập nhật: 2026-11-06 · commit 6a0a4bd · Owner: LucVT (catalog, customer, identity, order, promotion)
+> Cập nhật: 2026-11-08 · commit ace11e2 · Owner: LucVT (catalog, customer, identity, order, promotion)
 > Nguồn: `backend/src/main/resources/db/migration/*.sql`, `backend/.../catalog/*`, `backend/.../customer/*`
 
 DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flyway** quản lý, JPA để `ddl-auto: validate`. Vì vậy mọi thay đổi bảng đều phải viết migration mới `V<n>__<mo_ta>.sql`. **Không sửa migration đã merge.**
@@ -10,9 +10,10 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 | File | Nội dung |
 |---|---|
 | `V1__init.sql` | Bảng `product`, `customer`, `channel_identity` |
-| `V2__seed_products.sql` | 8 SKU mẫu (Lumi Lab, Sen Việt, Hydra Mint, đều hư cấu). Sẽ thay bằng 80 SKU (T-04.2, T-08.2) |
+| `V2__seed_products.sql` | 8 SKU mẫu (Lumi Lab, Sen Việt, Hydra Mint, đều hư cấu). V5 cập nhật lại 8 SKU này |
 | `V3__enable_pgvector.sql` | `CREATE EXTENSION vector`. Cột embedding sẽ thêm ở S2 (US-10) |
 | `V4__catalog_schema_v1.sql` | Schema catalog đợt 1 (T-04.1): thêm `description`, `skin_concerns`, `usage_time`, `updated_at`; NOT NULL cho các trường AC US-04 bắt buộc; CHECK giá/tồn kho ≥ 0, dung tích/PAO > 0; index `category` |
+| `V5__import_catalog_80.sql` | Nạp 80 SKU từ `shared/catalog/products.csv` (T-08.2). **Sinh tự động** bằng `tools/catalog/csv_to_sql.py`, không sửa tay. Upsert theo `sku`: 8 SKU của V2 giữ mã/giá và có thêm mô tả, vấn đề da, buổi dùng |
 
 ## Bảng
 
@@ -46,10 +47,11 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 - Phủ đủ nhóm hoạt chất của `ingredients.py`: retinoid 7, AHA 7, BHA 5, vitamin C 2, BPO 2. Có thêm lựa chọn thay thế (bakuchiol, azelaic, PHA) và sản phẩm có `Parfum`/`Alcohol Denat.` để test dị ứng sau này. Lưu ý: `Sodium Ascorbyl Phosphate` (HYD-SER-36) chưa được `ingredients.py` nhận là vitamin C (T-27.4).
 - Giá: Shopee ≈ web + 4%, TikTok ≈ web − 3%, làm tròn nghìn đồng (8 SKU cũ giữ giá V2).
 - Kiểm tra: `python tools/catalog/validate_catalog.py` (chỉ dùng thư viện chuẩn, mã thoát 1 nếu lỗi). Script kiểm header, ≥ 80 SKU, trùng SKU, trường bắt buộc, bộ từ vựng, số hợp lệ, claim y khoa trong tên/mô tả.
-- Import vào DB là việc của T-08.2 (S1). Đã thử `\copy` vào schema V1–V4 trên Postgres: 80/80 dòng qua đủ ràng buộc.
+- Import vào DB (T-08.2): `python tools/catalog/csv_to_sql.py V<n>__<mo_ta>.sql` chạy validator rồi ghi migration upsert vào `backend/src/main/resources/db/migration/`. Script từ chối ghi đè file đã có. Sửa CSV sau khi V5 đã merge thì sinh **file V<n> mới** (upsert nên chạy lại cả CSV được). Không xoá SKU nào: muốn bỏ SKU thì đặt `active=false` trong CSV.
 
 ## Repository
-- `ProductRepository`: `findByActiveTrue`, `findByActiveTrueAndSkinTypesContainingIgnoreCase`.
+- `ProductRepository` (+ `JpaSpecificationExecutor` cho tìm kiếm admin): `findByActiveTrue`, `findByActiveTrueAndSkinTypesContainingIgnoreCase`, `findByIdAndActiveTrue` (store, G-06), `existsBySku`.
+- Ràng buộc unique của `sku` tên là `product_sku_key` (Postgres tự đặt ở V1). `ProductService` dựa vào tên này để trả 409 khi 2 request tạo cùng SKU một lúc.
 - `CustomerRepository`: `findByEmail`, `findByPhone`.
 - `ChannelIdentityRepository`: `findByChannelAndExternalId`, `findByCustomerId`.
 
@@ -57,4 +59,4 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 `conversation`/`message` (US-11, S2), cột vector cho product (US-10, S2), OTP/JWT (US-13, S3, chỉ email), mã liên kết `OMNI-XXXXXX` 6 ký tự kèm đếm số lần sai theo danh tính kênh (US-22, S5, SRS G-01), order (US-09/23), promotion/voucher/lịch sử giá (US-33, S8, mốc giờ theo `Asia/Ho_Chi_Minh`), consent log (US-30, S7).
 
 ## Test
-`OmniAiApplicationTests` chạy Flyway trên Postgres thật (Testcontainers) và kiểm tra có seed sản phẩm + extension vector, cùng các ràng buộc V4 (giá âm, `usage_time` sai, thiếu giá kênh đều bị DB từ chối). Vì vậy cần Docker.
+`OmniAiApplicationTests` chạy Flyway trên Postgres thật (Testcontainers) và kiểm tra catalog đủ 80 SKU (78 active, 4 hết hàng), SKU của V2 được upsert, extension vector, cùng các ràng buộc V4 (giá âm, `usage_time` sai, thiếu giá kênh đều bị DB từ chối). Vì vậy cần Docker.

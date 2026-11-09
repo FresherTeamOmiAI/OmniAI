@@ -28,3 +28,7 @@ omniai:
     timeout: 10s
   web:
     allowed-origins: ${WEB_ALLOWED_ORIGINS:http://localhost:5173}
+  # Tài khoản admin tạm cho /api/admin/** (HTTP Basic, SRS Q-01). admin/admin chỉ dùng khi dev.
+  admin:
+    username: ${ADMIN_USERNAME:admin}
+    password: ${ADMIN_PASSWORD:admin}
