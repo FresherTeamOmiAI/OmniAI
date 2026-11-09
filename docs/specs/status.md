@@ -1,6 +1,6 @@
 # Trạng thái hiện tại
 
-> Cập nhật: 2026-11-08 · commit 1fd584f · Sprint hiện tại: **S0 (03–09/11/2026)**
+> Cập nhật: 2026-11-08 · commit ace11e2 · Sprint hiện tại: **S0 (03–09/11/2026)**
 
 Bảng này cho biết cái gì đã chạy được, cái gì mới là khung, cái gì chưa có. Agent đọc file này **trước khi** đi tìm code để khỏi tìm thứ chưa tồn tại. Kế hoạch chi tiết: `tools/tracking/backlog.py` và GitHub Issues (milestone Sprint 0–12).
 
@@ -26,7 +26,8 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | Catalog: GET list/detail | Done | 80 SKU trong DB (78 active) | |
 | Catalog: schema đợt 1 (V4) | Done | Thêm mô tả, vấn đề da, buổi dùng; NOT NULL + CHECK. Chưa có cột embedding (US-10) | US-04 |
 | Catalog: file 80 SKU (`shared/catalog/products.csv`) | Done | Có validator `tools/catalog/validate_catalog.py`. Đã nạp vào DB qua migration V5, sinh bằng `tools/catalog/csv_to_sql.py` (T-08.2) | US-04, US-08 |
-| Catalog: CRUD admin | Chưa | T-08.1 (API), T-08.3 (màn admin) | US-08 |
+| Catalog: API admin `/api/admin/products` | Done | List (gồm SKU ẩn), tạo, sửa, ẩn/hiện, validate giống validator CSV, lỗi ProblemDetail (T-08.1). Màn admin chưa có (T-08.3) | US-08 |
+| Xác thực admin | Khung | HTTP Basic 1 tài khoản từ env cho `/api/admin/**` (SRS Q-01). Tài khoản thật ở US-13 | US-08, US-13 |
 | Customer / ChannelIdentity entity | Khung | Chưa có API | |
 | Identity (OTP, deep-link, OMNI-code) | Chưa | Mới có package-info | US-13, 18, 22 |
 | Order, Promotion | Chưa | Mới có package-info | US-09, 33 |
@@ -38,7 +39,6 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 
 ## Lỗ hổng / nợ kỹ thuật đã biết
 - Idempotency chỉ nằm trong bộ nhớ, sẽ mất khi restart và sai khi chạy nhiều instance (S7 chuyển Redis).
-- `GET /api/products/{id}` vẫn trả sản phẩm `active=false`. Theo SRS G-06 phải trả 404; sửa trong T-08.1.
 - Backend/ai-brain không tự đọc `.env` (script `.bat` nạp hộ, IDE thì phải tự cấu hình).
 - Chưa có `mvnw`, mỗi máy phải tự cài Maven.
 

@@ -1,6 +1,6 @@
 # Mô hình dữ liệu
 
-> Cập nhật: 2026-11-08 · commit 1fd584f · Owner: LucVT (catalog, customer, identity, order, promotion)
+> Cập nhật: 2026-11-08 · commit ace11e2 · Owner: LucVT (catalog, customer, identity, order, promotion)
 > Nguồn: `backend/src/main/resources/db/migration/*.sql`, `backend/.../catalog/*`, `backend/.../customer/*`
 
 DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flyway** quản lý, JPA để `ddl-auto: validate`. Vì vậy mọi thay đổi bảng đều phải viết migration mới `V<n>__<mo_ta>.sql`. **Không sửa migration đã merge.**
@@ -50,7 +50,8 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 - Import vào DB (T-08.2): `python tools/catalog/csv_to_sql.py V<n>__<mo_ta>.sql` chạy validator rồi ghi migration upsert vào `backend/src/main/resources/db/migration/`. Script từ chối ghi đè file đã có. Sửa CSV sau khi V5 đã merge thì sinh **file V<n> mới** (upsert nên chạy lại cả CSV được). Không xoá SKU nào: muốn bỏ SKU thì đặt `active=false` trong CSV.
 
 ## Repository
-- `ProductRepository`: `findByActiveTrue`, `findByActiveTrueAndSkinTypesContainingIgnoreCase`.
+- `ProductRepository` (+ `JpaSpecificationExecutor` cho tìm kiếm admin): `findByActiveTrue`, `findByActiveTrueAndSkinTypesContainingIgnoreCase`, `findByIdAndActiveTrue` (store, G-06), `existsBySku`.
+- Ràng buộc unique của `sku` tên là `product_sku_key` (Postgres tự đặt ở V1). `ProductService` dựa vào tên này để trả 409 khi 2 request tạo cùng SKU một lúc.
 - `CustomerRepository`: `findByEmail`, `findByPhone`.
 - `ChannelIdentityRepository`: `findByChannelAndExternalId`, `findByCustomerId`.
 
