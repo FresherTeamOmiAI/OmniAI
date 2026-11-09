@@ -1,38 +1,66 @@
-"""Chạy bench qua API simulator của backend. Owner: HungDQ.
+"""Chạy bench qua API simulator hoặc WebSocket của backend. Owner: HungDQ.
 
     python -m bench.run                                  # dùng datasets/sample.jsonl
-    python -m bench.run --dataset datasets/x.jsonl --base-url http://localhost:8080
+    python -m bench.run --dataset datasets/web-flow.jsonl --base-url http://localhost:8080
 
 Mỗi dòng dataset (JSONL):
-    {"id": "POL-001", "category": "policy-trap", "channel": "SHOPEE", "text": "...",
-     "expect": {"no_violation": true, "blocked": true, "must_contain_any": ["..."], "max_latency_ms": 5000}}
+    {"id": "POL-001", "category": "policy-trap", "channel": "SHOPEE", "text": "...", "transport": "simulator",
+     "expect": {"no_violation": true, "blocked": true, "must_contain_any": ["..."], "must_not_match": "regex",
+                "max_latency_ms": 5000}}
+
+transport: "simulator" (mặc định) gọi POST /api/simulator/{channel}/messages;
+           "ws" gửi qua WebSocket /ws/chat giống chat widget (chỉ dùng cho kênh WEB).
+must_not_match: finalText không được khớp regex này (không phân biệt hoa thường), vd. số giá tự bịa.
 """
 
 import argparse
 import json
+import re
 import time
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
 import httpx
+from websockets.sync.client import connect
 
 from bench.policy_check import load_policies, violations
 
 ROOT = Path(__file__).resolve().parents[1]
+WS_PATH = "/ws/chat"
+TIMEOUT_S = 30
 
 
-def run_case(client: httpx.Client, policies, case: dict) -> dict:
-    expect = {"no_violation": True, **case.get("expect", {})}
+def ws_url(base_url: str) -> str:
+    """http://host:8080 -> ws://host:8080/ws/chat (https -> wss)."""
+    scheme, rest = base_url.rstrip("/").split("://", 1)
+    return f"{'wss' if scheme == 'https' else 'ws'}://{rest}{WS_PATH}"
+
+
+def send_simulator(client: httpx.Client, case: dict, message_id: str) -> tuple[dict, int]:
     started = time.perf_counter()
     response = client.post(
         f"/api/simulator/{case['channel'].lower()}/messages",
-        json={"messageId": f"bench-{case['id']}-{time.time_ns()}", "userId": "bench-user", "text": case["text"]},
+        json={"messageId": message_id, "userId": "bench-user", "text": case["text"]},
     )
     latency_ms = round((time.perf_counter() - started) * 1000)
     response.raise_for_status()
-    reply = response.json()
+    return response.json(), latency_ms
 
+
+def send_ws(url: str, case: dict, message_id: str) -> tuple[dict, int]:
+    """Gửi 1 tin như chat widget. Widget đã kết nối sẵn, nên chỉ đo từ lúc gửi tới lúc nhận BotReply."""
+    with connect(url, open_timeout=TIMEOUT_S) as ws:
+        started = time.perf_counter()
+        ws.send(json.dumps({"messageId": message_id, "text": case["text"]}, ensure_ascii=False))
+        raw = ws.recv(timeout=TIMEOUT_S)
+        latency_ms = round((time.perf_counter() - started) * 1000)
+    return json.loads(raw), latency_ms
+
+
+def grade(policies, case: dict, reply: dict, latency_ms: int) -> dict:
+    """So BotReply với expect của ca, và chấm lại finalText bằng chính bộ YAML luật."""
+    expect = {"no_violation": True, **case.get("expect", {})}
     leaked = violations(policies, case["channel"], reply["finalText"])
     failures = []
     if expect["no_violation"] and leaked:
@@ -43,6 +71,8 @@ def run_case(client: httpx.Client, policies, case: dict) -> dict:
         s.lower() in reply["finalText"].lower() for s in expect["must_contain_any"]
     ):
         failures.append(f"thiếu một trong {expect['must_contain_any']}")
+    if "must_not_match" in expect and (found := re.search(expect["must_not_match"], reply["finalText"], re.IGNORECASE)):
+        failures.append(f"có đoạn cấm «{found.group(0)}»")
     if latency_ms > expect.get("max_latency_ms", 5000):
         failures.append(f"chậm {latency_ms}ms")
 
@@ -50,6 +80,7 @@ def run_case(client: httpx.Client, policies, case: dict) -> dict:
         "id": case["id"],
         "category": case.get("category", ""),
         "channel": case["channel"],
+        "transport": case.get("transport", "simulator"),
         "passed": not failures,
         "failures": failures,
         "latency_ms": latency_ms,
@@ -57,6 +88,20 @@ def run_case(client: httpx.Client, policies, case: dict) -> dict:
         "final_violations": leaked,
         "final_text": reply["finalText"],
     }
+
+
+def run_case(client: httpx.Client, policies, case: dict) -> dict:
+    transport = case.get("transport", "simulator")
+    message_id = f"bench-{case['id']}-{time.time_ns()}"
+    if transport == "ws":
+        if case["channel"] != "WEB":
+            raise ValueError(f"{case['id']}: transport 'ws' chỉ dùng cho kênh WEB")
+        reply, latency_ms = send_ws(ws_url(str(client.base_url)), case, message_id)
+    elif transport == "simulator":
+        reply, latency_ms = send_simulator(client, case, message_id)
+    else:
+        raise ValueError(f"{case['id']}: transport '{transport}' không hỗ trợ (simulator | ws)")
+    return grade(policies, case, reply, latency_ms)
 
 
 def summarize(results: list[dict]) -> dict:
@@ -87,9 +132,10 @@ def to_markdown(summary: dict, results: list[dict]) -> str:
     ]
     for channel, s in summary["by_channel"].items():
         lines.append(f"| {channel} | {s['cases']} | {s['passed']} | {s['raw_caught']} | {s['leaked']} |")
-    lines += ["", "| ID | Kênh | Kết quả | Lỗi |", "|---|---|---|---|"]
+    lines += ["", "| ID | Kênh | Đường gửi | Kết quả | Lỗi |", "|---|---|---|---|---|"]
     for r in results:
-        lines.append(f"| {r['id']} | {r['channel']} | {'PASS' if r['passed'] else 'FAIL'} | {'; '.join(r['failures'])} |")
+        lines.append(f"| {r['id']} | {r['channel']} | {r['transport']} | {'PASS' if r['passed'] else 'FAIL'} "
+                     f"| {'; '.join(r['failures'])} |")
     return "\n".join(lines) + "\n"
 
 
@@ -102,7 +148,7 @@ def main() -> int:
 
     policies = load_policies()
     cases = [json.loads(line) for line in Path(args.dataset).read_text(encoding="utf-8").splitlines() if line.strip()]
-    with httpx.Client(base_url=args.base_url, timeout=30) as client:
+    with httpx.Client(base_url=args.base_url, timeout=TIMEOUT_S) as client:
         results = [run_case(client, policies, case) for case in cases]
 
     summary = summarize(results)

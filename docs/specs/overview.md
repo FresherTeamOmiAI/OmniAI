@@ -1,6 +1,6 @@
 # Tổng quan hệ thống
 
-> Cập nhật: 2026-11-05 · commit a79fc37
+> Cập nhật: 2026-11-08 · commit ace11e2
 > Nguồn: `README.md`, `docker-compose.yml`, `.env.example`, `backend/src/main/resources/application.yml`, `web/vite.config.ts`, `tools/systembat/`
 
 ## Mục tiêu
@@ -28,7 +28,7 @@ Bench gọi /api/simulator và chấm lại finalText bằng chính bộ YAML đ
 | `ai-brain/` | FastAPI, Python 3.11 | ChienPX | [ai-brain.md](ai-brain.md) |
 | `web/` | React 19 + Vite 8 + TS, react-router 7 | ai làm phần nào tự làm UI phần đó | [web.md](web.md) |
 | `shared/policies/`, `shared/schemas/` | YAML, JSON Schema | HungDQ | [policy.md](policy.md), [api-contracts.md](api-contracts.md) |
-| `shared/catalog/`, `tools/catalog/` | CSV 80 SKU + validator Python | LucVT | [data-model.md](data-model.md) |
+| `shared/catalog/`, `tools/catalog/` | CSV 80 SKU + validator + script sinh migration (Python) | LucVT | [data-model.md](data-model.md) |
 
 ## Cổng
 
@@ -43,7 +43,7 @@ Bench gọi /api/simulator và chấm lại finalText bằng chính bộ YAML đ
 
 ## Biến môi trường (`.env.example`)
 - Docker: `POSTGRES_DB/USER/PASSWORD/PORT`, `REDIS_PORT`, `RABBITMQ_PORT`, `RABBITMQ_UI_PORT`.
-- Backend: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `BRAIN_URL`, `OMNIAI_POLICY_DIR` (mặc định `../shared/policies`, tính từ `backend/`), `WEB_ALLOWED_ORIGINS`, `PORT`.
+- Backend: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `BRAIN_URL`, `OMNIAI_POLICY_DIR` (mặc định `../shared/policies`, tính từ `backend/`), `WEB_ALLOWED_ORIGINS`, `PORT`, `ADMIN_USERNAME`/`ADMIN_PASSWORD` (tài khoản `/api/admin/**`, mặc định `admin`/`admin`, chỉ dùng khi dev).
 - AI Brain: `LLM_PROVIDER` (mặc định `fake`), `LLM_MODEL`, `LLM_API_KEY`.
 - Kênh (điền khi tới sprint tương ứng): `TELEGRAM_BOT_TOKEN`, `SHOPEE_PARTNER_ID/KEY`, `TIKTOK_APP_KEY/SECRET`.
 - Backend và ai-brain **không tự đọc `.env`**: script trong `tools/systembat` nạp hộ, còn IDE thì phải tự cấu hình. Default trong `application.yml` đã khớp `.env.example`.

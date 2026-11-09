@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/** API đọc catalog cho web store và AI Brain. CRUD admin làm ở sprint 1 (US-08). */
+/** API đọc catalog cho web store và AI Brain, chỉ trả sản phẩm active. CRUD admin: AdminProductController. */
 @RestController
 @RequestMapping("/api/products")
 public class ProductController {
@@ -32,9 +32,10 @@ public class ProductController {
         return new PageResponse<>(page.getContent(), page.getNumber(), page.getSize(), page.getTotalElements());
     }
 
+    /** Sản phẩm ẩn trả 404 như không tồn tại (SRS G-06). Admin xem qua /api/admin/products/{id}. */
     @GetMapping("/{id}")
     public ResponseEntity<Product> get(@PathVariable Long id) {
-        return ResponseEntity.of(repository.findById(id));
+        return ResponseEntity.of(repository.findByIdAndActiveTrue(id));
     }
 
     public record PageResponse<T>(List<T> items, int page, int size, long total) {

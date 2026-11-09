@@ -12,6 +12,7 @@ export function ShopLayout() {
       <nav className="topbar">
         <strong className="logo">Lumi Demo Store</strong>
         <NavLink to="/" end className={tabClass}>Cửa hàng</NavLink>
+        <NavLink to="/admin/products" className={tabClass}>Admin · Sản phẩm</NavLink>
         <NavLink to="/admin/policy" className={tabClass}>Admin · Thử luật kênh</NavLink>
       </nav>
       <Outlet />
