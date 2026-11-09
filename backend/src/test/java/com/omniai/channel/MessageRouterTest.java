@@ -57,6 +57,29 @@ class MessageRouterTest {
     }
 
     @Test
+    void idempotencyKeySeparatesDifferentChannelsWithSameMessageId() {
+        BotReply web = router.handle(message(ChannelType.WEB, "shared-id"));
+        BotReply shopee = router.handle(message(ChannelType.SHOPEE, "shared-id"));
+
+        assertThat(web.channel()).isEqualTo(ChannelType.WEB);
+        assertThat(shopee.channel()).isEqualTo(ChannelType.SHOPEE);
+        assertThat(shopee.blocked()).isTrue();
+        assertThat(web.blocked()).isFalse();
+        assertThat(brainCalls.get()).isEqualTo(2);
+    }
+
+    @Test
+    void routerAppliesMedicalClaimSofteningOnWebReply() {
+        BrainClient medicalBrain = m -> new BrainResponse("Serum này đặc trị mụn viêm rất nhanh", "test", List.of(), false);
+        MessageRouter medRouter = new MessageRouter(medicalBrain, new PolicyEngine("../shared/policies"));
+
+        BotReply reply = medRouter.handle(message(ChannelType.WEB, "m-med"));
+
+        assertThat(reply.finalText()).doesNotContain("đặc trị").contains("hỗ trợ cải thiện");
+        assertThat(reply.violations()).isNotEmpty();
+    }
+
+    @Test
     void brainDownTriggersHandoff() {
         MessageRouter routerWithDeadBrain = new MessageRouter(m -> BrainResponse.unavailable(), new PolicyEngine("../shared/policies"));
 
