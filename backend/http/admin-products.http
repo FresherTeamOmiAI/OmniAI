@@ -1,36 +1,38 @@
-### API admin sản phẩm (T-08.1, US-08). Chạy bằng VS Code REST Client hoặc IntelliJ HTTP Client.
-### Cần backend đang chạy (tools/systembat/run-backend.bat). Tài khoản = ADMIN_USERNAME/ADMIN_PASSWORD trong .env.
-### Hợp đồng: docs/specs/api-contracts.md
+### API admin sản phẩm (T-08.1, US-08). Chạy bằng extension REST Client (humao.rest-client) trên VS Code.
+### Hướng dẫn chi tiết + bảng kết quả mong đợi: docs/testcases/US-08.md (mục C). Bộ Postman tương đương: OmniAI-admin-products.postman_collection.json
+### Cần backend đang chạy (tools\systembat\run-backend.bat). Tài khoản = ADMIN_USERNAME/ADMIN_PASSWORD trong .env.
+### Chạy theo thứ tự từ trên xuống: request 4 tạo sản phẩm, các request sau dùng id của nó. Request 12 ẩn sản phẩm test.
 
 @base = http://localhost:8080
 @auth = Basic admin admin
 
-### 1. Danh sách (gồm cả sản phẩm ẩn), lọc theo q (sku/tên) và active
+### 1. Không đăng nhập -> 401
+GET {{base}}/api/admin/products
+
+### 2. Danh sách (gồm cả sản phẩm ẩn), lọc theo q (sku/tên) và active
 GET {{base}}/api/admin/products?q=lumi&active=true&page=0&size=5
 Authorization: {{auth}}
 
-### 2. Không đăng nhập -> 401
-GET {{base}}/api/admin/products
-
-### 3. Chi tiết (kể cả sản phẩm ẩn)
-GET {{base}}/api/admin/products/1
+### 3. Chỉ SKU ẩn -> MOC-SER-40, LUMI-MSK-72 (và sản phẩm test của các lần chạy trước)
+GET {{base}}/api/admin/products?active=false
 Authorization: {{auth}}
 
-### 4. Tạo mới -> 201 + Location
+### 4. Tạo mới -> 201 + Location. SKU ngẫu nhiên QATS-SER-NN để chạy lại nhiều lần; 409 thì Send lại.
+# @name create
 POST {{base}}/api/admin/products
 Authorization: {{auth}}
 Content-Type: application/json
 
 {
-  "sku": "LUMI-SER-81",
-  "name": "Serum Niacinamide 5% thử nghiệm",
+  "sku": "qats-ser-{{$randomInt 10 99}}",
+  "name": "Serum thử nghiệm Niacinamide 5% (REST Client)",
   "brand": "Lumi Lab",
   "category": "serum",
-  "skinTypes": "oily,combination",
+  "skinTypes": "Oily, oily ,DRY",
   "skinConcerns": "pores,oil-control",
   "usageTime": "am,pm",
-  "description": "Serum mỏng nhẹ giúp da trông mịn hơn.",
-  "ingredientsInci": "Aqua, Niacinamide, Glycerin",
+  "description": "Sản phẩm test API admin, request 12 sẽ ẩn nó.",
+  "ingredientsInci": "Aqua,Niacinamide , Glycerin",
   "sizeMl": 30,
   "paoMonths": 12,
   "priceWeb": 250000,
@@ -39,7 +41,10 @@ Content-Type: application/json
   "stock": 10
 }
 
-### 5. Trùng SKU -> 409
+### 5. Store thấy ngay -> 200
+GET {{base}}/api/products/{{create.response.body.id}}
+
+### 6. Trùng SKU -> 409
 POST {{base}}/api/admin/products
 Authorization: {{auth}}
 Content-Type: application/json
@@ -50,7 +55,7 @@ Content-Type: application/json
   "priceWeb": 1, "priceShopee": 1, "priceTiktok": 1, "stock": 0
 }
 
-### 6. Sai dữ liệu -> 400, errors[] liệt kê từng field
+### 7. Sai dữ liệu -> 400, errors[] liệt kê 6 field: sku, category, skinTypes, usageTime, ingredientsInci, name
 POST {{base}}/api/admin/products
 Authorization: {{auth}}
 Content-Type: application/json
@@ -61,42 +66,49 @@ Content-Type: application/json
   "priceWeb": 1, "priceShopee": 1, "priceTiktok": 1, "stock": 0
 }
 
-### 7. Sửa toàn bộ (SKU phải giữ nguyên) -> 200, GET /api/products/{id} thấy ngay
-PUT {{base}}/api/admin/products/1
+### 8. Sửa giá (SKU phải giữ nguyên) -> 200, priceWeb = 199000
+PUT {{base}}/api/admin/products/{{create.response.body.id}}
 Authorization: {{auth}}
 Content-Type: application/json
 
 {
-  "sku": "LUMI-SUN-01",
-  "name": "Kem chống nắng kiềm dầu SPF50+ PA++++",
+  "sku": "{{create.response.body.sku}}",
+  "name": "Serum thử nghiệm Niacinamide 5% (REST Client)",
   "brand": "Lumi Lab",
-  "category": "sunscreen",
-  "skinTypes": "oily,combination",
-  "skinConcerns": "oil-control,sun-protection",
-  "usageTime": "am",
-  "description": "Kem chống nắng kết cấu mỏng, khô thoáng.",
-  "ingredientsInci": "Aqua, Zinc Oxide, Niacinamide, Silica, Glycerin",
-  "sizeMl": 50,
+  "category": "serum",
+  "skinTypes": "oily,dry",
+  "skinConcerns": "pores,oil-control",
+  "usageTime": "am,pm",
+  "description": "Sản phẩm test API admin, request 12 sẽ ẩn nó.",
+  "ingredientsInci": "Aqua, Niacinamide, Glycerin",
+  "sizeMl": 30,
   "paoMonths": 12,
-  "priceWeb": 289000,
-  "priceShopee": 299000,
-  "priceTiktok": 279000,
-  "stock": 120
+  "priceWeb": 199000,
+  "priceShopee": 260000,
+  "priceTiktok": 243000,
+  "stock": 10
 }
 
-### 8. Ẩn -> store không thấy, GET /api/products/1 trả 404
-PATCH {{base}}/api/admin/products/1/active
+### 9. Ẩn -> 200, active = false
+PATCH {{base}}/api/admin/products/{{create.response.body.id}}/active
 Authorization: {{auth}}
 Content-Type: application/json
 
 { "active": false }
 
-### 9. Kiểm tra store
-GET {{base}}/api/products/1
+### 10. Store không thấy nữa -> 404
+GET {{base}}/api/products/{{create.response.body.id}}
 
-### 10. Hiện lại
-PATCH {{base}}/api/admin/products/1/active
+### 11. Hiện lại -> 200, active = true (sau đó chạy lại request 10 sẽ thấy 200)
+PATCH {{base}}/api/admin/products/{{create.response.body.id}}/active
 Authorization: {{auth}}
 Content-Type: application/json
 
 { "active": true }
+
+### 12. Dọn dẹp: ẩn sản phẩm test (không có xóa cứng, G-07)
+PATCH {{base}}/api/admin/products/{{create.response.body.id}}/active
+Authorization: {{auth}}
+Content-Type: application/json
+
+{ "active": false }

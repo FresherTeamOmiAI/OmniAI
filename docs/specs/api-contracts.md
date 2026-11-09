@@ -1,6 +1,6 @@
 # Hợp đồng API
 
-> Cập nhật: 2026-11-08 · commit ace11e2
+> Cập nhật: 2026-11-09 · commit 7d72169
 > Nguồn: `backend/.../channel/simulator/*`, `channel/web/*`, `catalog/ProductController.java`, `catalog/AdminProductController.java`, `catalog/ProductRequest.java`, `brain/*`, `common/*`, `ai-brain/app/main.py`, `ai-brain/app/schemas.py`, `shared/schemas/canonical-message.schema.json`, `web/src/shared/types.ts`
 
 JSON phía backend dùng **camelCase**. Riêng hợp đồng backend → ai-brain dùng **snake_case**.
@@ -17,7 +17,7 @@ JSON phía backend dùng **camelCase**. Riêng hợp đồng backend → ai-brai
 
 ## Admin sản phẩm (`/api/admin/**`, US-08, T-08.1)
 
-Cần header `Authorization: Basic` với `ADMIN_USERNAME`/`ADMIN_PASSWORD` (SRS Q-01), sai hoặc thiếu thì `401`. Mọi đường khác vẫn mở. Ví dụ chạy tay: `backend/http/admin-products.http`.
+Cần header `Authorization: Basic` với `ADMIN_USERNAME`/`ADMIN_PASSWORD` (SRS Q-01), sai hoặc thiếu thì `401`. Mọi đường khác vẫn mở. Ví dụ chạy tay: Postman `backend/http/OmniAI-admin-products.postman_collection.json`, REST Client `backend/http/admin-products.http` (hướng dẫn: `docs/testcases/US-08.md`).
 
 | Method | Path | Request | Response | Ghi chú |
 |---|---|---|---|---|
