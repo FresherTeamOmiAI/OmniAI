@@ -1,6 +1,6 @@
 # Quyết định kỹ thuật
 
-> Cập nhật: 2026-11-09 · commit c08554e
+> Cập nhật: 2026-11-10 · review S1, thêm #21
 
 Mỗi quyết định ghi 1–3 dòng: quyết định gì, vì sao, đổi lại mất gì. Thêm dòng mới ở cuối, không xóa dòng cũ (nếu quyết định bị thay thì ghi "thay bởi #n").
 
@@ -26,3 +26,4 @@ Mỗi quyết định ghi 1–3 dòng: quyết định gì, vì sao, đổi lạ
 | 18 | 2026-11-08 | Catalog nạp vào DB bằng **migration SQL sinh từ CSV** (`tools/catalog/csv_to_sql.py`, upsert theo `sku`), không dùng Java migration đọc CSV lúc chạy, cũng không xoá-rồi-nạp lại (T-08.2) | Mọi máy và Testcontainers có cùng dữ liệu qua Flyway, đọc được trong PR, không đụng `id` của 8 SKU cũ. Đổi lại CSV và DB có thể lệch nếu sửa CSV mà quên sinh migration V<n> mới. |
 | 19 | 2026-11-08 | API admin sản phẩm (T-08.1): **không có DELETE**, ẩn bằng `PATCH /{id}/active`; **SKU không đổi được** sau khi tạo; validate theo cùng luật với `validate_catalog.py`, kể cả chặn claim y khoa; mật khẩu admin mặc định `admin/admin` khi dev, có log WARN | Đúng G-07; bench và báo cáo LLM-eval tham chiếu theo SKU; dữ liệu vào bằng CSV hay API đều qua cùng luật; máy chưa cập nhật `.env` vẫn chạy được. Đổi lại luật nằm ở 2 nơi (Python và `CatalogVocabulary.java`) phải sửa cùng nhau, và nhập sai SKU thì phải ẩn rồi tạo SKU mới. |
 | 20 | 2026-11-09 | Màn admin sản phẩm (T-08.3) **không tự kiểm luật dữ liệu**, chỉ hiện lỗi `errors[]` backend trả về dưới từng ô. Đăng nhập bằng chính HTTP Basic của API, token giữ trong `sessionStorage`, request gửi `X-Requested-With` để không bật hộp đăng nhập của trình duyệt | Luật chỉ nằm ở backend + validator CSV, không thêm bản thứ 3 bằng TypeScript. Không phải sửa backend. Đổi lại mỗi lần sai phải chờ 1 vòng gọi API, và token Basic nằm trong `sessionStorage` (chấp nhận được khi chỉ chạy dev; tài khoản thật ở US-13) |
+| 21 | 2026-11-10 | PO **chấp nhận độ trễ hiện tại** của `gemini-3.6-flash` cho S1 (p95 6,7 s trên 10 câu mẫu, T-06.4). Không nới NFR-01 trên giấy, không đổi model chính, không tối ưu latency ở S1. Xử lý điều kiện (1) của #14 | PO thấy chất lượng trả lời đủ tốt, demo vẫn ổn. US-06 được nghiệm thu với ghi chú này. Đổi lại AC "< 5 s" của US-06 chưa đạt, phải xem lại khi có tool calling (S3) hoặc khi bench 50 ca cho thấy chậm hơn. |

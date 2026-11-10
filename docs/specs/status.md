@@ -1,6 +1,6 @@
 # Trạng thái hiện tại
 
-> Cập nhật: 2026-11-06 · Task [T-06.2] · Sprint hiện tại: **S0 (03–09/11/2026)**
+> Cập nhật: 2026-11-10 · review S1 (thêm T-06.7, T-06.8) · Sprint hiện tại: **S1 (10–16/11/2026)**
 
 Bảng này cho biết cái gì đã chạy được, cái gì mới là khung, cái gì chưa có. Agent đọc file này **trước khi** đi tìm code để khỏi tìm thứ chưa tồn tại. Kế hoạch chi tiết: `tools/tracking/backlog.py` và GitHub Issues (milestone Sprint 0–12).
 
@@ -14,12 +14,12 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | Script chạy Windows `tools/systembat` | Done | setup / run-all / stop-all / test-all / bench | US-02 |
 | CanonicalMessage + ChannelAdapter | Done | | |
 | MessageRouter + idempotency | Khung | Idempotency in-memory, chưa lưu hội thoại | US-06, US-11, US-29 |
-| Kênh WEB (WebSocket) | Done | T-06.1 FE widget auto-reconnect + T-06.2 BE adapter và test hoàn chỉnh | US-06 |
+| Kênh WEB (WebSocket) | Done | T-06.1 FE widget auto-reconnect + T-06.2 BE adapter. Test adapter dùng mock, luồng WS thật chỉ có bench `transport: ws`. Widget chưa có timeout chờ trả lời (T-06.8) | US-06 |
 | Simulator API | Done | Dùng cho bench và `/admin/policy` | US-07 |
 | Kênh Telegram / Messenger | Chưa | Đã có YAML luật | US-17 |
 | Kênh Shopee / TikTok | Chưa | Đã có YAML luật. Làm simulator theo schema thật trước, adapter thật chờ sàn duyệt app (decisions #12) | US-21, 25 |
 | PolicyEngine + YAML | Done (v0) | YAML sàn là bản nháp | US-07, US-20 |
-| AI Brain `/chat` + LLMProvider | Khung | `LLM_PROVIDER` chọn `fake` (mặc định), `gemini` hoặc `groq` (T-06.3). `gemini-3.6-flash` trả lời đúng ngữ cảnh 10/10 câu mẫu (T-06.4), p95 6,7 s vẫn cao hơn 5 s | US-05, US-06 |
+| AI Brain `/chat` + LLMProvider | Khung | `LLM_PROVIDER` chọn `fake` (mặc định), `gemini` hoặc `groq` (T-06.3). `gemini-3.6-flash` trả lời đúng ngữ cảnh 10/10 câu mẫu (T-06.4), p95 6,7 s > 5 s, PO chấp nhận ở S1 (decisions #21). LLM lỗi đang thành HTTP 500, câu trả lời còn markdown (T-06.7) | US-05, US-06 |
 | AI Brain: chặn số tự bịa (`rules/grounding.py`) | Done | Bỏ câu có giá, tồn kho, khuyến mãi do LLM tự nêu (chưa có tool nên bỏ hết). US-15 sẽ cho qua số khớp kết quả tool | US-06 (T-06.6), US-15 |
 | Luật thành phần | Khung | Bản mẫu, cần chuyên gia review | US-27 |
 | RAG / tool / agent loop | Chưa | | US-10, US-15 |
@@ -42,6 +42,8 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 - Idempotency chỉ nằm trong bộ nhớ, sẽ mất khi restart và sai khi chạy nhiều instance (S7 chuyển Redis).
 - Backend/ai-brain không tự đọc `.env` (script `.bat` nạp hộ, IDE thì phải tự cấu hình).
 - Chưa có `mvnw`, mỗi máy phải tự cài Maven.
+- Widget chat: server im lặng với tin JSON lỗi/rỗng nên widget hiện "đang trả lời" mãi; nối lại WebSocket thì `channelUserId` đổi theo session mới (T-06.8; tài khoản web ở US-13).
+- Câu Gemini có markdown (`**`), widget hiện thô (T-06.7).
 
 ## Sprint S0–S1 (tóm tắt)
 - **S0** (03–09/11): SRS 1.0, US, UC (HungDQ; LucVT, ChienPX góp ý; không ký duyệt, decisions #16) · setup môi trường (cả 4) · spike chat API Shopee/TikTok (TuTM) · schema + 80 SKU (LucVT) · so sánh ≥3 LLM (ChienPX).
