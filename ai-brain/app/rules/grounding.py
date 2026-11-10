@@ -1,9 +1,8 @@
 """Bỏ con số giá, tồn kho, khuyến mãi mà LLM tự nêu (ràng buộc C-07, T-06.6).
 
-AI Brain chưa có tool nào (agent loop có `get_price_and_stock` ở S3, US-15), nên mọi con số loại này
-trong câu của LLM đều chưa được kiểm chứng. Câu nào chứa số đó thì bỏ cả câu, rồi thêm một câu hẹn
-kiểm tra. Đây là code tất định có pytest, giống `ingredients.py`. Khi có tool, US-15 sẽ chỉ cho qua
-những số khớp kết quả tool trong lượt đó.
+Giá được giữ khi từng số tiền trong câu khớp một giá đã đọc từ view chatbot_catalog ở lượt đó.
+Tồn kho và khuyến mãi vẫn bỏ, vì catalog chưa đưa hai dữ liệu này. Câu bị bỏ thì thêm một câu hẹn
+kiểm tra.
 """
 
 import re
@@ -29,24 +28,62 @@ _SENTENCE_END = re.compile(r"(?<=[.!?…])\s+")
 _ONLY_LIST_MARKER = re.compile(r"^\s*(?:\d+[.)]|[-*•])?\s*$")
 
 
-def _found(text: str) -> list[str]:
-    return [code for code, pattern in CHECKS if pattern.search(text)]
+def _amount(text: str) -> int | None:
+    match = PRICE.search(text)
+    if match is None:
+        return None
+    number, unit = match.group(0), ""
+    unit_match = re.search(r"(đồng|đ|₫|vnđ|vnd|k|nghìn|ngàn|triệu)", match.group(0), re.IGNORECASE)
+    if unit_match:
+        unit = unit_match.group(1).lower()
+        number = match.group(0)[: unit_match.start()]
+    digits = number.strip().replace(" ", "")
+    try:
+        if unit == "k":
+            return int(float(digits.replace(".", "").replace(",", ".")) * 1_000)
+        if unit in {"nghìn", "ngàn"}:
+            return int(float(digits.replace(".", "").replace(",", ".")) * 1_000)
+        if unit == "triệu":
+            return int(float(digits.replace(".", "").replace(",", ".")) * 1_000_000)
+        return int(digits.replace(".", "").replace(",", ""))
+    except ValueError:
+        return None
 
 
-def strip_unverified_numbers(reply: str) -> tuple[str, list[str]]:
+def _prices_are_allowed(text: str, allowed_prices: set[int]) -> bool:
+    if not allowed_prices:
+        return False
+    amounts = [_amount(match.group(0)) for match in PRICE.finditer(text)]
+    return bool(amounts) and all(amount in allowed_prices for amount in amounts)
+
+
+def _found(text: str, allowed_prices: set[int]) -> list[str]:
+    codes = []
+    for code, pattern in CHECKS:
+        if not pattern.search(text):
+            continue
+        if code == "grounding:price" and _prices_are_allowed(text, allowed_prices):
+            continue
+        codes.append(code)
+    return codes
+
+
+def strip_unverified_numbers(reply: str, allowed_prices: set[int] | None = None) -> tuple[str, list[str]]:
     """Bỏ các câu có giá, tồn kho, khuyến mãi do LLM tự nêu. Trả về (câu trả lời mới, mã cảnh báo).
 
-    Dòng không chứa số loại đó được giữ nguyên định dạng. Nếu có bỏ câu nào thì thêm NOTE ở cuối.
+    Giá nằm trong allowed_prices được giữ. Dòng không chứa số loại đó được giữ nguyên định dạng.
+    Nếu có bỏ câu nào thì thêm NOTE ở cuối.
     """
+    allowed = allowed_prices or set()
     codes: list[str] = []
     lines: list[str] = []
     for line in reply.split("\n"):
-        if not _found(line):
+        if not _found(line, allowed):
             lines.append(line)
             continue
         kept = []
         for sentence in _SENTENCE_END.split(line):
-            found = _found(sentence)
+            found = _found(sentence, allowed)
             codes += [code for code in found if code not in codes]
             if not found:
                 kept.append(sentence)

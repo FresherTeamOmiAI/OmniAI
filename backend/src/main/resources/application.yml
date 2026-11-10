@@ -26,6 +26,7 @@ omniai:
   brain:
     url: ${BRAIN_URL:http://localhost:8000}
     timeout: 10s
+  chatbot-db-password: ${CHATBOT_DB_PASSWORD:}
   web:
     allowed-origins: ${WEB_ALLOWED_ORIGINS:http://localhost:5173}
   # Tài khoản admin tạm cho /api/admin/** (HTTP Basic, SRS Q-01). admin/admin chỉ dùng khi dev.
