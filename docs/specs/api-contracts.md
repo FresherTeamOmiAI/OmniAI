@@ -34,7 +34,7 @@ Chưa có: CRUD admin sản phẩm (US-08, S1), `/api/conversations` (US-11, S2)
 | GET | `/health` | | `{status, provider}` |
 | POST | `/chat` | `ChatRequest` | `ChatResponse` |
 
-- `ChatRequest` (Pydantic) = `BrainRequest` (Java record): `message_id, channel, channel_owned, user_id, customer_id?, text`.
+- `ChatRequest` (Pydantic) = `BrainRequest` (Java record): `message_id, channel, channel_owned, user_id, customer_id?, text`. Tên sản phẩm không đi trong request. Brain tự đọc view `chatbot_catalog` bằng role `chatbot_reader` (`ai-brain/app/rules/chatbot_database_security.md`).
 - `ChatResponse` = `BrainResponse`: `reply, provider, warnings[] (mã cảnh báo), handoff`. Mã cảnh báo: `conflict:<a>+<b>`, `pregnancy:<nhóm>` (luật thành phần); `grounding:price|stock|promo` (AI Brain đã bỏ số giá, tồn kho, khuyến mãi do LLM tự nêu, T-06.6).
 - Backend gọi qua `HttpBrainClient` với timeout 10s (`omniai.brain.timeout`). Nếu lỗi thì trả `BrainResponse.unavailable()`: câu chờ + `handoff=true`, provider `"none"`.
 - Đổi field ở một phía thì **phải sửa cả 2 phía**: `schemas.py` và `BrainRequest`/`BrainResponse`.

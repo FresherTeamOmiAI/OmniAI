@@ -51,6 +51,20 @@ def test_keeps_text_without_prices(text):
     assert strip_unverified_numbers(text) == (text, [])
 
 
+def test_keeps_price_copied_from_catalog():
+    reply, codes = strip_unverified_numbers("Kem này giá 289.000đ ạ.", {289_000})
+
+    assert reply == "Kem này giá 289.000đ ạ."
+    assert codes == []
+
+
+def test_removes_price_that_is_not_in_catalog():
+    reply, codes = strip_unverified_numbers("Kem này giá 450.000đ ạ.", {289_000})
+
+    assert reply == NOTE
+    assert codes == ["grounding:price"]
+
+
 def test_keeps_other_lines_and_drops_empty_list_item():
     text = (
         "Gợi ý cho da dầu:\n"
