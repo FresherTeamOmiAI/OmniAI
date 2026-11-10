@@ -5,6 +5,8 @@ import com.omniai.channel.MessageRouter;
 import com.omniai.common.BotReply;
 import com.omniai.common.CanonicalMessage;
 import com.omniai.common.ChannelType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -22,6 +24,8 @@ import java.util.UUID;
  */
 @Component
 public class WebChatAdapter extends TextWebSocketHandler implements ChannelAdapter<WebChatAdapter.Inbound> {
+
+    private static final Logger log = LoggerFactory.getLogger(WebChatAdapter.class);
 
     /** Payload đã kèm session để chuyển sang CanonicalMessage. */
     public record Inbound(String sessionId, WebChatInbound body) {
@@ -42,30 +46,57 @@ public class WebChatAdapter extends TextWebSocketHandler implements ChannelAdapt
 
     @Override
     public CanonicalMessage toCanonical(Inbound payload) {
-        String messageId = payload.body().messageId() != null ? payload.body().messageId() : UUID.randomUUID().toString();
+        String rawMessageId = payload.body() != null ? payload.body().messageId() : null;
+        String messageId = (rawMessageId != null && !rawMessageId.isBlank())
+                ? rawMessageId
+                : UUID.randomUUID().toString();
+        String text = payload.body() != null ? payload.body().text() : "";
         return new CanonicalMessage(
                 messageId,
                 ChannelType.WEB,
                 payload.sessionId(),
                 null,
                 "web:" + payload.sessionId(),
-                payload.body().text(),
+                text,
                 Instant.now(),
                 Map.of());
     }
 
     @Override
+    public void afterConnectionEstablished(WebSocketSession session) {
+        log.info("WebSocket chat mở kết nối: session={}", session.getId());
+    }
+
+    @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
-        WebChatInbound body = jsonMapper.readValue(message.getPayload(), WebChatInbound.class);
-        if (body.text() == null || body.text().isBlank()) {
+        WebChatInbound body;
+        try {
+            body = jsonMapper.readValue(message.getPayload(), WebChatInbound.class);
+        } catch (Exception e) {
+            log.warn("Bỏ qua tin nhắn không đúng định dạng JSON từ session {}: {}", session.getId(), e.getMessage());
             return;
         }
+
+        if (body == null || body.text() == null || body.text().isBlank()) {
+            return;
+        }
+
         BotReply reply = router.handle(toCanonical(new Inbound(session.getId(), body)));
-        session.sendMessage(new TextMessage(jsonMapper.writeValueAsString(reply)));
+        if (session.isOpen()) {
+            session.sendMessage(new TextMessage(jsonMapper.writeValueAsString(reply)));
+        }
+    }
+
+    @Override
+    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
+        log.info("WebSocket chat đóng kết nối: session={}, status={}", session.getId(), status);
     }
 
     @Override
     public void handleTransportError(WebSocketSession session, Throwable exception) throws Exception {
-        session.close(CloseStatus.SERVER_ERROR);
+        log.warn("Lỗi transport WebSocket session {}: {}", session.getId(), exception.getMessage());
+        if (session.isOpen()) {
+            session.close(CloseStatus.SERVER_ERROR);
+        }
     }
 }

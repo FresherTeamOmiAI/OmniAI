@@ -1,7 +1,8 @@
 """Gemini qua AI Studio. Key và model lấy từ env, không hard-code.
 
-thinkingLevel=low để token suy nghĩ không nuốt hết câu trả lời. T-06.4 đo lại p95
-và tách ngân sách token suy nghĩ khỏi max_tokens trước Sprint Review S1.
+API cộng token suy nghĩ vào maxOutputTokens. Gemini 3 không nhận thinkingBudget
+cùng thinkingLevel. Mức low giữ phần suy nghĩ nhỏ; trần 2048 chừa chỗ cho câu
+trả lời nên câu không bị cắt như lúc trần 400 (T-06.4).
 """
 
 import httpx
@@ -10,8 +11,8 @@ from app.schemas import ChatRequest
 
 GENERATE_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 TEMPERATURE = 0.2
-MAX_OUTPUT_TOKENS = 1024
-TIMEOUT_SECONDS = 8.0
+MAX_OUTPUT_TOKENS = 2048
+TIMEOUT_SECONDS = 9.0
 
 
 class GeminiProvider:
@@ -21,6 +22,8 @@ class GeminiProvider:
         self.model = model
         self._api_key = api_key
         self._transport = transport
+        self.last_finish_reason = ""
+        self.last_usage: dict = {}
 
     def generate(self, request: ChatRequest, system_prompt: str) -> str:
         payload = {
@@ -34,7 +37,10 @@ class GeminiProvider:
         }
         url = GENERATE_URL.format(model=self.model)
         body = self._post(url, payload, {"x-goog-api-key": self._api_key})
-        parts = body.get("candidates", [{}])[0].get("content", {}).get("parts", [])
+        self.last_usage = body.get("usageMetadata") or {}
+        candidate = (body.get("candidates") or [{}])[0]
+        self.last_finish_reason = candidate.get("finishReason") or ""
+        parts = candidate.get("content", {}).get("parts", [])
         answer = "".join(part.get("text", "") for part in parts if not part.get("thought")).strip()
         if not answer:
             raise RuntimeError("gemini trả nội dung rỗng")
@@ -48,5 +54,5 @@ class GeminiProvider:
                 headers={"User-Agent": "omniai-ai-brain/1.0", **headers},
             )
         if response.status_code >= 400:
-            raise RuntimeError(f"gemini HTTP {response.status_code}: {response.text[:300]}")
+            raise RuntimeError(f"gemini HTTP {response.status_code}: {response.text[:800]}")
         return response.json()

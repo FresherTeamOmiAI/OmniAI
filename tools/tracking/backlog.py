@@ -113,7 +113,12 @@ BACKLOG = [
         ("Tích hợp LLM provider thật đã chọn", "AI", C, 2, "Trả lời tiếng Việt đúng ngữ cảnh 10/10 câu mẫu"),
         ("Test case + 5 ca bench luồng web", "Test", H, 0.5, "bench pass 5/5"),
         ("Chặn LLM tự nêu giá/tồn kho khi chưa gọi tool", "AI", H, 0.5,
-         "Ca bench hỏi giá/tồn không có con số tự bịa")]),
+         "Ca bench hỏi giá/tồn không có con số tự bịa"),
+        # Thêm 10/11 sau review S1
+        ("LLM lỗi trả 502 + câu trả lời ngắn, không markdown", "AI", C, 0.5,
+         "pytest có ca provider lỗi -> 502; 10 câu mẫu không còn '**'"),
+        ("Widget hết thời gian chờ + server phản hồi tin lỗi + test WebSocket thật", "BE", T, 0.5,
+         "Chờ quá 12 s thì widget báo lỗi; tin JSON lỗi có phản hồi; test StandardWebSocketClient pass")]),
     us("US-07", "A", "Must have", "P0", 1, H, "Policy engine v0",
        "Là chủ shop, tôi muốn câu trả lời trên Shopee/TikTok bị lọc link, SĐT, tên kênh khác để shop không bị phạt.",
        "Given câu trả lời có URL\nWhen gửi trên kênh SHOPEE\nThen URL bị ẩn; cùng câu trên kênh WEB giữ nguyên",
@@ -403,7 +408,8 @@ ISSUES = [
     # Thêm 06/11 sau review Sprint 0
     ("LLM miễn phí chậm: gemini-3.6-flash p95 7,65 s > 5 s (NFR-01)", "Risk", "Cao", "Cao", "High", C,
      "Duyệt có điều kiện (decisions #14): T-06.4 tách token suy nghĩ khỏi max_tokens, đo lại p95 trước 16/11; "
-     "vẫn > 5 s thì PO chọn nới NFR-01 hoặc đổi model chính sang qwen"),
+     "vẫn > 5 s thì PO chọn nới NFR-01 hoặc đổi model chính sang qwen. "
+     "10/11: đo lại p95 6,7 s, PO chấp nhận ở S1, xem lại khi cần (decisions #21)"),
     ("Quota free tier chưa đủ cho bench (Groq trả 429, Gemini 3.8 trả 503)", "Risk", "Trung bình", "Cao", "Medium", C,
      "Chạy thử 50 request liên tiếp trước bench 50 ca S2; giãn request khi bench model thật; luôn có model dự phòng"),
     ("LLM tự bịa giá, tồn kho (qwen câu q13 nêu 450.000đ)", "Risk", "Cao", "Cao", "High", H,
