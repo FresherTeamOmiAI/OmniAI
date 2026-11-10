@@ -16,6 +16,7 @@ must_not_match: finalText không được khớp regex này (không phân biệt
 import argparse
 import json
 import re
+import sys
 import time
 from collections import defaultdict
 from datetime import datetime
@@ -140,6 +141,8 @@ def to_markdown(summary: dict, results: list[dict]) -> str:
 
 
 def main() -> int:
+    # Console Windows (cp1252/cp437) không in được tiếng Việt, print sẽ ném UnicodeEncodeError.
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(description="OmniAI bench")
     parser.add_argument("--base-url", default="http://localhost:8080")
     parser.add_argument("--dataset", default=str(ROOT / "datasets" / "sample.jsonl"))
@@ -148,8 +151,15 @@ def main() -> int:
 
     policies = load_policies()
     cases = [json.loads(line) for line in Path(args.dataset).read_text(encoding="utf-8").splitlines() if line.strip()]
+    print(f"Chạy {len(cases)} ca từ {Path(args.dataset).name} tới {args.base_url}...", flush=True)
+    results = []
     with httpx.Client(base_url=args.base_url, timeout=TIMEOUT_S) as client:
-        results = [run_case(client, policies, case) for case in cases]
+        for i, case in enumerate(cases, 1):
+            result = run_case(client, policies, case)
+            results.append(result)
+            # In tiến độ từng ca: với LLM thật mỗi ca mất vài giây, không in thì cửa sổ trông như bị treo.
+            status = "PASS" if result["passed"] else "FAIL"
+            print(f"  [{i}/{len(cases)}] {case['id']} {status} {result['latency_ms']}ms", flush=True)
 
     summary = summarize(results)
     report = to_markdown(summary, results)
