@@ -1,6 +1,6 @@
 # Web (React + Vite)
 
-> Cập nhật: 2026-11-11 · commit 5bd0986
+> Cập nhật: 2026-11-11 · commit c5ffbd9 · T-06.8
 > Nguồn: `web/src/**`, `web/vite.config.ts`, `web/package.json`
 
 React 19, Vite 8, TypeScript 7, react-router 7, lint bằng oxlint. Chưa có thư viện UI, state hay test. Chạy `npm run dev` (:5173) hoặc `run-web.bat`. Kiểm tra bằng `npm run build` (gồm `tsc -b`).
@@ -32,7 +32,6 @@ Feature chỉ import từ `shared/` hoặc qua `index.ts` của feature khác, *
 `vite.config.ts`: `/api` chuyển tới `http://localhost:8080`, `/ws` chuyển tới `ws://localhost:8080` (bật ws). Backend cho phép origin `http://localhost:5173` (`WEB_ALLOWED_ORIGINS`).
 
 ## Đã biết
-- `useChatSocket` chưa tự kết nối lại khi mất kết nối. T-06.1 (S1) cần thêm phần báo lỗi rõ / reconnect.
 - Chưa có trang chi tiết sản phẩm (US-09), đăng nhập khách (US-13), inbox (US-14).
 
 ## Admin sản phẩm (`features/product-admin`, T-08.3)
@@ -42,6 +41,7 @@ Feature chỉ import từ `shared/` hoặc qua `index.ts` của feature khác, *
 - Sửa thì không gửi `active` (backend giữ nguyên). Ẩn/hiện dùng `PATCH /{id}/active`. Không có nút xoá (G-07). SKU khoá khi sửa.
 - Test tay: `docs/testcases/US-08.md`, mục D.
 - `useChatSocket` đã có auto-reconnect sau 3s và nút thử lại, ChatWidget có banner báo mất kết nối rõ ràng, typing indicator và auto-scroll (xong T-06.1).
+- `useChatSocket` có timeout 12 s sau mỗi lần gửi (T-06.8): hết giờ thì `isPending=false` và thêm dòng bot "Shop đang bận, bạn thử lại sau nhé."; nhận frame thì xóa timer. Frame `{error}` (`WsErrorReply`) hiện thành dòng lỗi (`ChatLine.error`, class `chat-line-error`), không coi là câu trả lời của bot.
 - Chưa có trang admin sản phẩm (T-08.3), chi tiết sản phẩm (US-09), đăng nhập (US-13), inbox (US-14).
 
 ## Thêm feature

@@ -31,6 +31,15 @@ public class WebChatAdapter extends TextWebSocketHandler implements ChannelAdapt
     public record Inbound(String sessionId, WebChatInbound body) {
     }
 
+    /** Frame lỗi gửi về widget: {"error":"invalid_message","messageId":...}. messageId null nếu JSON hỏng. */
+    public record ErrorReply(String error, String messageId) {
+        static final String INVALID_MESSAGE = "invalid_message";
+
+        static ErrorReply invalidMessage(String messageId) {
+            return new ErrorReply(INVALID_MESSAGE, messageId);
+        }
+    }
+
     private final MessageRouter router;
     private final JsonMapper jsonMapper;
 
@@ -73,17 +82,23 @@ public class WebChatAdapter extends TextWebSocketHandler implements ChannelAdapt
         try {
             body = jsonMapper.readValue(message.getPayload(), WebChatInbound.class);
         } catch (Exception e) {
-            log.warn("Bỏ qua tin nhắn không đúng định dạng JSON từ session {}: {}", session.getId(), e.getMessage());
+            log.warn("Tin nhắn không đúng định dạng JSON từ session {}: {}", session.getId(), e.getMessage());
+            send(session, ErrorReply.invalidMessage(null));
             return;
         }
 
         if (body == null || body.text() == null || body.text().isBlank()) {
+            send(session, ErrorReply.invalidMessage(body != null ? body.messageId() : null));
             return;
         }
 
         BotReply reply = router.handle(toCanonical(new Inbound(session.getId(), body)));
+        send(session, reply);
+    }
+
+    private void send(WebSocketSession session, Object payload) throws Exception {
         if (session.isOpen()) {
-            session.sendMessage(new TextMessage(jsonMapper.writeValueAsString(reply)));
+            session.sendMessage(new TextMessage(jsonMapper.writeValueAsString(payload)));
         }
     }
 

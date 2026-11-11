@@ -63,7 +63,11 @@ export function ChatWidget() {
           </li>
         )}
         {lines.map((line) => (
-          <li key={line.id} className={`chat-line chat-line-${line.from}`}>
+          <li
+            key={line.id}
+            className={`chat-line chat-line-${line.from}${line.error ? ' chat-line-error' : ''}`}
+            role={line.error ? 'alert' : undefined}
+          >
             {line.text}
             {line.handoff && <em className="chat-handoff">Đã chuyển cho nhân viên hỗ trợ</em>}
           </li>

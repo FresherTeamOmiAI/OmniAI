@@ -1,6 +1,6 @@
 # Trạng thái hiện tại
 
-> Cập nhật: 2026-11-11 · lập lại kế hoạch sau buổi họp với thầy (decisions #22–#24) · Sprint hiện tại: **S2 (10–16/11/2026)**
+> Cập nhật: 2026-11-11 · T-06.8 timeout widget + phản hồi tin lỗi /ws/chat; trước đó: lập lại kế hoạch sau buổi họp với thầy (decisions #22–#24) · Sprint hiện tại: **S2 (10–16/11/2026)**
 
 Bảng này cho biết cái gì đã chạy được, cái gì mới là khung, cái gì chưa có. Agent đọc file này **trước khi** đi tìm code để khỏi tìm thứ chưa tồn tại. Kế hoạch chi tiết: `tools/tracking/backlog.py` và GitHub Issues (milestone Sprint 0–12).
 
@@ -14,7 +14,7 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | Script chạy Windows `tools/systembat` | Done | setup / run-all / stop-all / test-all / bench | US-02 |
 | CanonicalMessage + ChannelAdapter | Done | | |
 | MessageRouter + idempotency | Khung | Idempotency in-memory, chưa lưu hội thoại | US-06, US-11, US-29 |
-| Kênh WEB (WebSocket) | Done | T-06.1 FE widget auto-reconnect + T-06.2 BE adapter. Test adapter dùng mock, luồng WS thật chỉ có bench `transport: ws`. Widget chưa có timeout chờ trả lời (T-06.8) | US-06 |
+| Kênh WEB (WebSocket) | Done | T-06.1 FE widget auto-reconnect + T-06.2 BE adapter + T-06.8: server trả `invalid_message` cho tin JSON lỗi/rỗng, widget timeout 12 s, test WS thật `WebChatSocketIT` | US-06 |
 | Simulator API | Done | Dùng cho bench và `/admin/policy` | US-07 |
 | Kênh Telegram / Messenger | Đã bỏ | Bỏ khỏi dự án ngày 11/11 (decisions #22): xóa enum, YAML; hủy US-17, US-18 | |
 | Kênh Shopee / TikTok Shop | Chưa | Đã có YAML luật. 100% simulator theo schema thật, không làm adapter thật (decisions #22). Làm ở S2: Shopee do ChienPX, TikTok Shop do TuTM | US-21, 25 |
@@ -44,8 +44,8 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 - Idempotency chỉ nằm trong bộ nhớ, sẽ mất khi restart và sai khi chạy nhiều instance (S7 chuyển Redis).
 - Backend/ai-brain không tự đọc `.env` (script `.bat` nạp hộ, IDE thì phải tự cấu hình).
 - Chưa có `mvnw`, mỗi máy phải tự cài Maven.
-- Widget chat: server im lặng với tin JSON lỗi/rỗng nên widget hiện "đang trả lời" mãi; nối lại WebSocket thì `channelUserId` đổi theo session mới (T-06.8; tài khoản web ở US-13).
-- Câu trả lời yêu cầu văn bản thuần, không markdown (T-06.7). Widget vẫn hiện đúng chuỗi backend gửi, không tự render markdown.
+- Widget chat: nối lại WebSocket thì `channelUserId` đổi theo session mới (tài khoản web ở US-13).
+- Câu Gemini có markdown (`**`), widget hiện thô (T-06.7).
 - Bench tính ca chậm hơn 5 s là fail, nên tỉ lệ pass với Gemini lẫn cả lỗi chất lượng và lỗi độ trễ (decisions #21). Chưa tách thành metric riêng.
 - Chạy brain và bench cần `LLM_API_KEY` và quota free tier; CI (US-16) sẽ phải giải quyết việc cấp key.
 
