@@ -61,7 +61,7 @@ Hạ tầng (`docker-compose.yml`): PostgreSQL 16 + pgvector, Redis, RabbitMQ.
 
 ```
 backend/      Spring Boot modular monolith: channel, policy, brain, catalog, customer, identity, promotion, order
-ai-brain/     FastAPI: /chat, LLMProvider (fake mặc định), agent, rules/ingredients.py
+ai-brain/     FastAPI: /chat, LLMProvider (gemini mặc định, groq dự phòng), agent, rules/ingredients.py
 bench/        Bench chạy qua API simulator, chấm lại theo shared/policies
 web/          React + Vite + TS, modular theo feature (app/, shared/, features/): store, chat, thử luật kênh
 shared/       policies/*.yaml (luật kênh, dùng chung Java + Python), schemas/ (CanonicalMessage), catalog/ (80 SKU dạng CSV)
@@ -74,11 +74,11 @@ tools/        tracking/ (sinh Excel, đồng bộ GitHub), systembat/ (script .b
 Cần: **JDK 21**, **Maven 3.9+**, **Python 3.11+**, **Node.js 20.19+**, **Docker Desktop** (bắt buộc: Postgres khi chạy app, Testcontainers khi chạy test).
 
 ```bash
-cp .env.example .env          # sửa nếu cần; giá trị mặc định đã chạy được
+cp .env.example .env          # BẮT BUỘC điền LLM_API_KEY (Google AI Studio hoặc Groq); các giá trị khác chạy được ngay
 docker compose up -d          # postgres, redis, rabbitmq
 ```
 
-Backend không tự đọc file `.env`. Giá trị mặc định trong `application.yml` đã khớp `.env.example`. Muốn đổi thì đặt biến môi trường hoặc cấu hình trong IDE.
+AI Brain chỉ chạy LLM thật và đọc catalog từ Postgres thật: thiếu `LLM_API_KEY` hoặc `CHATBOT_DB_URL` thì brain không khởi động. Backend không tự đọc file `.env`. Giá trị mặc định trong `application.yml` đã khớp `.env.example`. Muốn đổi thì đặt biến môi trường hoặc cấu hình trong IDE.
 
 ### Chạy nhanh trên Windows (không cần gõ lệnh)
 
@@ -127,7 +127,7 @@ python -m bench.run              # cần backend + ai-brain đang chạy; báo c
 
 ```bash
 cd backend  && mvn test                      # PolicyEngine, MessageRouter, khởi động Spring trên Postgres thật (Testcontainers, cần Docker)
-cd ai-brain && .venv\Scripts\python -m pytest
+cd ai-brain && .venv\Scripts\python -m pytest       # dùng stub trong tests/, không gọi LLM, không cần key
 cd bench    && .venv\Scripts\python -m pytest
 cd web      && npm run build
 ```

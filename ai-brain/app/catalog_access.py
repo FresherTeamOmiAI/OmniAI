@@ -1,4 +1,8 @@
-"""Đọc catalog bằng role chatbot_reader. Lỗi kết nối thì trả danh sách rỗng, chat vẫn chạy."""
+"""Đọc catalog bằng role chatbot_reader.
+
+Thiếu CHATBOT_DB_URL thì brain không khởi động (require_config). Lỗi kết nối lúc đang chạy thì trả danh sách rỗng,
+chat vẫn chạy và grounding.py bỏ mọi giá vì không có giá nào để đối chiếu.
+"""
 
 import logging
 import os
@@ -28,6 +32,12 @@ def _prices_for_channel(channel: str, owned: bool, web: int, shopee: int, tiktok
     if channel.upper() == "TIKTOK":
         return f"giá {_vnd(tiktok)}", {tiktok}
     return f"giá {_vnd(shopee)}", {shopee}
+
+
+def require_config() -> None:
+    """Gọi lúc khởi động. Brain luôn đọc catalog từ Postgres thật, không có chế độ chạy thiếu database (decisions #25)."""
+    if not os.getenv("CHATBOT_DB_URL", "").strip():
+        raise ValueError("Thiếu CHATBOT_DB_URL: brain đọc catalog từ Postgres bằng role chatbot_reader (xem .env.example)")
 
 
 def load_public_catalog(channel: str = "WEB", channel_owned: bool = True) -> CatalogSnapshot:

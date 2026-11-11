@@ -520,7 +520,8 @@ ISSUES = [
      "Spike S0; nếu không được thì simulator theo đúng schema thật, ghi rõ trong báo cáo. "
      "11/11: chốt 100% simulator theo schema thật, không làm adapter thật (decisions #22)"),
     ("Chi phí gọi LLM vượt ngân sách khi chạy bench nhiều", "Risk", "Trung bình", "Cao", "Medium", C,
-     "FakeProvider khi dev, cache kết quả, giới hạn số lần chạy bench model thật"),
+     "pytest dùng stub trong tests/, không gọi LLM; bench giãn request và giới hạn số lần chạy. "
+     "11/11: bỏ FakeProvider, mọi lần chạy brain và bench đều gọi LLM thật (decisions #25)"),
     ("Quy định sàn thay đổi làm luật YAML lỗi thời", "Risk", "Cao", "Thấp", "Medium", H,
      "Ghi nguồn + ngày đối chiếu trong YAML, review lại ở S10"),
     ("Scope lớn (4 trụ) so với 13 sprint", "Risk", "Cao", "Cao", "High", H,

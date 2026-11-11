@@ -1,6 +1,6 @@
 # Tổng quan hệ thống
 
-> Cập nhật: 2026-11-11 · commit 5bd0986
+> Cập nhật: 2026-11-11 · commit 38afec6
 > Nguồn: `README.md`, `docker-compose.yml`, `.env.example`, `backend/src/main/resources/application.yml`, `web/vite.config.ts`, `tools/systembat/`
 
 ## Mục tiêu
@@ -48,7 +48,8 @@ Dữ liệu 2 chiều hub <-> sàn (trụ E, chưa có code, bảng US ở backe
 ## Biến môi trường (`.env.example`)
 - Docker: `POSTGRES_DB/USER/PASSWORD/PORT`, `REDIS_PORT`, `RABBITMQ_PORT`, `RABBITMQ_UI_PORT`.
 - Backend: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `BRAIN_URL`, `OMNIAI_POLICY_DIR` (mặc định `../shared/policies`, tính từ `backend/`), `WEB_ALLOWED_ORIGINS`, `PORT`, `ADMIN_USERNAME`/`ADMIN_PASSWORD` (tài khoản `/api/admin/**`, mặc định `admin`/`admin`, chỉ dùng khi dev).
-- AI Brain: `LLM_PROVIDER` (mặc định `fake`), `LLM_MODEL`, `LLM_API_KEY`.
+- AI Brain: `LLM_PROVIDER` (`gemini` mặc định, hoặc `groq`; không còn `fake`), `LLM_MODEL`, `LLM_API_KEY` (**bắt buộc**), `CHATBOT_DB_URL` (**bắt buộc**, role `chatbot_reader` chỉ đọc view `chatbot_catalog`). Thiếu một trong hai biến bắt buộc thì brain không khởi động (decisions #25).
+- Backend còn đọc `CHATBOT_DB_PASSWORD` để bật đăng nhập cho role `chatbot_reader` lúc khởi động.
 - Kênh sàn (khóa test để simulator ký webhook và adapter kiểm chữ ký, US-21, US-25): `SHOPEE_PARTNER_ID/KEY`, `TIKTOK_APP_KEY/SECRET`.
 - Backend và ai-brain **không tự đọc `.env`**: script trong `tools/systembat` nạp hộ, còn IDE thì phải tự cấu hình. Default trong `application.yml` đã khớp `.env.example`.
 
@@ -58,7 +59,7 @@ Chi tiết trong `tools/systembat/README.md`:
 - Chạy tất cả: `run-all.bat`. Tắt: `stop-all.bat`.
 - Chạy từng phần: `infra-up.bat`, `run-brain.bat`, `run-backend.bat`, `run-web.bat`.
 - Test: `test-all.bat`. Backend test cần Docker (Testcontainers).
-- Bench: `run-bench.bat`, cần backend + brain đang chạy.
+- Bench: `run-bench.bat`, cần backend + brain đang chạy, tức là cần `LLM_API_KEY` và tốn quota LLM thật.
 
 Lệnh tay (macOS/Linux) xem `README.md` gốc.
 
