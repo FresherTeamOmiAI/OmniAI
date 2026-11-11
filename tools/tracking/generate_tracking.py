@@ -7,6 +7,7 @@ Chú ý: sinh lại sẽ GHI ĐÈ file (mất dữ liệu team đã nhập). Th�
 """
 
 import argparse
+import sys
 from collections import defaultdict
 from datetime import timedelta
 from pathlib import Path
@@ -19,8 +20,8 @@ from openpyxl.utils import get_column_letter
 from openpyxl.workbook.defined_name import DefinedName
 from openpyxl.worksheet.datavalidation import DataValidation
 
-from backlog import (BACKLOG, EPICS, ISSUES, MEMBER_NAMES, MEMBERS, PROJECT_START, QUESTIONS, SPRINT_GOALS,
-                     TASK_TYPES, USE_CASES, sprint_dates, sprint_sheet_name)
+from backlog import (BACKLOG, EPICS, ISSUES, MEMBER_NAMES, MEMBERS, PROJECT_END, PROJECT_START, QUESTIONS, SPRINT_GOALS,
+                     TASK_TYPES, USE_CASES, sprint_code_of, sprint_dates, sprint_sheet_name)
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUT = ROOT / "docs" / "tracking" / "OmniAI_Project_Tracking.xlsx"
@@ -51,13 +52,13 @@ BUG_SEVERITY = ["Critical", "Major", "Minor", "Trivial"]
 PRIORITY = ["High", "Medium", "Low"]
 BUG_TYPE = ["Functional", "UI", "AI-Hallucination", "Policy-Violation", "Adapter", "Performance",
             "Security-Privacy", "Document"]
-CHANNELS = ["Web", "Telegram", "Messenger", "Shopee", "TikTok", "Simulator", "All"]
+CHANNELS = ["Web", "Shopee", "TikTok", "Simulator", "All"]
 MODULES = ["Gateway/Adapter", "Policy", "Bench", "AI Brain", "Identity", "Customer", "Catalog", "Promotion",
            "Order", "Web Store", "Admin", "Infra", "Docs"]
 ENVS = ["Local", "Dev (Docker)", "Demo"]
 ISSUE_STATUS = ["Open", "Monitoring", "Closed"]
 QA_STATUS = ["Open", "Answered", "Closed"]
-SPRINT_CODES = [f"S{n}" for n in range(len(SPRINT_GOALS))]
+SPRINT_CODES = [f"S{n}" for n in range(len(SPRINT_GOALS))] + ["Đệm"]
 
 LISTS = {
     "Members": MEMBER_NAMES,
@@ -138,7 +139,8 @@ def build_guide(wb):
     ws.column_dimensions["B"].width = 110
     ws["A1"] = "OmniAI – Project Tracking"
     ws["A1"].font = TITLE
-    ws["A2"] = f"Bắt đầu {PROJECT_START:%d/%m/%Y} · Sprint 1 tuần (Thứ Ba → Thứ Hai) · {len(SPRINT_GOALS)} sprint · 1 md = 5 giờ làm việc"
+    ws["A2"] = (f"Bắt đầu {PROJECT_START:%d/%m/%Y} · Sprint 1 tuần (Thứ Ba → Thứ Hai) · {len(SPRINT_GOALS)} sprint · "
+                f"từ S2 kéo lên 1 tuần, tuần cuối tới {PROJECT_END:%d/%m/%Y} là tuần đệm · 1 md = 5 giờ làm việc")
     row = 4
     ws.cell(row=row, column=1, value="Thành viên").font = BOLD
     ws.cell(row=row, column=2, value="Vai trò · capacity mặc định (md/sprint)").font = BOLD
@@ -156,7 +158,7 @@ def build_guide(wb):
                                       "Dòng User Story (tô hồng) là CÔNG THỨC, không sửa tay: Estimate/Actual/Status/% Done tự tính từ task.\n"
                                       "Thêm task phát sinh: điền vào dòng trống ngay dưới task cuối của US (cột Cấp = Task). Cần thêm nữa thì chèn dòng (Insert) PHÍA TRÊN dòng trống đó để công thức tự giãn."),
         ("Status task", "Todo → In-progress → Review (chờ người khác review code/test) → Done. Blocked: bị chặn, ghi lý do ở cột Ghi chú. Canceled: bỏ, không tính vào Planned."),
-        ("Definition of Done", "Code đã merge vào develop · test/bench liên quan pass · có bằng chứng · PO nghiệm thu US (cột PO nghiệm thu = Accepted)."),
+        ("Definition of Done", "Code đã merge vào dev · test/bench liên quan pass · có bằng chứng · PO nghiệm thu US (cột PO nghiệm thu = Accepted)."),
         ("PO nghiệm thu (HungDQ)", "Cuối sprint: test theo Acceptance Criteria của từng US, chọn Accepted/Rejected. Rejected thì ghi lý do và chuyển task sang sprint sau. Điền khối Sprint Review cuối sheet."),
         ("Daily report", "Mỗi ngày làm việc, ghi vào ô của mình trong sheet Report progress theo mẫu:\n- Hoàn thành:\n- Đang làm:\n- Sẽ làm:\n- Blocker:"),
         ("Log bug (mọi người, kể cả thầy góp ý)", "Thêm 1 dòng trong Bug Log: chọn Sprint, Module, Kênh, Loại, Severity; ghi Bước tái hiện / Mong đợi / Thực tế; Status = New.\n"
@@ -569,11 +571,10 @@ def build_report_progress(wb):
     box(ws, 2, 2 + len(MEMBERS), SECTION_FILL)
     ws.row_dimensions[2].height = 62
     day, r = PROJECT_START, 3
-    end = sprint_dates(len(SPRINT_GOALS) - 1)[1]
-    while day <= end:
+    while day <= PROJECT_END:
         if day.weekday() < 6:  # Thứ Hai - Thứ Bảy
             ws.cell(row=r, column=1, value=day).number_format = DATE_FMT
-            ws.cell(row=r, column=2, value=f"S{(day - PROJECT_START).days // 7}")
+            ws.cell(row=r, column=2, value=sprint_code_of(day))
             box(ws, r, 2 + len(MEMBERS))
             ws.row_dimensions[r].height = 60
             r += 1
@@ -653,6 +654,8 @@ def print_load():
 
 
 def main() -> int:
+    # Console Windows (cp1252) không in được tiếng Việt, print cảnh báo sẽ ném UnicodeEncodeError.
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", default=str(DEFAULT_OUT))
     args = parser.parse_args()

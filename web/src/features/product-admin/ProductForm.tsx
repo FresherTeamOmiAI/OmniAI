@@ -200,7 +200,7 @@ export function ProductForm({ token, product, onSaved, onClose, onUnauthorized }
 
           <fieldset className="price-group">
             <legend>Giá niêm yết (VNĐ) và tồn kho</legend>
-            <p className="muted">Web và Telegram dùng chung giá web. Khuyến mãi quản lý riêng (US-33).</p>
+            <p className="muted">Giá web dùng cho kênh của shop. Khuyến mãi quản lý riêng (US-33).</p>
             <div className="form-grid form-grid-4">
               {field('priceWeb', 'Giá web', numberInput('priceWeb', 0))}
               {field('priceShopee', 'Giá Shopee', numberInput('priceShopee', 0))}

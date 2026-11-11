@@ -20,7 +20,7 @@ import lombok.Setter;
 import java.time.Instant;
 
 /**
- * 1 danh tính trên 1 kênh (session web, telegram chat id, shopee buyer id...).
+ * 1 danh tính trên 1 kênh (session web, shopee buyer id, tiktok buyer id...).
  * Chỉ gắn vào Customer khi có bằng chứng + consent (xem LinkMethod).
  */
 @Entity

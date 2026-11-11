@@ -161,7 +161,7 @@ class PolicyEngineTest {
 
     // ---------- Nạp file YAML: sai định dạng thì lỗi ngay lúc khởi động ----------
 
-    /** Ghi đủ 5 kênh tối thiểu hợp lệ, để mỗi test chỉ cần ghi đè file đang thử. */
+    /** Ghi đủ 3 kênh tối thiểu hợp lệ, để mỗi test chỉ cần ghi đè file đang thử. */
     private static void writeMinimalPolicies(Path dir) throws IOException {
         for (ChannelType channel : ChannelType.values()) {
             Files.writeString(dir.resolve(channel.name().toLowerCase() + ".yaml"),
@@ -224,11 +224,11 @@ class PolicyEngineTest {
     @Test
     void missingChannelFileFailsAtStartup(@TempDir Path dir) throws IOException {
         writeMinimalPolicies(dir);
-        Files.delete(dir.resolve("messenger.yaml"));
+        Files.delete(dir.resolve("tiktok.yaml"));
 
         assertThatThrownBy(() -> new PolicyEngine(dir.toString()))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Thiếu file policy cho kênh [MESSENGER]");
+                .hasMessageContaining("Thiếu file policy cho kênh [TIKTOK]");
     }
 
     @Test

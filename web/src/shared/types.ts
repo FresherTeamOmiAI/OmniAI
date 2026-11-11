@@ -1,6 +1,6 @@
 // Kiểu dùng chung nhiều feature, khớp backend (com.omniai.common, policy).
 
-export type ChannelType = 'WEB' | 'TELEGRAM' | 'MESSENGER' | 'SHOPEE' | 'TIKTOK'
+export type ChannelType = 'WEB' | 'SHOPEE' | 'TIKTOK'
 
 export interface PolicyViolation {
   ruleId: string

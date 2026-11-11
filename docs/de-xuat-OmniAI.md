@@ -1,5 +1,7 @@
 # OmniAI – Trợ lý tư vấn mỹ phẩm đa kênh "Một bộ não, nhiều luật kênh"
 
+> Đây là bản đề xuất gốc ngày 02/11/2026, giữ nguyên để đối chiếu. Phạm vi đã đổi ngày 11/11/2026: bỏ Telegram và Messenger, Shopee và TikTok Shop chạy 100% bằng simulator, thêm hướng hub omnichannel với dữ liệu 2 chiều. Bản hiện hành: [srs/SRS.md](srs/SRS.md) 1.1 và [specs/decisions.md](specs/decisions.md) #22 đến #24.
+
 ## Context
 Team 4 người (mạnh Java/Spring, FE vừa phải, sẵn sàng học Python + AI) đề xuất "omni-channel + AI" cho shop mỹ phẩm. Thầy góp ý: nên nghiêng về AI, khó khăn nằm ở **adapter** và cần **biết cách bench**. Team muốn: 1 bộ não chung cắm vào Shopee, TikTok Shop, web riêng; hiểu khách xuyên 3 kênh; tư vấn cần gì → mua ở đâu, giờ nào săn sale. Người dùng = người mua. Yêu cầu: làm max scope (cả 4 hướng), tự cắt sau; muốn cắm **thật** chứ không chỉ giả lập, nhưng sợ có người mua thật khi không có hàng.
 

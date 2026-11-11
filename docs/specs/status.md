@@ -1,6 +1,6 @@
 # Trạng thái hiện tại
 
-> Cập nhật: 2026-11-10 · review S1 (thêm T-06.7, T-06.8) · Sprint hiện tại: **S1 (10–16/11/2026)**
+> Cập nhật: 2026-11-11 · lập lại kế hoạch sau buổi họp với thầy (decisions #22–#24) · Sprint hiện tại: **S2 (10–16/11/2026)**
 
 Bảng này cho biết cái gì đã chạy được, cái gì mới là khung, cái gì chưa có. Agent đọc file này **trước khi** đi tìm code để khỏi tìm thứ chưa tồn tại. Kế hoạch chi tiết: `tools/tracking/backlog.py` và GitHub Issues (milestone Sprint 0–12).
 
@@ -16,8 +16,10 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | MessageRouter + idempotency | Khung | Idempotency in-memory, chưa lưu hội thoại | US-06, US-11, US-29 |
 | Kênh WEB (WebSocket) | Done | T-06.1 FE widget auto-reconnect + T-06.2 BE adapter. Test adapter dùng mock, luồng WS thật chỉ có bench `transport: ws`. Widget chưa có timeout chờ trả lời (T-06.8) | US-06 |
 | Simulator API | Done | Dùng cho bench và `/admin/policy` | US-07 |
-| Kênh Telegram / Messenger | Chưa | Đã có YAML luật | US-17 |
-| Kênh Shopee / TikTok | Chưa | Đã có YAML luật. Làm simulator theo schema thật trước, adapter thật chờ sàn duyệt app (decisions #12) | US-21, 25 |
+| Kênh Telegram / Messenger | Đã bỏ | Bỏ khỏi dự án ngày 11/11 (decisions #22): xóa enum, YAML; hủy US-17, US-18 | |
+| Kênh Shopee / TikTok Shop | Chưa | Đã có YAML luật. 100% simulator theo schema thật, không làm adapter thật (decisions #22). Làm ở S2: Shopee do ChienPX, TikTok Shop do TuTM | US-21, 25 |
+| Đồng bộ hub ↔ kênh (trụ E) | Chưa | Đi: sản phẩm, giá, tồn kho, khuyến mãi, trạng thái đơn. Về: đơn hàng, duyệt sản phẩm, đánh giá (hội thoại CSKH ở US-11, 14). Bắt đầu S3, bảng US ở [backend.md](backend.md) | US-49–55 |
+| Dữ liệu sản phẩm thật kèm ảnh | Chưa | Catalog hiện là 80 SKU thương hiệu hư cấu. Nơi lưu ảnh chờ chốt (SRS Q-10) | US-47 |
 | PolicyEngine + YAML | Done (v0) | YAML sàn là bản nháp | US-07, US-20 |
 | AI Brain `/chat` + LLMProvider | Khung | `LLM_PROVIDER` chọn `fake` (mặc định), `gemini` hoặc `groq` (T-06.3). `gemini-3.6-flash` trả lời đúng ngữ cảnh 10/10 câu mẫu (T-06.4), p95 6,7 s > 5 s, PO chấp nhận ở S1 (decisions #21). LLM lỗi đang thành HTTP 500, câu trả lời còn markdown (T-06.7). Tên và giá niêm yết lấy từ view `chatbot_catalog` bằng role `chatbot_reader` | US-05, US-06 |
 | AI Brain: chặn số tự bịa (`rules/grounding.py`) | Done | Giữ giá khi khớp `chatbot_catalog`. Vẫn bỏ tồn kho, khuyến mãi và giá model tự bịa | US-06 (T-06.6), US-15 |
@@ -30,7 +32,7 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | Màn admin sản phẩm `/admin/products` | Done | Đăng nhập Basic, bảng gồm SKU ẩn + tìm/lọc/phân trang, thêm/sửa trong dialog, ẩn/hiện (T-08.3). Chưa có test tự động phía web, TC trình duyệt ở `docs/testcases/US-08.md` mục D | US-08 |
 | Xác thực admin | Khung | HTTP Basic 1 tài khoản từ env cho `/api/admin/**` (SRS Q-01). Tài khoản thật ở US-13 | US-08, US-13 |
 | Customer / ChannelIdentity entity | Khung | Chưa có API | |
-| Identity (OTP, deep-link, OMNI-code) | Chưa | Mới có package-info | US-13, 18, 22 |
+| Identity (OTP, OMNI-code) | Chưa | Mới có package-info | US-13, 22 |
 | Order, Promotion | Chưa | Mới có package-info | US-09, 33 |
 | Web store (list + lọc loại da) | Khung | Chưa có trang chi tiết, chưa đặt hàng ảo | US-09 |
 | Trang thử luật kênh `/admin/policy` | Done | | UC-24 |
@@ -45,6 +47,7 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 - Widget chat: server im lặng với tin JSON lỗi/rỗng nên widget hiện "đang trả lời" mãi; nối lại WebSocket thì `channelUserId` đổi theo session mới (T-06.8; tài khoản web ở US-13).
 - Câu Gemini có markdown (`**`), widget hiện thô (T-06.7).
 
-## Sprint S0–S1 (tóm tắt)
+## Sprint S0–S2 (tóm tắt)
 - **S0** (03–09/11): SRS 1.0, US, UC (HungDQ; LucVT, ChienPX góp ý; không ký duyệt, decisions #16) · setup môi trường (cả 4) · spike chat API Shopee/TikTok (TuTM) · schema + 80 SKU (LucVT) · so sánh ≥3 LLM (ChienPX).
-- **S1** (10–16/11): chat web hoàn chỉnh (TuTM) · LLM thật (ChienPX) · PolicyEngine v0 + 5 ca bench web (HungDQ) · CRUD sản phẩm + import 80 SKU + màn admin (LucVT).
+- **S1** (làm gối lên tuần S0, review 10/11): chat web hoàn chỉnh (TuTM) · LLM thật (ChienPX) · PolicyEngine v0 + 5 ca bench web (HungDQ) · CRUD sản phẩm + import 80 SKU + màn admin (LucVT). Còn T-06.7, T-06.8 làm tiếp trong S2.
+- **S2** (10–16/11, kéo lên 1 tuần; S3–S12 cũng kéo lên, decisions #24): simulator Shopee theo schema thật + RAG (ChienPX) · simulator TikTok Shop + lưu hội thoại (TuTM) · web store + dữ liệu thật kèm ảnh (LucVT) · bench 50 ca, tài liệu benchmark, bỏ FakeProvider, chuyển hướng (HungDQ). Vượt capacity có chủ đích: ChienPX 10 md, TuTM 7,5, LucVT 6,5, HungDQ 5.

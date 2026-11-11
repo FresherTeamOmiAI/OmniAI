@@ -9,7 +9,7 @@ SHARED_CASES = yaml.safe_load((DEFAULT_POLICY_DIR / "tests" / "cases.yaml").read
 
 
 def test_loads_every_channel():
-    assert set(POLICIES) == {"WEB", "TELEGRAM", "MESSENGER", "SHOPEE", "TIKTOK"}
+    assert set(POLICIES) == {"WEB", "SHOPEE", "TIKTOK"}
 
 
 def test_shopee_flags_link_phone_and_other_channel():

@@ -1,31 +1,35 @@
 # Tổng quan hệ thống
 
-> Cập nhật: 2026-11-08 · commit ace11e2
+> Cập nhật: 2026-11-11 · commit 5bd0986
 > Nguồn: `README.md`, `docker-compose.yml`, `.env.example`, `backend/src/main/resources/application.yml`, `web/vite.config.ts`, `tools/systembat/`
 
 ## Mục tiêu
-Trợ lý tư vấn mỹ phẩm đa kênh, theo nguyên tắc **"một bộ não, nhiều luật kênh"**. Có 4 trụ (epic): A adapter & luật kênh + bench, B chuyên gia mỹ phẩm, C danh tính & bộ nhớ xuyên kênh, D săn sale. Shop là bản demo: thương hiệu hư cấu, không thanh toán, không giao hàng. Kế hoạch 13 sprint 1 tuần (S0 bắt đầu 03/11/2026), backlog nằm trong `tools/tracking/backlog.py`.
+Hub omnichannel cho shop mỹ phẩm kèm trợ lý tư vấn, theo nguyên tắc **"một bộ não, nhiều luật kênh"**. Hub giữ dữ liệu gốc, đẩy ra các kênh và gom dữ liệu từ các kênh về (decisions #23). Có 5 trụ (epic): A simulator kênh sàn & luật kênh + bench, B chuyên gia mỹ phẩm, C danh tính & bộ nhớ xuyên kênh, D săn sale, E đồng bộ dữ liệu hub ↔ kênh. Kênh: WEB, SHOPEE, TIKTOK; hai sàn chạy 100% bằng simulator theo schema thật (decisions #22). Shop là bản demo: không thanh toán, không giao hàng. Kế hoạch 13 sprint (S0 bắt đầu 03/11/2026, từ S2 mỗi sprint kéo lên 1 tuần, S12 kết thúc 25/01/2027, sau đó 1 tuần đệm; decisions #24), backlog nằm trong `tools/tracking/backlog.py`.
 
 ## Kiến trúc & luồng một tin nhắn
 
 ```
-Kênh (web WS / simulator / sau này Telegram, Shopee, TikTok)
+Kênh (web WS / simulator chung / từ S2: Shopee, TikTok Shop qua simulator theo schema thật)
   -> ChannelAdapter<P>.toCanonical()      -> CanonicalMessage
   -> MessageRouter.handle()               idempotency theo channel:messageId (in-memory)
   -> BrainClient.ask()  HTTP POST /chat   ai-brain (FastAPI). Lỗi/timeout 10s -> BrainResponse.unavailable() (handoff=true)
   -> PolicyEngine.apply(channel, reply)   luật trong shared/policies/*.yaml
   -> BotReply {rawText, finalText, violations, blocked, handoff}   trả về kênh
 Bench gọi /api/simulator và chấm lại finalText bằng chính bộ YAML đó (Python).
+
+Dữ liệu 2 chiều hub <-> sàn (trụ E, chưa có code, bảng US ở backend.md):
+  ĐI  hub -> sàn : sản phẩm, giá theo kênh, tồn kho, khuyến mãi, trạng thái xử lý đơn
+  VỀ  sàn -> hub : hội thoại CSKH, đơn hàng, trạng thái duyệt/vi phạm sản phẩm, đánh giá
 ```
 
 ## Module & owner
 
 | Thư mục | Công nghệ | Owner | Spec |
 |---|---|---|---|
-| `backend/` `com.omniai.channel`, `common`, admin inbox | Spring Boot 4.1, Java 21 | TuTM | [backend.md](backend.md) |
+| `backend/` `com.omniai.channel`, `common`, admin inbox, đồng bộ hub ↔ kênh, simulator TikTok Shop | Spring Boot 4.1, Java 21 | TuTM | [backend.md](backend.md) |
 | `backend/` `policy`, `bench/`, CI, `tools/` | Java / Python | HungDQ | [policy.md](policy.md), [bench.md](bench.md) |
 | `backend/` `catalog`, `customer`, `identity`, `order`, `promotion`, web store | Java | LucVT | [data-model.md](data-model.md) |
-| `ai-brain/` | FastAPI, Python 3.11 | ChienPX | [ai-brain.md](ai-brain.md) |
+| `ai-brain/`; simulator Shopee (trong `backend/`) | FastAPI, Python 3.11; Java | ChienPX | [ai-brain.md](ai-brain.md), [backend.md](backend.md) |
 | `web/` | React 19 + Vite 8 + TS, react-router 7 | ai làm phần nào tự làm UI phần đó | [web.md](web.md) |
 | `shared/policies/`, `shared/schemas/` | YAML, JSON Schema | HungDQ | [policy.md](policy.md), [api-contracts.md](api-contracts.md) |
 | `shared/catalog/`, `tools/catalog/` | CSV 80 SKU + validator + script sinh migration (Python) | LucVT | [data-model.md](data-model.md) |
@@ -45,7 +49,7 @@ Bench gọi /api/simulator và chấm lại finalText bằng chính bộ YAML đ
 - Docker: `POSTGRES_DB/USER/PASSWORD/PORT`, `REDIS_PORT`, `RABBITMQ_PORT`, `RABBITMQ_UI_PORT`.
 - Backend: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `BRAIN_URL`, `OMNIAI_POLICY_DIR` (mặc định `../shared/policies`, tính từ `backend/`), `WEB_ALLOWED_ORIGINS`, `PORT`, `ADMIN_USERNAME`/`ADMIN_PASSWORD` (tài khoản `/api/admin/**`, mặc định `admin`/`admin`, chỉ dùng khi dev).
 - AI Brain: `LLM_PROVIDER` (mặc định `fake`), `LLM_MODEL`, `LLM_API_KEY`.
-- Kênh (điền khi tới sprint tương ứng): `TELEGRAM_BOT_TOKEN`, `SHOPEE_PARTNER_ID/KEY`, `TIKTOK_APP_KEY/SECRET`.
+- Kênh sàn (khóa test để simulator ký webhook và adapter kiểm chữ ký, US-21, US-25): `SHOPEE_PARTNER_ID/KEY`, `TIKTOK_APP_KEY/SECRET`.
 - Backend và ai-brain **không tự đọc `.env`**: script trong `tools/systembat` nạp hộ, còn IDE thì phải tự cấu hình. Default trong `application.yml` đã khớp `.env.example`.
 
 ## Chạy (Windows)

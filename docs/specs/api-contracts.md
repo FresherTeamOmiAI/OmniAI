@@ -1,6 +1,6 @@
 # Hợp đồng API
 
-> Cập nhật: 2026-11-09 · commit c08554e
+> Cập nhật: 2026-11-11 · commit 5bd0986
 > Nguồn: `backend/.../channel/simulator/*`, `channel/web/*`, `catalog/ProductController.java`, `catalog/AdminProductController.java`, `catalog/ProductRequest.java`, `brain/*`, `common/*`, `ai-brain/app/main.py`, `ai-brain/app/schemas.py`, `shared/schemas/canonical-message.schema.json`, `web/src/shared/types.ts`
 
 JSON phía backend dùng **camelCase**. Riêng hợp đồng backend → ai-brain dùng **snake_case**.
@@ -9,7 +9,7 @@ JSON phía backend dùng **camelCase**. Riêng hợp đồng backend → ai-brai
 
 | Method | Path | Request | Response | Ghi chú |
 |---|---|---|---|---|
-| POST | `/api/simulator/{channel}/messages` | `{messageId?, userId*, text*}` | `BotReply` | `channel` viết thường: web, telegram, messenger, shopee, tiktok. Bỏ trống `messageId` thì server tự sinh UUID; gửi trùng `messageId` thì nhận lại kết quả cũ. Dùng cho bench và trang `/admin/policy`. |
+| POST | `/api/simulator/{channel}/messages` | `{messageId?, userId*, text*}` | `BotReply` | `channel` viết thường: web, shopee, tiktok. Bỏ trống `messageId` thì server tự sinh UUID; gửi trùng `messageId` thì nhận lại kết quả cũ. Dùng cho bench và trang `/admin/policy`. |
 | GET | `/api/products?skinType=&page=&size=` | | `PageResponse<Product>` = `{items, page, size, total}` | Chỉ trả sản phẩm `active=true`. `skinType` lọc kiểu "contains, không phân biệt hoa thường". Mặc định size 20. |
 | GET | `/api/products/{id}` | | `Product` hoặc 404 | Sản phẩm `active=false` cũng trả 404 (SRS G-06). |
 | WS | `/ws/chat` | text frame `{messageId, text}` | text frame `BotReply` | Kênh WEB. Origin cho phép: `WEB_ALLOWED_ORIGINS`. Text rỗng thì bỏ qua. |
@@ -32,11 +32,11 @@ Cần header `Authorization: Basic` với `ADMIN_USERNAME`/`ADMIN_PASSWORD` (SRS
 - Luật kiểm giống `tools/catalog/validate_catalog.py` (`catalog/CatalogVocabulary.java`): dạng SKU, bộ từ vựng ở [data-model.md](data-model.md), INCI ≥ 2 thành phần, giá/tồn kho ≥ 0, dung tích/PAO > 0, độ dài cột, tên/mô tả không có claim y khoa ("trị mụn", "đặc trị", "chữa"...).
 - Lỗi dạng ProblemDetail (RFC 9457, `application/problem+json`): `{type, title, status, detail, instance, errors?}`. `400` sai dữ liệu có `errors: [{field, message}]`; `400` JSON hỏng hoặc sai kiểu; `404`; `409` trùng SKU.
 
-Chưa có: `/api/conversations` (US-11, S2), tài khoản thật (US-13, S3).
+Chưa có: `/api/conversations` (US-11, S2), API của simulator Shopee/TikTok Shop theo schema thật (US-21, US-25, S2), tài khoản thật (US-13, S3), API đồng bộ hub ↔ kênh (trụ E, từ S3, xem [backend.md](backend.md)).
 
 ## Kiểu dữ liệu chung (`com.omniai.common`, `web/src/shared/types.ts`)
 
-- `ChannelType`: `WEB, TELEGRAM, MESSENGER` (owned = kênh shop sở hữu, được gửi link/so sánh kênh) | `SHOPEE, TIKTOK` (sàn).
+- `ChannelType`: `WEB` (owned = kênh shop sở hữu, được gửi link/so sánh kênh) | `SHOPEE, TIKTOK` (sàn, chạy bằng simulator). Telegram và Messenger đã bỏ ngày 11/11 (decisions #22).
 - `CanonicalMessage(messageId, channel, channelUserId, customerId?, conversationId, text, receivedAt, metadata)`. JSON Schema trong `shared/schemas/canonical-message.schema.json`. Hiện `conversationId` = `<kênh thường>:<userId>`, `customerId` luôn null (chưa liên kết danh tính).
 - `BotReply(messageId, channel, rawText, finalText, violations[], blocked, handoff)`:
   - `rawText`: câu AI nói. `finalText`: câu khách nhận sau policy.

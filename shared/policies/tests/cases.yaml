@@ -1,5 +1,5 @@
 # Ca kiểm thử luật kênh, dùng chung cho backend (PolicyEngineTest) và bench (tests/test_policy_check.py).
-# Cả hai bên chạy cùng các ca này trên cả 5 kênh, nên chứng minh được regex chạy giống nhau ở Java và Python.
+# Cả hai bên chạy cùng các ca này trên cả 3 kênh (WEB, SHOPEE, TIKTOK), nên chứng minh được regex chạy giống nhau ở Java và Python.
 #
 #   text:     câu trả lời của AI cần kiểm tra
 #   matches:  id luật phải khớp trên câu gốc, theo kênh. "*" = mọi kênh. Kênh không ghi = không khớp luật nào.
