@@ -1,6 +1,6 @@
 # docs/specs: bản đồ hệ thống cho người và agent
 
-> Cập nhật: 2026-11-04 · commit 3922a5c
+> Cập nhật: 2026-11-11 · commit 5bd0986
 
 Specs là bản tóm tắt **ngắn và luôn mới** của code: hợp đồng giữa các module, quy ước, file nằm ở đâu, cái gì đã làm và cái gì chưa. Mục đích là để agent (và người mới vào) **không phải đọc lại cả repo** mỗi lần bắt đầu task.
 
@@ -18,6 +18,8 @@ Specs không chép lại code. Khi spec và code mâu thuẫn thì **code là ch
 | Catalog, customer, identity, order, promotion (LucVT) | [data-model.md](data-model.md), [backend.md](backend.md) |
 | AI Brain, LLM, agent, luật thành phần (ChienPX) | [ai-brain.md](ai-brain.md), [api-contracts.md](api-contracts.md) |
 | Bench, dataset, metric | [bench.md](bench.md), [policy.md](policy.md) |
+| Phương pháp benchmark, tài liệu tham khảo | [../bench/huong-dan-benchmark.md](../bench/huong-dan-benchmark.md) |
+| Simulator sàn, đồng bộ hub ↔ kênh (ChienPX: Shopee, TuTM: TikTok Shop) | [backend.md](backend.md) (mục "Kênh sàn", "Đồng bộ hub ↔ kênh"), [api-contracts.md](api-contracts.md) |
 | Test case nghiệm thu theo US (PO) | [../testcases/](../testcases/) |
 | Giao diện web | [web.md](web.md), [api-contracts.md](api-contracts.md) |
 | Migration / bảng DB | [data-model.md](data-model.md) |

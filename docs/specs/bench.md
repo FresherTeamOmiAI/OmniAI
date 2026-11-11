@@ -1,9 +1,9 @@
 # Bench
 
-> Cập nhật: 2026-11-06 · commit 6eff49a · Owner: HungDQ
+> Cập nhật: 2026-11-11 · commit 5bd0986 · Owner: HungDQ
 > Nguồn: `bench/bench/run.py`, `bench/bench/policy_check.py`, `bench/datasets/*.jsonl`, `bench/tests/*`
 
-Bench đo chất lượng bot theo từng kênh. Đây là **đóng góp chính** của dự án. Bench gửi từng ca vào backend qua API simulator, hoặc qua WebSocket `/ws/chat` giống chat widget (cần backend + ai-brain đang chạy), rồi tự chấm lại `finalText` bằng cùng bộ YAML luật.
+Bench đo chất lượng bot theo từng kênh. Đây là **đóng góp chính** của dự án. Bench gửi từng ca vào backend qua API simulator, hoặc qua WebSocket `/ws/chat` giống chat widget (cần backend + ai-brain đang chạy), rồi tự chấm lại `finalText` bằng cùng bộ YAML luật. Phương pháp, cách áp vào bài toán và tài liệu tham khảo: [../bench/huong-dan-benchmark.md](../bench/huong-dan-benchmark.md).
 
 ## Chạy
 `python -m bench.run [--dataset datasets/x.jsonl] [--base-url http://localhost:8080] [--out reports]`, hoặc `tools\systembat\run-bench.bat`. Báo cáo ghi ra `bench/reports/bench-<thời gian>.md` và `.json` (thư mục này bị gitignore). URL WebSocket suy ra từ `--base-url` (`http` → `ws`, `https` → `wss`, thêm `/ws/chat`). Thư viện: httpx, pyyaml, pytest, websockets (client sync). Khi `requirements.txt` đổi thì chạy lại `setup.bat`.
@@ -32,7 +32,7 @@ Summary (`summarize()`): `total`, `passed`, `latency_p95_ms`, và `by_channel` g
 - `datasets/web-flow.jsonl`: 6 ca luồng web qua WebSocket (WEBF-001..006), là phần tự động của `docs/testcases/US-06.md`. WEBF-001..004 dựa vào câu của FakeProvider. WEBF-005 (luật thành phần) và WEBF-006 (không bịa giá, T-06.6) dựa vào code tất định nên không phụ thuộc model.
 
 ## Test
-`tests/test_policy_check.py`: nạp đủ kênh, Shopee bắt được link/SĐT/kênh khác, WEB cho phép link, claim y khoa bị bắt ở mọi kênh. Ngoài ra chạy bộ ca dùng chung `shared/policies/tests/cases.yaml` (18 ca × 5 kênh, cùng bộ với `PolicyEngineTest`), để chắc regex cho kết quả giống nhau ở Python và Java.
+`tests/test_policy_check.py`: nạp đủ kênh, Shopee bắt được link/SĐT/kênh khác, WEB cho phép link, claim y khoa bị bắt ở mọi kênh. Ngoài ra chạy bộ ca dùng chung `shared/policies/tests/cases.yaml` (18 ca × 3 kênh, cùng bộ với `PolicyEngineTest`), để chắc regex cho kết quả giống nhau ở Python và Java.
 
 `tests/test_run.py`: hàm chấm `grade()` (pass, lọt luật, sai `blocked`, thiếu chuỗi, khớp mẫu cấm, quá chậm) và cách suy URL WebSocket từ `--base-url`. Không cần server.
 
@@ -40,4 +40,4 @@ Summary (`summarize()`): `total`, `passed`, `latency_p95_ms`, và `by_channel` g
 - S1: 5 ca luồng web qua WebSocket (T-06.5) và ca không bịa giá (T-06.6): đã có, pass với FakeProvider.
 - S2: 50 ca, ít nhất 5 nhóm, báo cáo theo kênh (US-12).
 - S3: 20 ca giá/tồn kho, tỉ lệ bịa số = 0 (US-15). CI chạy bench (US-16).
-- S5: bẫy policy + LLM-as-judge (US-24). S7: metric memory/conflict recall (US-32). S9: P/R/F1 danh tính (US-40). S10: trang báo cáo bench trên admin (US-41).
+- S5: bẫy policy + LLM-as-judge (US-24). S7: metric memory/conflict recall (US-32) và 10 ca nội dung đẩy ra sàn (US-54). S9: P/R/F1 danh tính (US-40). S10: trang báo cáo bench trên admin (US-41).
