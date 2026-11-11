@@ -7,8 +7,8 @@
   "required": ["messageId", "channel", "channelUserId", "conversationId", "text", "receivedAt"],
   "properties": {
     "messageId": { "type": "string", "description": "ID duy nhất của tin trên kênh gốc, dùng cho idempotency" },
-    "channel": { "enum": ["WEB", "TELEGRAM", "MESSENGER", "SHOPEE", "TIKTOK"] },
-    "channelUserId": { "type": "string", "description": "ID người dùng trên kênh (session web, telegram chat id, shopee buyer id...)" },
+    "channel": { "enum": ["WEB", "SHOPEE", "TIKTOK"] },
+    "channelUserId": { "type": "string", "description": "ID người dùng trên kênh (session web, shopee buyer id, tiktok buyer id...)" },
     "customerId": { "type": ["integer", "null"], "description": "ID khách hợp nhất, null nếu chưa liên kết" },
     "conversationId": { "type": "string" },
     "text": { "type": "string" },

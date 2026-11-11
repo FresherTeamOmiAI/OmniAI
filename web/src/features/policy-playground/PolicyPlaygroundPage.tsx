@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { BotReply, ChannelType } from '../../shared/types'
 import { simulate } from './api'
 
-const CHANNELS: ChannelType[] = ['WEB', 'TELEGRAM', 'SHOPEE', 'TIKTOK']
+const CHANNELS: ChannelType[] = ['WEB', 'SHOPEE', 'TIKTOK']
 
 // Admin > Thử luật kênh. Owner: HungDQ (policy) + TuTM (admin).
 export function PolicyPlaygroundPage() {

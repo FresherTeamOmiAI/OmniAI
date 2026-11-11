@@ -1,6 +1,6 @@
 # Web (React + Vite)
 
-> Cập nhật: 2026-11-03 · commit c88bfc6
+> Cập nhật: 2026-11-11 · commit 5bd0986
 > Nguồn: `web/src/**`, `web/vite.config.ts`, `web/package.json`
 
 React 19, Vite 8, TypeScript 7, react-router 7, lint bằng oxlint. Chưa có thư viện UI, state hay test. Chạy `npm run dev` (:5173) hoặc `run-web.bat`. Kiểm tra bằng `npm run build` (gồm `tsc -b`).
@@ -25,7 +25,7 @@ Feature chỉ import từ `shared/` hoặc qua `index.ts` của feature khác, *
 |---|---|---|
 | `/` | `StorePage`: danh sách sản phẩm, lọc theo loại da | `features/store` (LucVT) |
 | `/admin/products` | `ProductAdminPage`: đăng nhập admin, bảng sản phẩm (gồm SKU ẩn, tìm, lọc trạng thái, phân trang), dialog thêm/sửa, nút ẩn/hiện | `features/product-admin` (LucVT) |
-| `/admin/policy` | `PolicyPlaygroundPage`: gửi 1 câu vào WEB/TELEGRAM/SHOPEE/TIKTOK qua simulator, so sánh rawText và finalText | `features/policy-playground` (HungDQ) |
+| `/admin/policy` | `PolicyPlaygroundPage`: gửi 1 câu vào WEB/SHOPEE/TIKTOK qua simulator, so sánh rawText và finalText | `features/policy-playground` (HungDQ) |
 | mọi trang trừ `/admin/*` | `ChatWidget` + `useChatSocket` (WS `/ws/chat`, trạng thái `connecting/open/closed`), gắn trong `ShopLayout` | `features/chat` (TuTM) |
 
 ## Proxy dev
