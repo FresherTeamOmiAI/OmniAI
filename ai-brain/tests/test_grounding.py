@@ -2,14 +2,14 @@ import pytest
 
 from app.rules.grounding import NOTE, strip_unverified_numbers
 
-FAKE_PRICE = (
+INVENTED_PRICE = (
     "Dạ sản phẩm này đang có giá 450.000đ, còn 15 sản phẩm và đang giảm 10% ạ. "
     "Bạn nên thoa sau bước dưỡng ẩm nhé."
 )
 
 
 def test_removes_invented_price_stock_and_promo():
-    reply, codes = strip_unverified_numbers(FAKE_PRICE)
+    reply, codes = strip_unverified_numbers(INVENTED_PRICE)
 
     assert reply == "Bạn nên thoa sau bước dưỡng ẩm nhé.\n" + NOTE
     assert codes == ["grounding:price", "grounding:stock", "grounding:promo"]

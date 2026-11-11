@@ -4,7 +4,10 @@ from app.schemas import ChatRequest
 
 
 class LLMProvider(Protocol):
-    """Mọi provider (fake, model thương mại, model local) cùng 1 interface để bench so sánh được."""
+    """Mọi provider (API free tier, model local) cùng 1 interface để bench so sánh được.
+
+    App chỉ có provider thật. pytest dùng stub trong tests/stubs.py (decisions #25).
+    """
 
     name: str
 

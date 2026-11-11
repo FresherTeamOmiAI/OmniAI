@@ -23,7 +23,7 @@ def test_health():
 def test_chat_returns_reply():
     body = chat("Kem chống nắng cho da dầu")
     assert body["reply"]
-    assert body["provider"] == "fake"
+    assert body["provider"] == "stub"
 
 
 def test_pregnancy_with_retinol_adds_warning():
@@ -51,3 +51,9 @@ def test_price_question_has_no_invented_numbers():
     assert "450.000" not in body["reply"]
     assert "kiểm tra" in body["reply"]
     assert "grounding:price" in body["warnings"]
+
+
+def test_price_from_catalog_is_kept():
+    body = chat("Kem chống nắng kiềm dầu giá bao nhiêu shop?")
+    assert "289.000đ" in body["reply"]
+    assert "grounding:price" not in body["warnings"]

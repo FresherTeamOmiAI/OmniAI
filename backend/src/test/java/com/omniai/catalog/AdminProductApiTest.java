@@ -73,7 +73,7 @@ class AdminProductApiTest {
 
     @Test
     void storeSimulatorAndActuatorStayOpenWithoutAuth() throws Exception {
-        when(brainClient.ask(any())).thenReturn(new BrainResponse("Chào bạn", "fake", List.of(), false));
+        when(brainClient.ask(any())).thenReturn(new BrainResponse("Chào bạn", "stub", List.of(), false));
 
         mvc.perform(get("/api/products")).andExpect(status().isOk());
         mvc.perform(get("/actuator/health")).andExpect(status().isOk());

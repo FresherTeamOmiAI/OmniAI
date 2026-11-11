@@ -21,7 +21,7 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | Đồng bộ hub ↔ kênh (trụ E) | Chưa | Đi: sản phẩm, giá, tồn kho, khuyến mãi, trạng thái đơn. Về: đơn hàng, duyệt sản phẩm, đánh giá (hội thoại CSKH ở US-11, 14). Bắt đầu S3, bảng US ở [backend.md](backend.md) | US-49–55 |
 | Dữ liệu sản phẩm thật kèm ảnh | Chưa | Catalog hiện là 80 SKU thương hiệu hư cấu. Nơi lưu ảnh chờ chốt (SRS Q-10) | US-47 |
 | PolicyEngine + YAML | Done (v0) | YAML sàn là bản nháp | US-07, US-20 |
-| AI Brain `/chat` + LLMProvider | Khung | `LLM_PROVIDER` chọn `fake` (mặc định), `gemini` hoặc `groq` (T-06.3). `gemini-3.6-flash` trả lời đúng ngữ cảnh 10/10 câu mẫu (T-06.4), p95 6,7 s > 5 s, PO chấp nhận ở S1 (decisions #21). LLM lỗi đang thành HTTP 500, câu trả lời còn markdown (T-06.7). Tên và giá niêm yết lấy từ view `chatbot_catalog` bằng role `chatbot_reader` | US-05, US-06 |
+| AI Brain `/chat` + LLMProvider | Khung | Chỉ chạy LLM thật: `LLM_PROVIDER` là `gemini` (mặc định) hoặc `groq`, đã bỏ `fake` (T-12.4, decisions #25). Thiếu `LLM_API_KEY` hoặc `CHATBOT_DB_URL` thì không khởi động. pytest dùng stub trong `ai-brain/tests/`. `gemini-3.6-flash` trả lời đúng ngữ cảnh 10/10 câu mẫu (T-06.4), p95 6,7 s > 5 s, PO chấp nhận ở S1 (decisions #21). LLM lỗi đang thành HTTP 500, câu trả lời còn markdown (T-06.7). Tên và giá niêm yết lấy từ view `chatbot_catalog` bằng role `chatbot_reader` | US-05, US-06 |
 | AI Brain: chặn số tự bịa (`rules/grounding.py`) | Done | Giữ giá khi khớp `chatbot_catalog`. Vẫn bỏ tồn kho, khuyến mãi và giá model tự bịa | US-06 (T-06.6), US-15 |
 | Luật thành phần | Khung | Bản mẫu, cần chuyên gia review | US-27 |
 | RAG / tool / agent loop | Chưa | | US-10, US-15 |
@@ -36,7 +36,7 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | Order, Promotion | Chưa | Mới có package-info | US-09, 33 |
 | Web store (list + lọc loại da) | Khung | Chưa có trang chi tiết, chưa đặt hàng ảo | US-09 |
 | Trang thử luật kênh `/admin/policy` | Done | | UC-24 |
-| Bench runner + policy_check | Done | 11 ca mẫu qua simulator + 6 ca luồng web qua WebSocket (`transport: ws`); expect `must_not_match` cho ca không bịa số | US-06, US-12 |
+| Bench runner + policy_check | Done | 11 ca mẫu qua simulator + 6 ca luồng web qua WebSocket (`transport: ws`). Luôn chạy trên Gemini + Postgres thật; kỳ vọng không còn phụ thuộc câu của FakeProvider (T-12.4) | US-06, US-12 |
 | CI | Chưa | | US-16 |
 | docs/specs + rule cho agent | Done | Stop hook `tools/agent/specs_guard.py` | |
 
@@ -46,6 +46,8 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 - Chưa có `mvnw`, mỗi máy phải tự cài Maven.
 - Widget chat: server im lặng với tin JSON lỗi/rỗng nên widget hiện "đang trả lời" mãi; nối lại WebSocket thì `channelUserId` đổi theo session mới (T-06.8; tài khoản web ở US-13).
 - Câu Gemini có markdown (`**`), widget hiện thô (T-06.7).
+- Bench tính ca chậm hơn 5 s là fail, nên tỉ lệ pass với Gemini lẫn cả lỗi chất lượng và lỗi độ trễ (decisions #21). Chưa tách thành metric riêng.
+- Chạy brain và bench cần `LLM_API_KEY` và quota free tier; CI (US-16) sẽ phải giải quyết việc cấp key.
 
 ## Sprint S0–S2 (tóm tắt)
 - **S0** (03–09/11): SRS 1.0, US, UC (HungDQ; LucVT, ChienPX góp ý; không ký duyệt, decisions #16) · setup môi trường (cả 4) · spike chat API Shopee/TikTok (TuTM) · schema + 80 SKU (LucVT) · so sánh ≥3 LLM (ChienPX).

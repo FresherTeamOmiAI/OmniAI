@@ -28,6 +28,7 @@ Ví dụ: chỉ làm backend thì chạy `infra-up.bat` + `run-brain.bat` + web,
 
 ## Ghi chú
 
+- Sau `setup.bat` phải mở `.env` và điền `LLM_API_KEY`. AI Brain chỉ chạy LLM thật (gemini hoặc groq) và đọc catalog từ Postgres thật, nên `run-brain.bat` dừng với thông báo lỗi nếu thiếu `LLM_API_KEY` hoặc `CHATBOT_DB_URL`.
 - `_env.bat` nạp file `.env` thành biến môi trường. Vì vậy đổi `LLM_PROVIDER`, `LLM_API_KEY`, `DB_URL`... trong `.env` rồi chạy lại script là có hiệu lực, dù backend và ai-brain không tự đọc `.env`.
 - Thông báo trong script viết **không dấu** để cmd không lỗi font. Log của ứng dụng vẫn hiển thị đúng tiếng Việt (script đã bật UTF-8).
 - File `.bat` phải giữ **CRLF**. `.gitattributes` đã có `*.bat text eol=crlf`. Nếu sửa bằng editor, đừng đổi sang LF.

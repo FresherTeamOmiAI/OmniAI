@@ -85,8 +85,8 @@ def passes(row: dict, answer: str) -> tuple[bool, str]:
 
 def main() -> None:
     load_dotenv()
-    if os.environ.get("LLM_PROVIDER", "fake").lower() == "fake" or not os.environ.get("LLM_API_KEY"):
-        raise SystemExit("Cần LLM_PROVIDER khác fake và LLM_API_KEY. Không gọi API khi thiếu key.")
+    if not os.environ.get("LLM_API_KEY"):
+        raise SystemExit("Cần LLM_API_KEY trong .env. Không gọi API khi thiếu key.")
 
     from app.agent.graph import respond
     from app.llm.factory import get_provider

@@ -3,6 +3,7 @@ import json
 import httpx
 import pytest
 
+from app.catalog_access import require_config
 from app.llm.factory import get_provider
 from app.llm.gemini import GeminiProvider
 from app.llm.groq import GroqProvider
@@ -19,9 +20,38 @@ def _request() -> ChatRequest:
     )
 
 
-def test_default_provider_is_fake(monkeypatch):
+def test_default_provider_is_gemini(monkeypatch):
+    monkeypatch.setenv("LLM_API_KEY", "test-key")
+    monkeypatch.delenv("LLM_MODEL", raising=False)
+    for unset in (None, "", "  "):
+        if unset is None:
+            monkeypatch.delenv("LLM_PROVIDER", raising=False)
+        else:
+            monkeypatch.setenv("LLM_PROVIDER", unset)
+        provider = get_provider()
+        assert isinstance(provider, GeminiProvider)
+        assert provider.model == "gemini-3.6-flash"
+
+
+def test_fake_provider_is_gone(monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "fake")
+    with pytest.raises(ValueError, match="đã bị bỏ"):
+        get_provider()
+
+
+def test_default_provider_requires_api_key(monkeypatch):
     monkeypatch.delenv("LLM_PROVIDER", raising=False)
-    assert get_provider().name == "fake"
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    with pytest.raises(ValueError, match="LLM_API_KEY"):
+        get_provider()
+
+
+def test_brain_requires_catalog_database_url(monkeypatch):
+    monkeypatch.delenv("CHATBOT_DB_URL", raising=False)
+    with pytest.raises(ValueError, match="CHATBOT_DB_URL"):
+        require_config()
+    monkeypatch.setenv("CHATBOT_DB_URL", "postgresql://chatbot_reader:x@localhost:5432/omniai")
+    require_config()
 
 
 def test_provider_switches_with_env(monkeypatch):
