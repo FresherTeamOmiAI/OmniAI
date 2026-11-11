@@ -5,14 +5,15 @@ nếu muốn sinh lại file Excel từ đầu (sinh lại sẽ MẤT dữ liệ
 from datetime import date, timedelta
 
 PROJECT_START = date(2026, 11, 3)  # Thứ Ba
+PROJECT_END = date(2027, 2, 1)     # hết tuần đệm trước demo
 SPRINT_DAYS = 7
 
 # (tên, vai trò, capacity md/sprint)
 MEMBERS = [
     ("HungDQ", "PO + Lead · Policy engine, Bench, CI", 3),
-    ("TuTM", "Dev · Channel Gateway & adapter kênh", 5),
+    ("TuTM", "Dev · Channel Gateway, đồng bộ hub ↔ kênh, simulator TikTok Shop", 5),
     ("LucVT", "Dev · Identity, Customer, Catalog, Promotion, Order", 5),
-    ("ChienPX", "Dev · AI Brain (agent, RAG, luật mỹ phẩm)", 5),
+    ("ChienPX", "Dev · AI Brain (agent, RAG, luật mỹ phẩm), simulator Shopee", 5),
 ]
 MEMBER_NAMES = [m[0] for m in MEMBERS]
 
@@ -22,18 +23,19 @@ EPICS = {
     "B": "Chuyên gia mỹ phẩm",
     "C": "Danh tính & bộ nhớ xuyên kênh",
     "D": "Săn sale & chọn kênh",
+    "E": "Đồng bộ dữ liệu hub ↔ kênh",  # thêm 11/11, decisions #23
 }
 
 SPRINT_GOALS = [
     "Khởi động: tài liệu, môi trường, spike rủi ro (sandbox sàn, LLM)",
     "Walking skeleton: web chat -> AI Brain -> policy kênh",
-    "Web store demo + RAG sản phẩm + bench 50 ca",
-    "Tài khoản khách + tool calling (giá, tồn kho) + CI",
-    "Kênh sở hữu thứ 2 (Telegram) + liên kết deep-link + bộ nhớ hồ sơ",
-    "Kênh Shopee + mã liên kết OMNI-xxxx + bẫy policy",
-    "Kênh TikTok + liên kết mã đơn + luật thành phần",
-    "Độ bền adapter + quyền dữ liệu cá nhân + routine an toàn",
-    "Săn sale theo kênh + chuyển nhân viên + so sánh model",
+    "Simulator Shopee/TikTok theo schema thật + dữ liệu thật + web store + RAG + bench 50 ca",
+    "Tài khoản khách + tool calling (giá, tồn kho) + CI + đẩy sản phẩm ra Shopee",
+    "Mã liên kết OMNI-xxxx + bộ nhớ hồ sơ + luật 3 kênh + đẩy giá, tồn kho ra sàn",
+    "Đơn hàng từ sàn về hub + khuyến mãi theo kênh + lịch sử đơn + bẫy policy",
+    "Đẩy khuyến mãi, trạng thái đơn ra sàn + liên kết mã đơn + luật thành phần",
+    "Độ bền adapter + quyền dữ liệu cá nhân + routine an toàn + trạng thái duyệt sản phẩm",
+    "Săn sale theo kênh + chuyển nhân viên + so sánh model + đánh giá sản phẩm",
     "Danh tính xác suất + nhắc mua lại",
     "Dashboard bench + hiệu năng + tối ưu prompt",
     "Kiểm thử hệ thống end-to-end, fix bug",
@@ -42,8 +44,24 @@ SPRINT_GOALS = [
 
 
 def sprint_dates(n: int) -> tuple[date, date]:
-    start = PROJECT_START + timedelta(days=SPRINT_DAYS * n)
+    """S1 làm gối lên tuần của S0 và review ngày 10/11, nên từ S2 mỗi sprint kéo lên 1 tuần (decisions #24).
+
+    S2 = 10–16/11/2026 ... S12 = 19–25/01/2027. Tuần 26/01–01/02/2027 là tuần đệm trước demo.
+    """
+    if n == 0:
+        return PROJECT_START, PROJECT_START + timedelta(days=SPRINT_DAYS - 1)
+    if n == 1:
+        return PROJECT_START, date(2026, 11, 10)
+    start = PROJECT_START + timedelta(days=SPRINT_DAYS * (n - 1))
     return start, start + timedelta(days=SPRINT_DAYS - 1)
+
+
+def sprint_code_of(day: date) -> str:
+    """Mã sprint của một ngày, dùng cho sheet Report progress. Tuần đầu là S0, từ tuần thứ hai là S2 trở đi."""
+    week = (day - PROJECT_START).days // SPRINT_DAYS
+    if week == 0:
+        return "S0"
+    return f"S{week + 1}" if week + 1 < len(SPRINT_GOALS) else "Đệm"
 
 
 def sprint_sheet_name(n: int) -> str:
@@ -160,7 +178,52 @@ BACKLOG = [
        "Given dataset 50 ca phủ >= 5 nhóm (sản phẩm, bẫy policy, mỹ phẩm, injection, đa kênh)\nWhen chạy python -m bench.run\nThen có báo cáo .md/.json theo kênh",
        "Bench", "All",
        [("Viết 50 ca bench", "Bench", H, 1.5, "Mỗi nhóm >= 5 ca"),
-        ("Báo cáo bench theo kênh + nhóm", "Bench", H, 1, "Báo cáo hiển thị tỉ lệ vi phạm theo kênh")]),
+        ("Báo cáo bench theo kênh + nhóm", "Bench", H, 1, "Báo cáo hiển thị tỉ lệ vi phạm theo kênh"),
+        # Thêm 11/11
+        ("Tổng hợp tài liệu và phương pháp benchmark", "Doc", H, 0.5,
+         "docs/bench/huong-dan-benchmark.md: quy trình, cách áp vào OmniAI, link đã mở kiểm tra"),
+        ("Bỏ FakeProvider: brain và bench chạy LLM thật + database thật", "Bench", H, 0.5,
+         "Không còn LLM_PROVIDER=fake; pytest pass bằng stub trong tests/; bench chạy với Gemini + Postgres")]),
+    # Thêm 11/11 sau buổi họp với thầy: kênh sàn 100% simulator, kéo US-21 (S5) và US-25 (S6) về S2,
+    # Shopee giao ChienPX, TikTok giao TuTM (decisions #22, #24)
+    us("US-21", "A", "Must have", "P0", 2, C, "Kênh Shopee (simulator theo schema thật)",
+       "Là người mua trên Shopee, tôi muốn được tư vấn ngay trong chat Shopee.",
+       "Given simulator Shopee theo schema thật (webhook và API gửi tin chép từ tài liệu Shopee, có kiểm chữ ký)\nWhen buyer gửi tin\nThen nhận phản hồi đã qua luật Shopee, không vượt độ dài tối đa",
+       "Gateway/Adapter", "SHOPEE",
+       [("Simulator Shopee theo schema thật: nhận tin buyer, gửi tin trả lời", "BE", C, 3,
+         "Gửi/nhận qua simulator đúng JSON trong tài liệu Shopee; sai chữ ký thì từ chối"),
+        ("System prompt theo kênh", "AI", C, 1.5, "Tỉ lệ vi phạm ở rawText giảm so với lần bench trước"),
+        ("Test adapter Shopee", "Test", C, 0.5, "5 ca bench kênh Shopee pass"),
+        ("Đọc tài liệu API Shopee và TikTok Shop, viết bảng đối chiếu cho Shopee", "Spike", C, 1,
+         "docs/channel-api/shopee.md: chat/CSKH, sản phẩm, giá, tồn kho, khuyến mãi, đơn hàng (kể cả xác nhận/hủy), "
+         "duyệt sản phẩm, đánh giá; có URL nguồn và ngày lấy")]),
+    us("US-25", "A", "Must have", "P0", 2, T, "Kênh TikTok Shop (simulator theo schema thật)",
+       "Là người mua trên TikTok Shop, tôi muốn được tư vấn ngay trong chat TikTok Shop.",
+       "Given simulator TikTok Shop theo schema thật (webhook và API gửi tin chép từ tài liệu TikTok Shop, có kiểm chữ ký)\nWhen buyer gửi tin\nThen nhận phản hồi đã qua luật TikTok",
+       "Gateway/Adapter", "TIKTOK",
+       [("Simulator TikTok Shop theo schema thật: nhận tin buyer, gửi tin trả lời", "BE", T, 3,
+         "Gửi/nhận qua simulator đúng JSON trong tài liệu TikTok Shop; sai chữ ký thì từ chối"),
+        ("Test adapter TikTok", "Test", T, 0.5, "5 ca bench kênh TikTok pass"),
+        ("Đọc tài liệu API TikTok Shop và Shopee, viết bảng đối chiếu cho TikTok Shop", "Spike", T, 1,
+         "docs/channel-api/tiktok.md: chat/CSKH, sản phẩm, giá, tồn kho, khuyến mãi, đơn hàng (kể cả xác nhận/hủy), "
+         "duyệt sản phẩm, đánh giá; có URL nguồn và ngày lấy")]),
+    us("US-47", "B", "Must have", "P0", 2, L, "Dữ liệu sản phẩm thật kèm ảnh",
+       "Là người mua, tôi muốn thấy sản phẩm thật có ảnh để việc tư vấn và demo giống thực tế.",
+       "Given nguồn dữ liệu sản phẩm thật\nWhen kiểm tra bộ dữ liệu tìm được\nThen mỗi sản phẩm có tên, thương hiệu, giá, thành phần và ít nhất 1 ảnh mở được; ghi rõ nguồn và điều kiện sử dụng; nơi lưu ảnh (Supabase Storage hoặc local) được PO chốt và ghi vào decisions",
+       "Catalog", "All",
+       [("Tìm dữ liệu sản phẩm thật kèm ảnh", "Data", L, 1.5,
+         "File dữ liệu có ảnh; ghi nguồn và điều kiện sử dụng của từng nguồn"),
+        ("So sánh lưu ảnh trên Supabase Storage và local, đề xuất", "Spike", L, 0.5, "PO chốt, ghi vào decisions")]),
+    us("US-48", "COMMON", "Must have", "P0", 2, H, "Chuyển hướng: hub omnichannel, kênh sàn 100% simulator",
+       "Là PO, tôi muốn tài liệu, backlog và code phản ánh hướng đã chốt sau buổi họp với thầy để cả team làm cùng một phạm vi.",
+       "Given các quyết định ngày 11/11 (decisions #22, #23, #24)\nWhen đọc SRS, backlog, specs và code\nThen không còn Telegram, Messenger; kênh sàn chỉ còn simulator; có danh sách dữ liệu đi và về kèm thiết kế luồng",
+       "Docs", "All",
+       [("Cập nhật SRS, backlog, specs theo hướng mới", "Doc", H, 0.5,
+         "SRS 1.1; backlog.py, Excel, GitHub Issues khớp nhau"),
+        ("Bỏ kênh TELEGRAM, MESSENGER khỏi code, YAML, test", "BE", H, 0.5,
+         "test-all pass; grep không còn 2 kênh này ngoài regex luật sàn"),
+        ("Thiết kế luồng dữ liệu đi/về theo bảng đối chiếu API (T-21.4, T-25.3)", "Doc", H, 0.5,
+         "Bảng loại dữ liệu × sàn × endpoint/webhook trong docs/specs; báo cáo thầy ở buổi họp tuần")]),
     # ---------------- Sprint 3 ----------------
     us("US-13", "C", "Must have", "P0", 3, L, "Tài khoản web + OTP",
        "Là người mua, tôi muốn đăng ký/đăng nhập web bằng email + OTP để hệ thống nhớ tôi.",
@@ -186,48 +249,66 @@ BACKLOG = [
        "Given push lên nhánh bất kỳ\nWhen CI chạy\nThen backend test, ai-brain pytest, bench pytest, web build đều chạy; fail thì báo đỏ",
        "Infra", "All",
        [("Pipeline CI (GitHub Actions hoặc script local)", "BE", H, 1.5, "Cố tình làm hỏng 1 test -> CI báo fail")]),
+    # Thêm 11/11: epic E, đồng bộ dữ liệu hub <-> kênh (decisions #23)
+    us("US-49", "E", "Must have", "P0", 3, T, "Đẩy sản phẩm từ hub ra Shopee",
+       "Là admin shop, tôi muốn sửa sản phẩm một lần trên hub và thấy nó cập nhật trên Shopee để không phải nhập lại ở từng kênh.",
+       "Given sản phẩm đang bán trên hub\nWhen admin tạo hoặc sửa tên, mô tả, ảnh, thành phần\nThen simulator Shopee nhận đúng payload theo schema thật trong <= 10s; hub lưu trạng thái đồng bộ theo từng kênh; gửi lỗi thì thử lại, quá 3 lần thì hiện lỗi ở admin",
+       "Gateway/Adapter", "SHOPEE",
+       [("Khung đồng bộ chiều đi: ghi thay đổi, connector theo kênh, thử lại, trạng thái theo kênh", "BE", T, 2,
+         "Test: lỗi 2 lần rồi thành công; trùng sự kiện không gửi 2 lần"),
+        ("Simulator Shopee nhận sản phẩm theo schema thật", "BE", C, 1.5,
+         "Payload đúng mẫu trong tài liệu Shopee; sai chữ ký thì từ chối"),
+        ("Trạng thái đồng bộ theo kênh trên màn admin sản phẩm", "FE", L, 1,
+         "Thấy Đã đồng bộ / Đang chờ / Lỗi theo từng kênh")]),
     # ---------------- Sprint 4 ----------------
-    us("US-17", "A", "Must have", "P0", 4, T, "Kênh Telegram",
+    us("US-17", "A", "Must have", "P0", 4, T, "Kênh Telegram (hủy 11/11, decisions #22)",
        "Là người mua, tôi muốn chat với shop qua Telegram và nhận cùng chất lượng tư vấn như trên web.",
        "Given bot Telegram đã cấu hình webhook\nWhen gửi tin\nThen nhận phản hồi < 5s; Telegram gửi lại cùng update_id thì không trả lời 2 lần",
        "Gateway/Adapter", "TELEGRAM",
-       [("Telegram webhook adapter", "BE", T, 2.5, "Gửi/nhận thật qua bot test"),
-        ("Test idempotency update_id", "Test", T, 0.5, "Gửi lại webhook 3 lần -> 1 phản hồi")]),
-    us("US-18", "C", "Must have", "P0", 4, L, "Liên kết Telegram bằng deep-link",
+       [("Telegram webhook adapter (hủy 11/11, decisions #22)", "BE", T, 0, "Không làm: bỏ Telegram"),
+        ("Test idempotency update_id (hủy 11/11, decisions #22)", "Test", T, 0, "Không làm: bỏ Telegram")]),
+    us("US-18", "C", "Must have", "P0", 4, L, "Liên kết Telegram bằng deep-link (hủy 11/11, decisions #22)",
        "Là người mua, tôi muốn liên kết Telegram với tài khoản web chỉ bằng 1 lần bấm.",
        "Given đã đăng nhập web\nWhen bấm deep-link bot gửi\nThen 2 danh tính được gắn cùng 1 khách; link dùng 1 lần, hết hạn 10 phút",
        "Identity", "TELEGRAM",
-       [("Token liên kết + bảng channel_identity", "BE", L, 2, "Test hết hạn, dùng lại link"),
-        ("Bot gửi deep-link khi khách yêu cầu", "BE", T, 1, "Nhận link trong Telegram"),
-        ("Trang xác nhận liên kết + consent", "FE", L, 1, "Có checkbox đồng ý xử lý dữ liệu")]),
+       [("Token liên kết + bảng channel_identity (hủy 11/11, decisions #22)", "BE", L, 0, "Không làm: bỏ Telegram"),
+        ("Bot gửi deep-link khi khách yêu cầu (hủy 11/11, decisions #22)", "BE", T, 0, "Không làm: bỏ Telegram"),
+        ("Trang xác nhận liên kết + consent (hủy 11/11, chuyển thành T-22.4)", "FE", L, 0,
+         "Không làm ở đây: chuyển sang T-22.4")]),
     us("US-19", "C", "Must have", "P0", 4, C, "Bộ nhớ hồ sơ da",
        "Là người mua, tôi muốn bot nhớ loại da và dị ứng tôi đã khai, kể cả khi tôi đổi kênh.",
-       "Given khai \"da dầu, dị ứng hương liệu\" trên web\nWhen hỏi trên Telegram đã liên kết\nThen bot dùng đúng hồ sơ; 10 ca bench memory recall >= 90%",
-       "AI Brain", "WEB, TELEGRAM",
+       "Given khai \"da dầu, dị ứng hương liệu\" trên web\nWhen hỏi trên Shopee (simulator) đã liên kết bằng mã OMNI\nThen bot dùng đúng hồ sơ; 10 ca bench memory recall >= 90%",
+       "AI Brain", "WEB, SHOPEE",
        [("Trích hồ sơ da từ hội thoại", "AI", C, 2, "8/10 câu mẫu trích đúng"),
         ("Tool get_customer_profile", "AI", C, 1, "Agent dùng hồ sơ khi tư vấn"),
         ("API hồ sơ khách (đọc/ghi)", "API", L, 1.5, "Test API")]),
-    us("US-20", "A", "Must have", "P0", 4, H, "Luật đủ 4 kênh",
+    us("US-20", "A", "Must have", "P0", 4, H, "Luật đủ 3 kênh",
        "Là chủ shop, tôi muốn mỗi kênh có bộ luật riêng đã đối chiếu với quy định hiện hành.",
-       "Given 4 file YAML WEB, TELEGRAM, SHOPEE, TIKTOK + common\nWhen chạy test\nThen mỗi luật có >= 2 test (khớp và không khớp nhầm)",
+       "Given 3 file YAML WEB, SHOPEE, TIKTOK + common\nWhen chạy test\nThen mỗi luật có >= 2 test (khớp và không khớp nhầm)",
        "Policy", "All",
        [("Đối chiếu quy định sàn, cập nhật YAML", "Doc", H, 1, "Ghi nguồn tham chiếu trong YAML"),
         ("Bổ sung test không khớp nhầm (giá, \"giá trị\"...)", "Test", H, 1, "Test pass")]),
-    # ---------------- Sprint 5 ----------------
-    us("US-21", "A", "Must have", "P0", 5, T, "Kênh Shopee",
-       "Là người mua trên Shopee, tôi muốn được tư vấn ngay trong chat Shopee.",
-       "Given adapter Shopee (sandbox hoặc simulator theo schema thật)\nWhen buyer gửi tin\nThen nhận phản hồi đã qua luật Shopee, không vượt độ dài tối đa",
-       "Gateway/Adapter", "SHOPEE",
-       [("Shopee adapter (sandbox/simulator)", "BE", T, 3, "Gửi/nhận qua test shop hoặc simulator"),
-        ("System prompt theo kênh", "AI", C, 1.5, "Tỉ lệ vi phạm ở rawText giảm so với S4"),
-        ("Test adapter Shopee", "Test", T, 0.5, "5 ca bench kênh Shopee pass")]),
-    us("US-22", "C", "Must have", "P0", 5, L, "Mã liên kết OMNI-xxxx",
+    # Kéo từ S5 về S4 ngày 11/11: US-19 cần liên kết WEB <-> Shopee để nghiệm thu
+    us("US-22", "C", "Must have", "P0", 4, L, "Mã liên kết OMNI-xxxx",
        "Là người mua, tôi muốn liên kết tài khoản Shopee với tài khoản web mà không cần bot gửi link.",
        "Given lấy mã OMNI-XXXXXX (6 ký tự) trên web\nWhen gõ mã vào chat Shopee trong 15 phút, rồi xác nhận và tích consent trên web\nThen 2 danh tính được liên kết; mã chỉ dùng 1 lần; sai 5 lần trong 1 giờ thì khóa nhập mã",
        "Identity", "SHOPEE, TIKTOK",
        [("Sinh/kiểm tra mã liên kết", "BE", L, 1.5, "Test hết hạn, dùng lại, sai mã"),
         ("Màn lấy mã trên web", "FE", L, 1, "Hiển thị mã + thời gian còn lại"),
-        ("Nhận diện mã trong chat sàn", "BE", T, 1, "Gõ mã -> bot xác nhận đã liên kết")]),
+        ("Nhận diện mã trong chat sàn", "BE", T, 1, "Gõ mã -> bot xác nhận đã liên kết"),
+        # Thêm 11/11, nhận từ T-18.3
+        ("Trang xác nhận liên kết + consent", "FE", L, 1, "Có checkbox đồng ý xử lý dữ liệu")]),
+    us("US-50", "E", "Must have", "P0", 4, T, "Đẩy sản phẩm ra TikTok Shop; giá và tồn kho ra cả hai sàn",
+       "Là admin shop, tôi muốn giá và tồn kho trên Shopee, TikTok Shop luôn khớp với hub để không bán sai giá hay bán quá số hàng có.",
+       "Given sản phẩm đã đồng bộ ra sàn\nWhen admin đổi giá theo kênh hoặc tồn kho trên hub\nThen simulator Shopee và TikTok Shop nhận giá của đúng kênh và tồn kho mới trong <= 10s; sản phẩm cũng xuất hiện trên simulator TikTok Shop",
+       "Gateway/Adapter", "SHOPEE, TIKTOK",
+       [("Simulator TikTok Shop nhận sản phẩm theo schema thật", "BE", T, 1.5,
+         "Payload đúng mẫu trong tài liệu TikTok Shop; sai chữ ký thì từ chối"),
+        ("Đồng bộ giá theo kênh và tồn kho khi thay đổi trên hub", "BE", T, 1,
+         "Đổi price_shopee chỉ gửi sang Shopee; đổi tồn kho gửi cả hai sàn"),
+        ("Simulator Shopee nhận giá, tồn kho", "BE", C, 1, "Đúng schema; số trên simulator khớp hub"),
+        ("Simulator TikTok Shop nhận giá, tồn kho", "BE", T, 1, "Đúng schema; số trên simulator khớp hub")]),
+    # ---------------- Sprint 5 ----------------
     us("US-23", "C", "Must have", "P0", 5, C, "Lịch sử đơn mọi kênh",
        "Là người mua, tôi muốn bot biết tôi đã mua gì ở mọi kênh đã liên kết để tư vấn phù hợp.",
        "Given khách có đơn ở web và Shopee đã liên kết\nWhen hỏi \"mình đã mua gì\"\nThen bot liệt kê đúng; không lộ đơn của kênh chưa liên kết",
@@ -240,18 +321,34 @@ BACKLOG = [
        "Bench", "SHOPEE, TIKTOK",
        [("20 ca bẫy policy + injection", "Bench", H, 1, "Có trong datasets/"),
         ("LLM-as-judge có rubric", "Bench", H, 1.5, "Judge đồng ý với người chấm >= 80% trên 20 ca")]),
+    # Kéo từ S8 về S5 ngày 11/11: US-52 (đẩy khuyến mãi ra sàn, S6) cần dữ liệu khuyến mãi trước.
+    # Phần "bot dùng đúng voucher" nghiệm thu ở US-34.
+    us("US-33", "D", "Must have", "P0", 5, L, "Khuyến mãi theo kênh",
+       "Là admin shop, tôi muốn nhập voucher, flash sale, giá theo từng kênh và xem lịch sử giá.",
+       "Given nhập voucher Shopee 12.12\nWhen gọi API khuyến mãi của kênh SHOPEE\nThen trả đúng voucher đó, hết hạn thì không trả; lịch sử giá lưu mỗi lần đổi",
+       "Promotion", "All",
+       [("API promotion, voucher, lịch sử giá", "BE", L, 2.5, "Test hết hạn voucher"),
+        ("Màn admin nhập khuyến mãi", "FE", L, 1, "Nhập/sửa/xóa")]),
+    us("US-51", "E", "Must have", "P0", 5, T, "Đơn hàng từ sàn về hub, trừ tồn kho",
+       "Là chủ shop, tôi muốn đơn trên Shopee, TikTok Shop tự về hub và tồn kho được trừ ở mọi kênh để không phải đối chiếu tay.",
+       "Given simulator phát 1 đơn mới\nWhen hub nhận webhook\nThen đơn được lưu kèm kênh và mã đơn sàn; gửi lại cùng đơn không tạo đơn trùng; tồn kho hub giảm đúng số lượng và tồn mới được đẩy ra các kênh",
+       "Order", "SHOPEE, TIKTOK",
+       [("Simulator Shopee phát đơn hàng theo schema thật (webhook + lấy chi tiết đơn)", "BE", C, 1.5,
+         "Đúng mẫu trong tài liệu Shopee, có chữ ký"),
+        ("Simulator TikTok Shop phát đơn hàng theo schema thật", "BE", T, 1.5,
+         "Đúng mẫu trong tài liệu TikTok Shop, có chữ ký"),
+        ("Nhận đơn từ sàn: kiểm chữ ký, chống trùng, lưu đơn kèm kênh", "BE", T, 1.5,
+         "Gửi 1 đơn 3 lần -> 1 đơn; sai chữ ký -> từ chối"),
+        ("Đơn về thì trừ tồn kho hub, tồn mới tự đẩy ra các kênh", "BE", L, 1,
+         "Đơn 2 sản phẩm -> tồn giảm 2 trên hub và trên 2 simulator"),
+        ("Trang điều khiển simulator: tạo đơn giả lập, xem dữ liệu sàn đã nhận", "FE", T, 1,
+         "Tạo đơn trên trang -> đơn hiện ở hub")]),
     # ---------------- Sprint 6 ----------------
-    us("US-25", "A", "Must have", "P0", 6, T, "Kênh TikTok Shop",
-       "Là người mua trên TikTok Shop, tôi muốn được tư vấn ngay trong chat TikTok Shop.",
-       "Given adapter TikTok (sandbox hoặc simulator)\nWhen buyer gửi tin\nThen nhận phản hồi đã qua luật TikTok",
-       "Gateway/Adapter", "TIKTOK",
-       [("TikTok Shop adapter", "BE", T, 3, "Gửi/nhận qua test shop hoặc simulator"),
-        ("Test adapter TikTok", "Test", T, 0.5, "5 ca bench kênh TikTok pass")]),
     us("US-26", "C", "Should have", "P1", 6, L, "Liên kết bằng mã đơn sàn",
        "Là người mua, tôi muốn nhập mã đơn Shopee/TikTok trên web để liên kết tài khoản.",
        "Given mã đơn hợp lệ của tôi\nWhen nhập trên web + xác nhận 3 số cuối SĐT nhận hàng\nThen liên kết thành công; mã đơn người khác bị từ chối",
        "Identity", "SHOPEE, TIKTOK",
-       [("Đối chiếu mã đơn qua Order API (sandbox/simulator)", "BE", L, 2, "Test đơn đúng/sai chủ"),
+       [("Đối chiếu mã đơn qua Order API (simulator)", "BE", L, 2, "Test đơn đúng/sai chủ"),
         ("Màn nhập mã đơn", "FE", L, 1, "Thông báo lỗi rõ ràng")]),
     us("US-27", "B", "Must have", "P0", 6, C, "Luật thành phần & hồ sơ da",
        "Là người mua, tôi muốn được cảnh báo khi kết hợp hoạt chất không nên dùng cùng lúc.",
@@ -268,6 +365,21 @@ BACKLOG = [
        "Policy", "SHOPEE, TIKTOK",
        [("Post-check gọi brain viết lại (tối đa 1 lần)", "BE", H, 1.5, "Câu viết lại qua policy_check sạch"),
         ("Test viết lại", "Test", H, 0.5, "10 ca bẫy pass")]),
+    us("US-52", "E", "Must have", "P0", 6, T, "Đẩy khuyến mãi ra kênh sàn",
+       "Là admin shop, tôi muốn nhập voucher, flash sale một lần trên hub và thấy chúng xuất hiện trên đúng sàn.",
+       "Given voucher hoặc flash sale của kênh SHOPEE trên hub\nWhen admin tạo, sửa hoặc khuyến mãi hết hạn\nThen simulator Shopee nhận đúng theo schema thật; simulator TikTok Shop không nhận khuyến mãi của Shopee; hết hạn thì trên sàn cũng tắt",
+       "Promotion", "SHOPEE, TIKTOK",
+       [("Đồng bộ voucher, flash sale theo kênh khi tạo, sửa, hết hạn", "BE", T, 1.5,
+         "Test gửi đúng kênh; hết hạn thì gửi lệnh tắt"),
+        ("Simulator Shopee nhận khuyến mãi theo schema thật", "BE", C, 1, "Đúng mẫu trong tài liệu Shopee"),
+        ("Simulator TikTok Shop nhận khuyến mãi theo schema thật", "BE", T, 1, "Đúng mẫu trong tài liệu TikTok Shop")]),
+    us("US-53", "E", "Should have", "P1", 6, L, "Cập nhật trạng thái xử lý đơn ra sàn",
+       "Là admin shop, tôi muốn xác nhận hoặc hủy đơn sàn ngay trên hub để không phải vào từng sàn.",
+       "Given đơn sàn đã về hub\nWhen admin xác nhận hoặc hủy trên hub\nThen simulator của đúng sàn nhận trạng thái mới; hủy thì tồn kho được cộng lại và đẩy ra các kênh",
+       "Order", "SHOPEE, TIKTOK",
+       [("API + màn admin xác nhận, hủy đơn sàn", "BE", L, 1.5, "Test xác nhận, hủy, hủy đơn đã hủy"),
+        ("Đẩy trạng thái đơn ra sàn; simulator TikTok Shop nhận", "BE", T, 1.5, "Trạng thái trên simulator khớp hub"),
+        ("Simulator Shopee nhận xác nhận, hủy đơn", "BE", C, 0.5, "Đúng schema; trạng thái trên simulator khớp hub")]),
     # ---------------- Sprint 7 ----------------
     us("US-29", "A", "Must have", "P0", 7, T, "Độ bền adapter (fault injection)",
        "Là chủ shop, tôi muốn bot không trả lời trùng hay mất tin khi kênh gửi webhook lỗi.",
@@ -294,13 +406,19 @@ BACKLOG = [
        "Bench", "All",
        [("Ca bench nhiều lượt + đổi kênh", "Bench", H, 1.5, ">= 15 ca"),
         ("Thêm metric vào báo cáo", "Bench", H, 0.5, "Báo cáo có 2 metric mới")]),
+    us("US-54", "E", "Should have", "P1", 7, H, "Trạng thái duyệt, vi phạm sản phẩm từ sàn về hub",
+       "Là admin shop, tôi muốn biết sản phẩm nào bị sàn từ chối và vì sao, và được cảnh báo trước khi đẩy nội dung vi phạm.",
+       "Given mô tả sản phẩm có link, số điện thoại hoặc từ ngữ y khoa\nWhen đẩy ra sàn\nThen hub cảnh báo trước khi đẩy theo luật của kênh; nếu vẫn đẩy thì simulator từ chối và hub hiện trạng thái kèm lý do; 10 ca bench nội dung pass",
+       "Policy", "SHOPEE, TIKTOK",
+       [("Simulator Shopee duyệt hoặc từ chối sản phẩm theo luật kênh, phát sự kiện", "BE", C, 1,
+         "Mô tả có link -> từ chối kèm lý do; mô tả sạch -> duyệt"),
+        ("Simulator TikTok Shop duyệt hoặc từ chối sản phẩm theo luật kênh, phát sự kiện", "BE", T, 1,
+         "Mô tả có link -> từ chối kèm lý do; mô tả sạch -> duyệt"),
+        ("Hub nhận trạng thái duyệt, hiện lý do từ chối trên màn admin sản phẩm", "BE", L, 1,
+         "Trạng thái và lý do hiện theo từng kênh"),
+        ("Kiểm nội dung sản phẩm, khuyến mãi bằng PolicyEngine trước khi đẩy + 10 ca bench", "Bench", H, 1.5,
+         "10 ca bench nội dung pass; nội dung sạch không bị cảnh báo nhầm")]),
     # ---------------- Sprint 8 ----------------
-    us("US-33", "D", "Must have", "P0", 8, L, "Khuyến mãi theo kênh",
-       "Là admin shop, tôi muốn nhập voucher, flash sale, giá theo từng kênh và xem lịch sử giá.",
-       "Given nhập voucher Shopee 12.12\nWhen bot được hỏi trên Shopee\nThen bot dùng đúng voucher đó; lịch sử giá lưu mỗi lần đổi",
-       "Promotion", "All",
-       [("API promotion, voucher, lịch sử giá", "BE", L, 2.5, "Test hết hạn voucher"),
-        ("Màn admin nhập khuyến mãi", "FE", L, 1, "Nhập/sửa/xóa")]),
     us("US-34", "D", "Must have", "P0", 8, C, "Cố vấn săn sale",
        "Là người mua, tôi muốn biết nên mua ngay hay đợi sale và (trên kênh của shop) kênh nào lợi nhất.",
        "Given dữ liệu khuyến mãi\nWhen hỏi trên WEB\nThen so sánh đúng giá các kênh; hỏi trên SHOPEE thì chỉ nói voucher/giờ sale Shopee; số liệu khớp DB 100%; chỉ khuyên đợi khi có khuyến mãi của đúng kênh bắt đầu trong <= 7 ngày và rẻ hơn >= 10%",
@@ -319,6 +437,13 @@ BACKLOG = [
        "Bench", "All",
        [("Chạy bench nhiều model", "Bench", H, 1.5, "Cùng dataset, cùng cấu hình"),
         ("Viết kết luận", "Doc", H, 0.5, "Đưa vào báo cáo")]),
+    us("US-55", "E", "Could have", "P2", 8, L, "Đánh giá sản phẩm từ sàn về hub",
+       "Là chủ shop, tôi muốn đánh giá của khách trên các sàn gom về một chỗ để theo dõi.",
+       "Given simulator phát đánh giá cho 1 sản phẩm\nWhen hub nhận\nThen đánh giá được lưu theo sản phẩm và kênh, không trùng; admin xem được theo sản phẩm",
+       "Catalog", "SHOPEE, TIKTOK",
+       [("Simulator Shopee phát đánh giá sản phẩm", "BE", C, 0.5, "Đúng schema"),
+        ("Simulator TikTok Shop phát đánh giá sản phẩm", "BE", T, 0.5, "Đúng schema"),
+        ("Lưu đánh giá theo sản phẩm và kênh + API admin", "BE", L, 1.5, "Test chống trùng, lọc theo sản phẩm")]),
     # ---------------- Sprint 9 ----------------
     us("US-37", "C", "Should have", "P1", 9, L, "Gợi ý liên kết xác suất",
        "Là người mua, tôi muốn được hỏi \"có phải bạn cũng mua ở X?\" thay vì phải tự liên kết thủ công.",
@@ -334,8 +459,8 @@ BACKLOG = [
         ("API merge/unmerge + audit log", "API", T, 1.5, "Test tách sau gộp")]),
     us("US-39", "B", "Could have", "P2", 9, C, "Nhắc mua lại & hạn dùng",
        "Là người mua, tôi muốn được nhắc khi sản phẩm sắp hết hoặc sắp quá hạn sau mở.",
-       "Given đơn kem 50ml mua 60 ngày trước\nWhen tới ngày ước tính sắp hết\nThen nhắc qua kênh sở hữu, chỉ khi khách đã đồng ý nhận nhắc",
-       "AI Brain", "WEB, TELEGRAM",
+       "Given đơn kem 50ml mua 60 ngày trước\nWhen tới ngày ước tính sắp hết\nThen nhắc qua kênh sở hữu (web), chỉ khi khách đã đồng ý nhận nhắc",
+       "AI Brain", "WEB",
        [("Ước tính ngày hết + PAO", "AI", C, 1.5, "10 ca mẫu đúng"),
         ("Lịch gửi nhắc qua kênh sở hữu", "BE", C, 1.5, "Không gửi trên kênh sàn")]),
     us("US-40", "A", "Should have", "P1", 9, H, "Metric danh tính",
@@ -371,7 +496,7 @@ BACKLOG = [
     # ---------------- Sprint 11 ----------------
     us("US-45", "COMMON", "Must have", "P0", 11, H, "Kiểm thử end-to-end",
        "Là PO, tôi muốn toàn hệ thống chạy đúng kịch bản demo \"Lan\" trên mọi kênh.",
-       "Given kịch bản 7 bước (web -> Telegram -> Shopee -> cảnh báo retinol -> bench -> fault -> xóa dữ liệu)\nWhen chạy thử\nThen 7/7 bước pass; 0 bug Critical/Major còn mở",
+       "Given kịch bản 7 bước (web -> Shopee -> TikTok Shop -> cảnh báo retinol -> bench -> fault -> xóa dữ liệu)\nWhen chạy thử\nThen 7/7 bước pass; 0 bug Critical/Major còn mở",
        "All", "All",
        [("Test plan + điều phối fix bug", "Test", H, 1.5, "Bug Log cập nhật hằng ngày"),
         ("Chạy kịch bản E2E", "Test", H, 1, "7/7 bước pass"),
@@ -392,13 +517,15 @@ BACKLOG = [
 
 ISSUES = [
     ("Sandbox Shopee/TikTok có thể không hỗ trợ chat API", "Risk", "Cao", "Trung bình", "High", T,
-     "Spike S0; nếu không được thì simulator theo đúng schema thật, ghi rõ trong báo cáo"),
+     "Spike S0; nếu không được thì simulator theo đúng schema thật, ghi rõ trong báo cáo. "
+     "11/11: chốt 100% simulator theo schema thật, không làm adapter thật (decisions #22)"),
     ("Chi phí gọi LLM vượt ngân sách khi chạy bench nhiều", "Risk", "Trung bình", "Cao", "Medium", C,
      "FakeProvider khi dev, cache kết quả, giới hạn số lần chạy bench model thật"),
     ("Quy định sàn thay đổi làm luật YAML lỗi thời", "Risk", "Cao", "Thấp", "Medium", H,
      "Ghi nguồn + ngày đối chiếu trong YAML, review lại ở S10"),
     ("Scope lớn (4 trụ) so với 13 sprint", "Risk", "Cao", "Cao", "High", H,
-     "Ưu tiên P0; mỗi Sprint Review quyết định cắt P2 nếu velocity < 80%"),
+     "Ưu tiên P0; mỗi Sprint Review quyết định cắt P2 nếu velocity < 80%. "
+     "11/11: thêm trụ E đồng bộ 2 chiều (29,5 md), bỏ Telegram (7 md), phạm vi tăng ròng khoảng 22 md (decisions #23)"),
     ("Không có khách thật, dữ liệu là tổng hợp", "Risk", "Trung bình", "Cao", "Medium", H,
      "Persona tổng hợp + team đóng vai; nêu rõ giới hạn trong báo cáo"),
     ("Tư vấn mỹ phẩm sai có thể gây hại", "Risk", "Cao", "Trung bình", "High", C,
@@ -415,7 +542,14 @@ ISSUES = [
     ("LLM tự bịa giá, tồn kho (qwen câu q13 nêu 450.000đ)", "Risk", "Cao", "Cao", "High", H,
      "T-06.6: rules/grounding.py bỏ số giá/tồn/khuyến mãi khi chưa có tool; US-15 đo bằng 20 ca bench"),
     ("Thầy chưa xác nhận kênh sàn dùng simulator theo schema thật (SRS Q-08)", "Issue", "Cao", "Trung bình", "High", H,
-     "Tạm theo decisions #12; HungDQ hỏi thầy trước 08/12; nếu không được thì điều chỉnh US-21, US-25"),
+     "Tạm theo decisions #12; HungDQ hỏi thầy trước 08/12; nếu không được thì điều chỉnh US-21, US-25. "
+     "06/11: thầy chấp nhận (decisions #17). 11/11: chốt 100% simulator (decisions #22)"),
+    # Thêm 11/11 sau buổi họp với thầy
+    ("S2 vượt capacity: ChienPX 10 md, TuTM 7,5 md, LucVT 6,5 md, HungDQ 5 md", "Risk", "Cao", "Cao", "High", H,
+     "PO chấp nhận vì tiến độ đang chậm (decisions #24); việc chưa xong chuyển sang S3 ở Sprint Review 16/11"),
+    ("Dữ liệu và ảnh sản phẩm thật: bản quyền ảnh, nhãn hiệu của bên thứ ba", "Risk", "Trung bình", "Trung bình",
+     "Medium", L,
+     "Ghi nguồn và điều kiện sử dụng của từng nguồn (T-47.1); chỉ dùng cho mục đích học tập, nêu rõ trong báo cáo"),
 ]
 
 QUESTIONS = [
@@ -430,14 +564,14 @@ USE_CASES = [
     ("UC-01", "Chat tư vấn trên web", "Người mua", "Khách gửi câu hỏi qua chat widget, hệ thống trả lời sau khi qua luật kênh WEB.",
      "Pre: mở trang store.\nPost: hội thoại được lưu.", "Khách chưa đăng nhập: tư vấn chung, không dùng hồ sơ.",
      "AI Brain lỗi: trả lời câu chờ + chuyển nhân viên.", "Mọi giá/tồn kho phải lấy từ tool, không để AI tự nói số."),
-    ("UC-02", "Chat tư vấn trên Telegram", "Người mua", "Khách nhắn bot Telegram; adapter chuyển về CanonicalMessage.",
+    ("UC-02", "Chat tư vấn trên Telegram (hủy 11/11, decisions #22)", "Người mua", "Khách nhắn bot Telegram; adapter chuyển về CanonicalMessage.",
      "Pre: bot đã cấu hình webhook.\nPost: hội thoại được lưu.", "Khách đã liên kết: dùng hồ sơ hợp nhất.",
      "Telegram gửi lại webhook: không trả lời 2 lần.", "Idempotency theo update_id."),
     ("UC-03", "Chat tư vấn trên Shopee", "Người mua", "Buyer nhắn trong chat Shopee; câu trả lời qua luật SHOPEE.",
-     "Pre: shop đã ủy quyền app (sandbox/simulator).\nPost: hội thoại được lưu.", "Khách gõ mã OMNI-xxxx: chạy UC-08.",
+     "Pre: simulator Shopee đang chạy.\nPost: hội thoại được lưu.", "Khách gõ mã OMNI-xxxx: chạy UC-08.",
      "Câu trả lời vi phạm luật: chặn/viết lại.", "Không link ngoài, không SĐT, không nhắc kênh khác."),
     ("UC-04", "Chat tư vấn trên TikTok Shop", "Người mua", "Tương tự UC-03 với luật TIKTOK.",
-     "Pre: app đã được ủy quyền.\nPost: hội thoại được lưu.", "", "Như UC-03.", "Không nhắc Shopee/kênh khác."),
+     "Pre: simulator TikTok Shop đang chạy.\nPost: hội thoại được lưu.", "", "Như UC-03.", "Không nhắc Shopee/kênh khác."),
     ("UC-05", "Xem & lọc sản phẩm", "Người mua", "Xem danh sách, lọc loại da, xem chi tiết thành phần.",
      "Pre: không.\nPost: không.", "", "Không tải được dữ liệu: thông báo lỗi.", "Banner demo luôn hiển thị."),
     ("UC-06", "Đặt hàng ảo", "Người mua", "Đặt hàng trên web demo, tạo đơn trạng thái DEMO.",
@@ -447,7 +581,7 @@ USE_CASES = [
     ("UC-08", "Liên kết kênh sàn bằng mã OMNI", "Người mua", "Lấy mã trên web, gõ vào chat sàn để liên kết.",
      "Pre: đã đăng nhập web.\nPost: channel_identity gắn với customer.", "", "Mã hết hạn/đã dùng: báo lỗi.",
      "Mã 1 lần, hết hạn 15 phút; bot không gửi link trên sàn."),
-    ("UC-09", "Liên kết Telegram bằng deep-link", "Người mua", "Bot gửi link, khách bấm và xác nhận trên web.",
+    ("UC-09", "Liên kết Telegram bằng deep-link (hủy 11/11, decisions #22)", "Người mua", "Bot gửi link, khách bấm và xác nhận trên web.",
      "Pre: đã đăng nhập web.\nPost: liên kết + consent.", "", "Link hết hạn: yêu cầu link mới.", "Link 1 lần, 10 phút."),
     ("UC-10", "Liên kết bằng mã đơn sàn", "Người mua", "Nhập mã đơn sàn + 3 số cuối SĐT nhận hàng.",
      "Pre: đã đăng nhập.\nPost: liên kết.", "", "Không khớp: từ chối, không tiết lộ lý do chi tiết.", "Chỉ liên kết khi xác minh được chủ đơn."),
@@ -482,4 +616,15 @@ USE_CASES = [
      "Pre: backend chạy.\nPost: không.", "", "", "Dùng chung YAML với bench."),
     ("UC-25", "Chạy bench & xem báo cáo", "Lead, PO", "Chạy bench, xem pass rate, vi phạm, latency theo kênh.",
      "Pre: dataset sẵn sàng.\nPost: báo cáo lưu trong bench/reports.", "", "Backend không chạy: bench báo lỗi kết nối.", "Bench không giảm mới được merge vào dev."),
+    # Thêm 11/11: trụ E, đồng bộ dữ liệu hub <-> kênh (decisions #23)
+    ("UC-26", "Đồng bộ dữ liệu từ hub ra kênh sàn", "Admin, Hệ thống",
+     "Sản phẩm, giá, tồn kho, khuyến mãi, trạng thái xử lý đơn đổi trên hub thì được đẩy ra Shopee, TikTok Shop.",
+     "Pre: simulator sàn đang chạy.\nPost: dữ liệu trên sàn khớp hub; trạng thái đồng bộ theo kênh được lưu.",
+     "Giá theo kênh chỉ gửi sang đúng kênh đó.", "Gửi lỗi: thử lại, quá 3 lần thì hiện lỗi ở admin.",
+     "Hub là nguồn dữ liệu gốc; nội dung đi phải qua luật của kênh (US-54)."),
+    ("UC-27", "Nhận dữ liệu từ kênh sàn về hub", "Hệ thống",
+     "Hội thoại CSKH, đơn hàng, trạng thái duyệt sản phẩm, đánh giá từ Shopee, TikTok Shop được gom về hub.",
+     "Pre: simulator sàn đang chạy.\nPost: dữ liệu được lưu kèm kênh nguồn.",
+     "Đơn về: trừ tồn kho hub rồi đẩy tồn mới ra các kênh (UC-26).", "Webhook sai chữ ký: từ chối. Gửi trùng: không lưu 2 lần.",
+     "Mọi webhook đều kiểm chữ ký và chống trùng."),
 ]
