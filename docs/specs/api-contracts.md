@@ -1,6 +1,6 @@
 # Hợp đồng API
 
-> Cập nhật: 2026-11-11 · commit 5bd0986
+> Cập nhật: 2026-11-11 · commit c5ffbd9 · T-06.8
 > Nguồn: `backend/.../channel/simulator/*`, `channel/web/*`, `catalog/ProductController.java`, `catalog/AdminProductController.java`, `catalog/ProductRequest.java`, `brain/*`, `common/*`, `ai-brain/app/main.py`, `ai-brain/app/schemas.py`, `shared/schemas/canonical-message.schema.json`, `web/src/shared/types.ts`
 
 JSON phía backend dùng **camelCase**. Riêng hợp đồng backend → ai-brain dùng **snake_case**.
@@ -12,7 +12,7 @@ JSON phía backend dùng **camelCase**. Riêng hợp đồng backend → ai-brai
 | POST | `/api/simulator/{channel}/messages` | `{messageId?, userId*, text*}` | `BotReply` | `channel` viết thường: web, shopee, tiktok. Bỏ trống `messageId` thì server tự sinh UUID; gửi trùng `messageId` thì nhận lại kết quả cũ. Dùng cho bench và trang `/admin/policy`. |
 | GET | `/api/products?skinType=&page=&size=` | | `PageResponse<Product>` = `{items, page, size, total}` | Chỉ trả sản phẩm `active=true`. `skinType` lọc kiểu "contains, không phân biệt hoa thường". Mặc định size 20. |
 | GET | `/api/products/{id}` | | `Product` hoặc 404 | Sản phẩm `active=false` cũng trả 404 (SRS G-06). |
-| WS | `/ws/chat` | text frame `{messageId, text}` | text frame `BotReply` | Kênh WEB. Origin cho phép: `WEB_ALLOWED_ORIGINS`. Text rỗng thì bỏ qua. |
+| WS | `/ws/chat` | text frame `{messageId, text}` | text frame `BotReply`, hoặc `{error:"invalid_message", messageId}` | Kênh WEB. Origin cho phép: `WEB_ALLOWED_ORIGINS`. JSON hỏng hoặc text rỗng/null thì server trả frame lỗi, không im lặng; `messageId` lấy từ tin gửi lên, là `null` nếu JSON hỏng. Session vẫn mở. Widget có timeout 12 s (lớn hơn `omniai.brain.timeout` 10 s): hết giờ thì báo "Shop đang bận". |
 | GET | `/actuator/health`, `/actuator/info` | | | |
 
 ## Admin sản phẩm (`/api/admin/**`, US-08, T-08.1)
