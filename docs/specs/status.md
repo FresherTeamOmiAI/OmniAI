@@ -17,7 +17,7 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | Kênh WEB (WebSocket) | Done | T-06.1 FE widget auto-reconnect + T-06.2 BE adapter. Test adapter dùng mock, luồng WS thật chỉ có bench `transport: ws`. Widget chưa có timeout chờ trả lời (T-06.8) | US-06 |
 | Simulator API | Done | Dùng cho bench và `/admin/policy` | US-07 |
 | Kênh Telegram / Messenger | Đã bỏ | Bỏ khỏi dự án ngày 11/11 (decisions #22): xóa enum, YAML; hủy US-17, US-18 | |
-| Kênh Shopee / TikTok Shop | Chưa | Đã có YAML luật. 100% simulator theo schema thật, không làm adapter thật (decisions #22). Làm ở S2: Shopee do ChienPX, TikTok Shop do TuTM | US-21, 25 |
+| Kênh Shopee / TikTok Shop | Khung | Đã có YAML luật. Simulator Shopee nhận giá, tồn kho và phát đơn có chữ ký (T-50.3, T-51.1). Chat Shopee (US-21) và TikTok Shop vẫn chưa | US-21, 25, 50, 51 |
 | Đồng bộ hub ↔ kênh (trụ E) | Chưa | Đi: sản phẩm, giá, tồn kho, khuyến mãi, trạng thái đơn. Về: đơn hàng, duyệt sản phẩm, đánh giá (hội thoại CSKH ở US-11, 14). Bắt đầu S3, bảng US ở [backend.md](backend.md) | US-49–55 |
 | Dữ liệu sản phẩm thật kèm ảnh | Chưa | Catalog hiện là 80 SKU thương hiệu hư cấu. Nơi lưu ảnh chờ chốt (SRS Q-10) | US-47 |
 | PolicyEngine + YAML | Done (v0) | YAML sàn là bản nháp | US-07, US-20 |

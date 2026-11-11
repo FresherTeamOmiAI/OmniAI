@@ -1,0 +1,10 @@
+{
+  "data": {
+    "ordersn": "260111ABCD1234",
+    "status": "READY_TO_SHIP",
+    "update_time": 1762800000
+  },
+  "shop_id": 10001,
+  "code": 3,
+  "timestamp": 1762800000
+}

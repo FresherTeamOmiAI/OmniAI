@@ -1,0 +1,57 @@
+package com.omniai.channel.shopee;
+
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
+
+/** Khóa test của simulator Shopee. Không phải khóa sàn thật. Owner: ChienPX. */
+@Component
+@ConfigurationProperties(prefix = "omniai.channels.shopee")
+public class ShopeeChannelProperties {
+
+    private long partnerId = 2000001L;
+    private String partnerKey = "test-partner-key";
+    private long shopId = 10001L;
+    private String accessToken = "test-access-token";
+    /** URL hub sẽ nhận push đơn. Dùng để ký, chưa gọi mạng nếu để trống. */
+    private String pushCallbackUrl = "http://127.0.0.1:8080/api/channels/shopee/push";
+
+    public long getPartnerId() {
+        return partnerId;
+    }
+
+    public void setPartnerId(long partnerId) {
+        this.partnerId = partnerId;
+    }
+
+    public String getPartnerKey() {
+        return partnerKey;
+    }
+
+    public void setPartnerKey(String partnerKey) {
+        this.partnerKey = partnerKey;
+    }
+
+    public long getShopId() {
+        return shopId;
+    }
+
+    public void setShopId(long shopId) {
+        this.shopId = shopId;
+    }
+
+    public String getAccessToken() {
+        return accessToken;
+    }
+
+    public void setAccessToken(String accessToken) {
+        this.accessToken = accessToken;
+    }
+
+    public String getPushCallbackUrl() {
+        return pushCallbackUrl;
+    }
+
+    public void setPushCallbackUrl(String pushCallbackUrl) {
+        this.pushCallbackUrl = pushCallbackUrl;
+    }
+}

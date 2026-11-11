@@ -10,6 +10,11 @@ JSON phía backend dùng **camelCase**. Riêng hợp đồng backend → ai-brai
 | Method | Path | Request | Response | Ghi chú |
 |---|---|---|---|---|
 | POST | `/api/simulator/{channel}/messages` | `{messageId?, userId*, text*}` | `BotReply` | `channel` viết thường: web, shopee, tiktok. Bỏ trống `messageId` thì server tự sinh UUID; gửi trùng `messageId` thì nhận lại kết quả cũ. Dùng cho bench và trang `/admin/policy`. |
+| POST | `/api/v2/product/update_price` | body Shopee `price_list` + query chữ ký | `{error, message, request_id, response}` | Simulator Shopee nhận giá (T-50.3). Sai chữ ký thì `error=error_sign`, số cũ giữ nguyên. |
+| POST | `/api/v2/product/update_stock` | body Shopee `stock_list` + query chữ ký | như trên | Simulator Shopee nhận tồn kho (T-50.3). |
+| GET | `/api/simulator/shopee/items/{itemId}` | | `{itemId, originalPrice, stock}` | Số simulator đang giữ, để so với hub. |
+| POST | `/api/simulator/shopee/orders` | `{item_id, item_sku, item_name, quantity, price, status?}` | `{order_sn, callback_url, authorization, raw_body, body}` | Phát đơn: body là push code 3, `authorization` là chữ ký push (T-51.1). |
+| GET | `/api/v2/order/get_order_detail` | query `order_sn_list` + chữ ký | `{response.order_list[]}` | Chi tiết đơn simulator vừa phát. |
 | GET | `/api/products?skinType=&page=&size=` | | `PageResponse<Product>` = `{items, page, size, total}` | Chỉ trả sản phẩm `active=true`. `skinType` lọc kiểu "contains, không phân biệt hoa thường". Mặc định size 20. |
 | GET | `/api/products/{id}` | | `Product` hoặc 404 | Sản phẩm `active=false` cũng trả 404 (SRS G-06). |
 | WS | `/ws/chat` | text frame `{messageId, text}` | text frame `BotReply` | Kênh WEB. Origin cho phép: `WEB_ALLOWED_ORIGINS`. Text rỗng thì bỏ qua. |
@@ -32,7 +37,7 @@ Cần header `Authorization: Basic` với `ADMIN_USERNAME`/`ADMIN_PASSWORD` (SRS
 - Luật kiểm giống `tools/catalog/validate_catalog.py` (`catalog/CatalogVocabulary.java`): dạng SKU, bộ từ vựng ở [data-model.md](data-model.md), INCI ≥ 2 thành phần, giá/tồn kho ≥ 0, dung tích/PAO > 0, độ dài cột, tên/mô tả không có claim y khoa ("trị mụn", "đặc trị", "chữa"...).
 - Lỗi dạng ProblemDetail (RFC 9457, `application/problem+json`): `{type, title, status, detail, instance, errors?}`. `400` sai dữ liệu có `errors: [{field, message}]`; `400` JSON hỏng hoặc sai kiểu; `404`; `409` trùng SKU.
 
-Chưa có: `/api/conversations` (US-11, S2), API của simulator Shopee/TikTok Shop theo schema thật (US-21, US-25, S2), tài khoản thật (US-13, S3), API đồng bộ hub ↔ kênh (trụ E, từ S3, xem [backend.md](backend.md)).
+Chưa có: `/api/conversations` (US-11, S2), webhook chat Shopee/TikTok Shop (US-21, US-25, S2), tài khoản thật (US-13, S3), connector hub tự đẩy giá/tồn (US-50, phần của TuTM). Simulator Shopee đã nhận giá, tồn kho và phát đơn: [shopee.md](../channel-api/shopee.md).
 
 ## Kiểu dữ liệu chung (`com.omniai.common`, `web/src/shared/types.ts`)
 
