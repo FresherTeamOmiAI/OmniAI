@@ -2,6 +2,7 @@
 
 import httpx
 
+from app.llm.base import LLMError
 from app.schemas import ChatRequest
 
 CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
@@ -36,19 +37,22 @@ class GroqProvider:
         message = body.get("choices", [{}])[0].get("message", {})
         answer = (message.get("content") or "").strip()
         if not answer:
-            raise RuntimeError("groq trả nội dung rỗng")
+            raise LLMError("groq trả nội dung rỗng")
         return answer
 
     def _post(self, payload: dict) -> dict:
-        with httpx.Client(transport=self._transport, timeout=TIMEOUT_SECONDS) as client:
-            response = client.post(
-                CHAT_URL,
-                json=payload,
-                headers={
-                    "User-Agent": "omniai-ai-brain/1.0",
-                    "Authorization": f"Bearer {self._api_key}",
-                },
-            )
+        try:
+            with httpx.Client(transport=self._transport, timeout=TIMEOUT_SECONDS) as client:
+                response = client.post(
+                    CHAT_URL,
+                    json=payload,
+                    headers={
+                        "User-Agent": "omniai-ai-brain/1.0",
+                        "Authorization": f"Bearer {self._api_key}",
+                    },
+                )
+        except httpx.HTTPError as error:
+            raise LLMError(f"groq không gọi được: {error.__class__.__name__}") from error
         if response.status_code >= 400:
-            raise RuntimeError(f"groq HTTP {response.status_code}: {response.text[:300]}")
+            raise LLMError(f"groq HTTP {response.status_code}: {response.text[:300]}")
         return response.json()
