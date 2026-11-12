@@ -10,7 +10,7 @@
 
 **Đề xuất của T-47.2:** chọn **local**, lưu nhiều ảnh mỗi sản phẩm (bảng riêng). DB chỉ lưu khoá ảnh để sau này đổi sang Supabase mà không phải migrate dữ liệu. Lý do ở mục 5.
 
-**PO chốt ngày 12/11/2026: Supabase Storage** ([decisions #26](../specs/decisions.md)). Đề xuất local và bảng chấm điểm vẫn giữ lại bên dưới để thấy đánh đổi. Cách xử lý các điểm yếu của Supabase xem mục 8. Câu hỏi 2 (1 hay nhiều ảnh) chưa chốt.
+**PO chốt ngày 12/11/2026: Supabase Storage** ([decisions #26](../specs/decisions.md)). Đề xuất local và bảng chấm điểm vẫn giữ lại bên dưới để thấy đánh đổi. Cách xử lý các điểm yếu của Supabase xem mục 8. Câu hỏi 2: PO chốt **1 ảnh mỗi sản phẩm**, lưu bằng cột trong bảng `product`.
 
 ## 2. Ảnh được dùng ở đâu
 
@@ -80,9 +80,9 @@ Cách tính tổng: A = 0,25 + 0,20 + 0,15 + 0,15 + 0 + 0,05 = 0,80. B = 0,075 +
 ## 6. Hệ quả cho các task sau
 
 Chỉ là định hướng, sẽ làm ở task tương ứng:
-- **Migration mới** (không sửa V1–V7): bảng `product_image` gồm `product_id`, `image_key`, `position`, `source_url`, `license_note`. Nguồn và điều kiện sử dụng ghi theo từng ảnh, đúng AC của US-47. Nếu PO chọn 1 ảnh thì thêm cột vào `product`, nhưng vẫn cần chỗ ghi nguồn.
-- **API và web:** `Product` có thêm danh sách ảnh (URL do backend dựng), cập nhật `web/src/shared/types.ts`, `api-contracts.md`.
-- **T-47.1:** script tải ảnh về, resize sang WebP 800 px, đặt tên theo `<SKU>/<n>.webp`, ghi nguồn vào CSV.
+- **Migration mới** (không sửa V1–V7): PO chốt 1 ảnh, nên thêm cột vào `product`: `image_key`, `image_source_url`, `image_license_note`. Nguồn và điều kiện sử dụng ghi theo từng ảnh, đúng AC của US-47.
+- **API và web:** `Product` có thêm `imageUrl` (URL do backend dựng), cập nhật `web/src/shared/types.ts`, `api-contracts.md`.
+- **T-47.1:** script tải ảnh về, resize sang WebP 800 px, đặt tên theo `<SKU>.webp`, ghi nguồn vào CSV.
 - **US-49, US-50:** simulator lấy ảnh qua `/images/**` của hub. Định dạng gửi đi theo bảng đối chiếu API sàn.
 
 ## 7. Rủi ro
@@ -103,4 +103,4 @@ Các điểm yếu của B ở mục 5, và cách xử lý khi code:
 | Khoá service | Đặt trong `.env` (ví dụ `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`), không commit. Thêm vào `.env.example` và overview.md khi code |
 | Gói Free không resize | Script của T-47.1 resize sang WebP 800 px trước khi upload |
 
-Vẫn giữ quy tắc DB chỉ lưu khoá ảnh (`<SKU>/<n>.webp`), backend ghép URL public từ `SUPABASE_URL` và tên bucket. Mục 6 vẫn áp dụng, chỉ khác là simulator lấy ảnh bằng URL public của Supabase, không qua `/images/**`.
+Vẫn giữ quy tắc DB chỉ lưu khoá ảnh (`<SKU>.webp`), backend ghép URL public từ `SUPABASE_URL` và tên bucket. Mục 6 vẫn áp dụng, chỉ khác là simulator lấy ảnh bằng URL public của Supabase, không qua `/images/**`.
