@@ -8,6 +8,7 @@ trả lời nên câu không bị cắt như lúc trần 400 (T-06.4).
 import httpx
 
 from app.llm.base import LLMError
+from app.llm.transcript import gemini_contents
 from app.schemas import ChatRequest
 
 GENERATE_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
@@ -29,7 +30,7 @@ class GeminiProvider:
     def generate(self, request: ChatRequest, system_prompt: str) -> str:
         payload = {
             "systemInstruction": {"parts": [{"text": system_prompt}]},
-            "contents": [{"role": "user", "parts": [{"text": request.text}]}],
+            "contents": gemini_contents(request),
             "generationConfig": {
                 "temperature": TEMPERATURE,
                 "maxOutputTokens": MAX_OUTPUT_TOKENS,

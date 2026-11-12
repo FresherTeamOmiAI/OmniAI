@@ -4,8 +4,7 @@ import sqlglot
 from sqlglot import exp
 from sqlglot.errors import SqlglotError
 
-ALLOWED_TABLE = "chatbot_catalog"
-ALLOWED_COLUMNS = frozenset(
+PUBLIC_COLUMNS = frozenset(
     {
         "brand",
         "name",
@@ -18,12 +17,21 @@ ALLOWED_COLUMNS = frozenset(
         "price_tiktok",
     }
 )
+ALLOWED_COLUMNS = {
+    "chatbot_catalog": PUBLIC_COLUMNS,
+    "chatbot_catalog_search": PUBLIC_COLUMNS | {"sku", "embedding", "description"},
+}
 MAX_ROWS = 100
 
 CATALOG_SQL = (
     "SELECT brand, name, category, skin_types, skin_concerns, usage_time, "
     "price_web, price_shopee, price_tiktok "
     "FROM chatbot_catalog ORDER BY brand, name LIMIT 100"
+)
+SEARCH_SQL = (
+    "SELECT sku, brand, name, category, skin_types, skin_concerns, usage_time, "
+    "price_web, price_shopee, price_tiktok, description, CAST(embedding AS TEXT) AS embedding "
+    "FROM chatbot_catalog_search ORDER BY sku LIMIT 100"
 )
 
 
@@ -46,10 +54,11 @@ def validate_sql(sql: str) -> str:
     if len(tables) != 1:
         raise SqlRejected("đúng một bảng")
     table = tables[0]
-    if table.name.lower() != ALLOWED_TABLE or (table.db and table.db.lower() not in {"", "public"}):
-        raise SqlRejected("chỉ được đọc chatbot_catalog")
+    allowed = ALLOWED_COLUMNS.get(table.name.lower())
+    if allowed is None or (table.db and table.db.lower() not in {"", "public"}):
+        raise SqlRejected("chỉ được đọc catalog công khai")
     for column in statement.find_all(exp.Column):
-        if column.name.lower() not in ALLOWED_COLUMNS:
+        if column.name.lower() not in allowed:
             raise SqlRejected("cột không thuộc catalog công khai")
     limit = statement.args.get("limit")
     if limit is None:

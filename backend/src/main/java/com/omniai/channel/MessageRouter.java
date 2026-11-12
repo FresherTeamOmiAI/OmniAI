@@ -2,17 +2,21 @@ package com.omniai.channel;
 
 import com.omniai.brain.BrainClient;
 import com.omniai.brain.BrainResponse;
+import com.omniai.brain.BrainTurn;
 import com.omniai.common.BotReply;
 import com.omniai.common.CanonicalMessage;
 import com.omniai.conversation.ConversationRecorder;
+import com.omniai.conversation.TurnHistory;
 import com.omniai.policy.PolicyEngine;
 import com.omniai.policy.PolicyResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -28,6 +32,7 @@ public class MessageRouter {
     private final BrainClient brainClient;
     private final PolicyEngine policyEngine;
     private final ConversationRecorder recorder;
+    private final TurnHistory history;
 
     // Idempotency tạm trong bộ nhớ: kênh gửi lại cùng messageId (webhook retry) thì trả lại kết quả cũ.
     // Sprint 7 chuyển sang Redis để chạy được nhiều instance.
@@ -39,10 +44,17 @@ public class MessageRouter {
                 }
             });
 
-    public MessageRouter(BrainClient brainClient, PolicyEngine policyEngine, ConversationRecorder recorder) {
+    @Autowired
+    public MessageRouter(BrainClient brainClient, PolicyEngine policyEngine, ConversationRecorder recorder, TurnHistory history) {
         this.brainClient = brainClient;
         this.policyEngine = policyEngine;
         this.recorder = recorder;
+        this.history = history;
+    }
+
+    /** Test và chỗ chưa cần các lượt trước. */
+    public MessageRouter(BrainClient brainClient, PolicyEngine policyEngine, ConversationRecorder recorder) {
+        this(brainClient, policyEngine, recorder, TurnHistory.NONE);
     }
 
     public BotReply handle(CanonicalMessage message) {
@@ -54,7 +66,7 @@ public class MessageRouter {
         // Lưu tin khách trước khi hỏi Brain: Brain treo hay lỗi thì tin vẫn còn (NFR-06).
         record("tin vào", key, () -> recorder.inbound(message));
 
-        BrainResponse brain = ask(message);
+        BrainResponse brain = ask(message, earlierTurns(message));
         PolicyResult policy = policyEngine.apply(message.channel(), brain.reply());
         BotReply reply = new BotReply(
                 message.messageId(),
@@ -70,9 +82,19 @@ public class MessageRouter {
         return reply;
     }
 
-    private BrainResponse ask(CanonicalMessage message) {
+    private List<BrainTurn> earlierTurns(CanonicalMessage message) {
         try {
-            BrainResponse response = brainClient.ask(message);
+            List<BrainTurn> turns = history.before(message);
+            return turns == null ? List.of() : turns;
+        } catch (RuntimeException e) {
+            log.error("Không đọc được lịch sử của {}: {}", message.messageId(), e.toString());
+            return List.of();
+        }
+    }
+
+    private BrainResponse ask(CanonicalMessage message, List<BrainTurn> turns) {
+        try {
+            BrainResponse response = brainClient.ask(message, turns);
             return response != null ? response : BrainResponse.unavailable();
         } catch (RuntimeException e) {
             // HttpBrainClient đã tự bắt lỗi HTTP; đây là lưới cuối để khách không bị bỏ rơi.

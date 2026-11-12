@@ -3,6 +3,7 @@
 import httpx
 
 from app.llm.base import LLMError
+from app.llm.transcript import groq_messages
 from app.schemas import ChatRequest
 
 CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
@@ -25,10 +26,7 @@ class GroqProvider:
             "temperature": TEMPERATURE,
             "max_tokens": MAX_TOKENS,
             "tool_choice": "none",
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": request.text},
-            ],
+            "messages": groq_messages(request, system_prompt),
         }
         # gpt-oss nghĩ dài và để content rỗng nếu không hạ reasoning_effort.
         if "gpt-oss" in self.model:

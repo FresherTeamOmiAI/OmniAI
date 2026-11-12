@@ -5,8 +5,10 @@ search_product, get_price_and_stock, get_customer_profile, get_orders_all_channe
 check_ingredients, get_promotions, create_handoff.
 """
 
+from app.agent.followup import continues_usage, resolve_usage_targets, usage_text
 from app.catalog_access import load_public_catalog
 from app.llm.base import LLMProvider
+from app.rag.search import load_search_rows, parse_constraints, search_product, suggestion_lines
 from app.rules.grounding import strip_unverified_numbers
 from app.rules.ingredients import check_routine
 from app.schemas import ChatRequest, ChatResponse
@@ -40,9 +42,34 @@ def respond(request: ChatRequest, provider: LLMProvider) -> ChatResponse:
     warnings = check_routine(request.text, pregnant=pregnant)
 
     catalog = load_public_catalog(request.channel, request.channel_owned)
-    reply = provider.generate(request, system_prompt_for(request, list(catalog.lines)))
-    # Giá chỉ được giữ khi khớp chatbot_catalog. Tồn kho và khuyến mãi vẫn bị xóa (T-06.6).
-    reply, grounding = strip_unverified_numbers(reply, set(catalog.prices))
+    history = list(request.history)
+    if continues_usage(request.text, history):
+        rows = load_search_rows() or []
+        targets = resolve_usage_targets(request.text, history, rows)
+        reply = (
+            usage_text(targets)
+            if targets
+            else "Bạn gửi giúp shop mã hoặc tên sản phẩm vừa xem, shop đọc hướng dẫn dùng cho đúng sản phẩm đó."
+        )
+        grounding: list[str] = []
+    else:
+        constraints = parse_constraints(request.text)
+        rows = load_search_rows() if constraints.active else None
+        hits = (
+            search_product(request.text, rows, channel=request.channel, owned=request.channel_owned)
+            if rows
+            else []
+        )
+        if constraints.active and rows is not None and not hits:
+            reply = "Shop chưa có sản phẩm đang bán khớp yêu cầu này."
+            grounding = []
+        else:
+            lines = suggestion_lines(hits, request.channel, request.channel_owned) if hits else list(catalog.lines)
+            reply = provider.generate(request, system_prompt_for(request, lines))
+            # Giá chỉ được giữ khi khớp catalog vừa đọc. Tồn kho và khuyến mãi vẫn bị xóa (T-06.6).
+            reply, grounding = strip_unverified_numbers(reply, set(catalog.prices))
+            if hits:
+                reply = "Gợi ý trong shop:\n" + "\n".join(lines) + "\n" + reply
     if warnings:
         reply = "Lưu ý: " + " ".join(w.message for w in warnings) + "\n" + reply
 
