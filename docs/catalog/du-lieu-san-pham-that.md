@@ -1,86 +1,106 @@
-# Dữ liệu sản phẩm thật kèm ảnh (T-47.1)
+# Catalog sản phẩm thật kèm ảnh (T-47.1)
 
-> Cập nhật: 2026-11-12 · commit 1324b0f · Owner: LucVT
-> Nguồn: `shared/catalog/real/selection.csv`, `shared/catalog/products_real.csv`, `tools/catalog/obf_fetch.py`
-> Liên quan: US-47, [luu-anh-san-pham.md](luu-anh-san-pham.md) (T-47.2), [decisions #26, #27](../specs/decisions.md)
+> Cập nhật: 2026-11-12 · commit ee28494 · Owner: LucVT
+> Nguồn: `shared/catalog/products.csv`, `shared/catalog/real/selection.csv`, `tools/catalog/obf_fetch.py`, `tools/catalog/obf_annotate.py`, `tools/catalog/upload_images.py`, `backend/.../db/migration/V9__product_source_image.sql`, `V10__import_catalog_real.sql`
+> Liên quan: US-47, [luu-anh-san-pham.md](luu-anh-san-pham.md) (T-47.2), [decisions #26, #27, #30](../specs/decisions.md)
 
 ## Kết quả
 
-- `shared/catalog/products_real.csv`: 80 sản phẩm thật của 29 hãng có bán ở VN (CeraVe, La Roche-Posay, Bioderma, The Ordinary, Cetaphil, Avène, Neutrogena, Garnier, L'Oréal Paris, COSRX…).
-  - Có đủ 10 danh mục: cleanser 12, toner 8, serum 14, moisturizer 13, sunscreen 10, exfoliant 4, mask 5, spot-treatment 5, eye-cream 4, lip-care 5.
-  - Giữ 4 SKU hết hàng (`stock=0`) và 2 SKU ẩn (`active=false`) để test, giống CSV cũ.
-- Mỗi sản phẩm có tên, hãng, giá, INCI, 1 ảnh, link nguồn và ghi chú giấy phép, đúng AC của US-47.
-- Ảnh đã resize nằm ở `shared/catalog/real/images/<SKU>.webp`: WebP, cạnh dài ≤ 800 px, ≤ 150 KB (lớn nhất 105 KB, tổng 2,1 MB).
-  - Thư mục ảnh **không commit** (gitignore), chạy `build` để sinh lại.
-  - Khi làm phần ảnh, script sẽ upload thư mục này lên Supabase (decisions #26).
-- **Chưa thay** `products.csv` và DB. Xem mục "Việc còn lại".
+- **Catalog trong DB là sản phẩm thật** của 50 hãng có bán ở VN, tổng 366 SKU.
+  - V9 xoá 80 SKU của 5 thương hiệu hư cấu (decisions #30).
+  - V10 nạp `shared/catalog/products.csv`.
+- **Theo danh mục:** moisturizer 112, cleanser 83, sunscreen 57, serum 28, lip-care 28, mask 19, toner 15, exfoliant 11, spot-treatment 7, eye-cream 6. Trong đó 80 SKU `manual` (người soạn, đã duyệt ở PR #241) và 286 SKU `auto` (tự soạn theo quy tắc).
+- **Ca test:** 364 SKU active, 2 SKU ẩn (`NEUT-SUN-02`, `NIVE-MSK-01`), 4 SKU hết hàng.
+- **Hãng nhiều nhất:** Nivea 68, Garnier 30, L'Oréal Paris 26, Neutrogena 26, La Roche-Posay 23, CeraVe 21, Bioderma 19, Cetaphil 15, Avène 13.
+- **Nhóm hoạt chất cho luật thành phần của AI Brain:** retinoid 11, AHA 19, BHA 55, vitamin C 46, azelaic 2, **BPO 0**.
+- **Ảnh:** mỗi SKU có 1 ảnh WebP (≤ 800 px, ≤ 150 KB; lớn nhất 105 KB, tổng 5,6 MB) ở `shared/catalog/real/images/<SKU>.webp`.
+  - Thư mục ảnh nằm trong gitignore, sinh lại bằng `build`.
+  - Ảnh được upload lên Supabase Storage. DB lưu `image_key = <SKU>.webp`, backend ghép `imageUrl`.
+- **Store** (`/`) hiện ảnh, link "Nguồn" tới trang OBF và dòng ghi nguồn ở cuối trang.
 
 ## Nguồn và giấy phép
 
-Lấy từ [Open Beauty Facts](https://world.openbeautyfacts.org) (OBF), cơ sở dữ liệu mỹ phẩm mở do cộng đồng đóng góp. Điều khoản đọc ngày 12/11/2026 tại https://world.openbeautyfacts.org/terms-of-use:
+Dữ liệu lấy từ [Open Beauty Facts](https://world.openbeautyfacts.org) (OBF), dùng dump `en.openbeautyfacts.org.products.csv.gz` (khoảng 20 MB, 80.331 sản phẩm, bản ngày 12/11/2026). Điều khoản đọc ngày 12/11/2026 tại https://world.openbeautyfacts.org/terms-of-use:
 
 | Phần | Giấy phép | Phải làm |
 |---|---|---|
-| Cơ sở dữ liệu | ODbL; từng nội dung theo DbCL 1.0 | Ghi nguồn. Bộ dữ liệu phái sinh (như `products_real.csv`) phải chia sẻ cùng giấy phép |
+| Cơ sở dữ liệu | ODbL; từng nội dung theo DbCL 1.0 | Ghi nguồn. Bộ dữ liệu phái sinh phải chia sẻ cùng giấy phép |
 | Ảnh sản phẩm | CC BY-SA 3.0 | Ghi nguồn Open Beauty Facts kèm link (link trang sản phẩm cũng được). Ảnh đã resize vẫn theo CC BY-SA |
 | Nhãn hiệu, thiết kế bao bì | Không thuộc giấy phép trên | Thuộc chủ sở hữu. Chỉ dùng cho mục đích học tập (SRS A-05) |
 
 **Giấy phép của bộ dữ liệu này:**
-- `shared/catalog/products_real.csv` và `shared/catalog/real/selection.csv` là cơ sở dữ liệu phái sinh từ Open Beauty Facts, phát hành theo **Open Database License (ODbL) 1.0** (https://opendatacommons.org/licenses/odbl/1-0/).
-- Các ảnh trong `shared/catalog/real/images/` và trên Supabase là ảnh của OBF đã resize, phát hành theo **CC BY-SA 3.0** (https://creativecommons.org/licenses/by-sa/3.0/).
+- `shared/catalog/products.csv`, `shared/catalog/real/selection.csv` và bảng `product` là cơ sở dữ liệu phái sinh từ Open Beauty Facts, phát hành theo **Open Database License (ODbL) 1.0** (https://opendatacommons.org/licenses/odbl/1-0/).
+- Ảnh trong `shared/catalog/real/images/` và trên Supabase là ảnh của OBF đã resize, phát hành theo **CC BY-SA 3.0** (https://creativecommons.org/licenses/by-sa/3.0/).
 - Nguồn: © Open Beauty Facts contributors, https://world.openbeautyfacts.org.
 
-Mỗi dòng trong `products_real.csv` có `source_url` (trang sản phẩm trên OBF), `image_source_url` (ảnh gốc) và `image_license_note`.
+Mỗi SKU có `barcode`, `source_url` (trang sản phẩm trên OBF), `image_source_url` (ảnh gốc) và `image_license_note`.
 
-**Bắt buộc khi hiển thị** (web store T-09.1, admin, simulator): có dòng "Dữ liệu và ảnh: Open Beauty Facts (ODbL, CC BY-SA 3.0)" kèm link tới `source_url` của sản phẩm.
+**Bắt buộc khi hiển thị** (store, trang chi tiết T-09.1, admin, simulator): có dòng ghi nguồn Open Beauty Facts (ODbL, CC BY-SA 3.0) kèm link. `StorePage` đã làm.
 
-## Cột nào lấy từ đâu
+## Luồng
 
+```
+obf_fetch.py dump       tải dump OBF vào shared/catalog/real/.cache/ (gitignore)
+obf_fetch.py discover   lọc dump -> THÊM dòng annotated_by=auto vào selection.csv (không sửa dòng có sẵn)
+obf_fetch.py build      selection.csv + dữ liệu OBF -> shared/catalog/products.csv + ảnh WebP
+validate_catalog.py     kiểm products.csv
+csv_to_sql.py V<n>__... sinh migration upsert theo sku (V10 cho đợt này; lần sau đặt V<n> mới, không sửa V10)
+upload_images.py        đẩy ảnh lên Supabase (ghi đè nếu đã có)
+```
+
+Cài đặt một lần: `python -m venv tools/catalog/.venv`, rồi `tools/catalog/.venv/Scripts/python -m pip install -r tools/catalog/requirements.txt` (Pillow, chỉ `build` cần).
+
+Lệnh `search <từ khóa>` vẫn còn để tra nhanh qua API (đọc sản phẩm 15 req/phút, tìm 10 req/phút trên mỗi IP). Ngoài lệnh này, mọi bước đều đọc dump, vì OBF yêu cầu dùng dump khi cần hơn vài trăm sản phẩm ([tài liệu API](https://openfoodfacts.github.io/openfoodfacts-server/api/)). Ảnh vẫn tải từng cái, cách nhau ≥ 1 s, gửi User-Agent `OmniAI-catalog/1.0`, có cache.
+
+### `discover`: chọn sản phẩm (`obf_annotate.py`)
+- **Hãng:** chỉ hãng trong `BRAND_LIST` (khoảng 70 hãng có bán ở VN, kèm tiền tố SKU và hạng giá). So khớp theo `brands_tags`/`brands_en` sau khi bỏ dấu. Nếu OBF ghi cả công ty mẹ `l-oreal` lẫn hãng con thì lấy hãng con.
+- **Danh mục:** dựa vào tên + `categories_tags`, map vào 10 danh mục.
+  - Loại tóc, cơ thể, tay, chân, khử mùi, em bé, cạo râu, trang điểm, nước hoa, khăn ướt, xà phòng bánh.
+  - Không map được vào danh mục nào thì bỏ.
+- **Chất lượng:**
+  - Có ảnh và tên; dung tích 3–1000 ml.
+  - INCI ≥ 8 thành phần sau `normalize_inci()`, và là INCI tiếng Anh: loại bản dịch tiếng Bồ Đào Nha, Đức, Ý, Thổ và chữ quảng cáo.
+  - Bỏ trùng theo (hãng, tên, dung tích), giữ bản có INCI dài nhất.
+- **SKU** `TIỀN TỐ-LOẠI-NN`, lấy số tiếp theo còn trống. SKU đã gán không đổi, vì DB upsert theo `sku`.
+
+### Cột nào lấy từ đâu
 | Cột | Nguồn |
 |---|---|
-| `name` | Cột `name` trong `selection.csv` (tên tiếng Anh chuẩn của sản phẩm). Bỏ trống thì lấy `product_name` của OBF, ưu tiên bản vi > en > mặc định > fr |
-| `brand` | Tên hãng chuẩn theo tiền tố SKU (`BRANDS` trong script), vì OBF ghi lẫn "Cerave"/"CeraVe" và có bản ghi để trống hãng |
-| `ingredients_inci` | `ingredients_text_en` hoặc `ingredients_text` của OBF, qua `normalize_inci()` |
-| `size_ml` | `product_quantity`, hoặc tách số từ `quantity`. Sản phẩm tính bằng gram được ghi như ml |
-| `pao_months` | `periods_after_opening` của OBF. Đa số sản phẩm không có, khi đó lấy giá trị trong `selection.csv` |
-| `category`, `skin_types`, `skin_concerns`, `usage_time`, `description` | **Shop tự soạn** trong `selection.csv`, dựa trên công dụng ghi trên sản phẩm. Mô tả viết lại bằng tiếng Việt, không chép từ hãng, không có claim y khoa |
-| `price_web`, `stock`, `active` | **Shop tự đặt** (demo), theo mức giá thị trường. Không phải giá của nguồn |
-| `price_shopee`, `price_tiktok` | Shopee ≈ web + 4%, TikTok ≈ web − 3%, làm tròn tới nghìn đồng, giống CSV cũ |
+| `name` | Dòng `manual`: tên tiếng Anh chuẩn do người nhập. Dòng `auto`: tên trên OBF, **có thể là tiếng Pháp/Đức/Thổ**, sửa tay được |
+| `brand` | Tên chuẩn theo tiền tố SKU (`BRAND_LIST`) |
+| `ingredients_inci` | `ingredients_text` của OBF qua `normalize_inci()`: bỏ tiền tố "Ingredients:" và mã lô, tách cả theo dấu chấm, `1,2-` thành `1.2-`, chữ VIẾT HOA sang Title Case |
+| `size_ml` | `quantity` (ml, g, fl oz) hoặc `product_quantity` |
+| `pao_months` | `periods_after_opening` của OBF. Thiếu thì lấy giá trị trong `selection.csv` (dòng `auto`: mặc định theo danh mục, retinoid/vitamin C 6 tháng) |
+| `barcode`, `source_url`, `image_*` | OBF. Dòng mới tải ảnh bản 400 px; 80 dòng đầu tải bản đầy đủ rồi resize |
+| `category`, `skin_types`, `skin_concerns`, `usage_time`, `description` | Dòng `manual`: người soạn. Dòng `auto`: **quy tắc** trong `annotate()`. Loại da theo từ khoá trong tên (oil control → da dầu, sensitive/cica → nhạy cảm…). Vấn đề da theo hoạt chất (salicylic → mụn, lỗ chân lông; niacinamide; hyaluronic → cấp ẩm; retinoid → lão hoá…). Buổi dùng: SPF → sáng; retinoid/AHA/BHA → tối. Mô tả tiếng Việt theo mẫu, không có claim y khoa (validator kiểm) |
+| `price_web`, `stock`, `active` | **Shop tự đặt**, không phải giá thật. Dòng `auto`: giá gốc theo danh mục × hạng hãng × dung tích, làm tròn nghìn; tồn kho 20–200 sinh từ hash barcode |
+| `price_shopee`, `price_tiktok` | Web + 4% và web − 3%, làm tròn nghìn |
 
-`normalize_inci()` xử lý như sau:
-- Bỏ tiền tố "Ingredients:", mã lô in trên bao bì, dấu `*`.
-- Tách thành phần theo dấu phẩy, dấu chấm phẩy và cả dấu chấm (có nhãn dùng dấu chấm làm dấu phân cách).
-- Đổi `1,2-Hexanediol` thành `1.2-Hexanediol`, vì cột INCI tách theo dấu phẩy.
-- Đổi chuỗi VIẾT HOA sang Title Case, giữ nguyên các chữ viết tắt (PEG, PPG, BHT…).
+**Sửa dữ liệu:**
+- Sửa thẳng dòng tương ứng trong `selection.csv`, đổi `annotated_by` thành `manual` nếu đã duyệt.
+- Sau đó chạy `build`, rồi sinh migration **V<n> mới** bằng `csv_to_sql.py`.
+- Không sửa tay `products.csv` hay migration đã merge.
+- INCI do cộng đồng nhập nên còn lỗi chính tả. Muốn sửa INCI thì sửa trên OBF hoặc đổi barcode.
 
-Mỗi sản phẩm đã chọn có ≥ 8 thành phần. Theo các nhóm hoạt chất mà luật thành phần của AI Brain nhận biết: retinoid 4, AHA 9, BHA 14, vitamin C 6, azelaic 1, **BPO 0**.
+## Ảnh trên Supabase Storage (decisions #26)
 
-**Lưu ý chất lượng:** INCI do cộng đồng nhập hoặc đọc từ ảnh, nên còn vài lỗi chính tả hay thiếu dấu phẩy, ví dụ `Sodium Hyaluro - Nate`. Đã loại 4 sản phẩm có INCI bằng tiếng Bồ Đào Nha, tiếng Đức hoặc chỉ là chữ quảng cáo. Khi sửa thì sửa ở OBF, hoặc thay bằng barcode khác, **không** sửa tay trong `products_real.csv`.
+**Tạo project (một lần, người giữ project):**
+1. Vào https://supabase.com, đăng ký, chọn **New project** ở gói Free. Region nên chọn Southeast Asia (Singapore).
+2. **Storage → New bucket**: tên `product-images`, bật **Public bucket**.
+3. **Project Settings → API**: copy **Project URL** và khoá **service_role** (secret), điền vào `.env` ở gốc repo:
+   ```
+   SUPABASE_URL=https://<project-ref>.supabase.co
+   SUPABASE_BUCKET=product-images
+   SUPABASE_SERVICE_KEY=<service_role key>
+   ```
+   Khoá `service_role` có toàn quyền trên project. **Không commit**, không đưa vào backend hay web. Gửi cho người khác qua kênh riêng của nhóm.
+4. Upload ảnh: chạy `python tools/catalog/upload_images.py --check` (thử 1 ảnh), rồi `python tools/catalog/upload_images.py` (tất cả ảnh, ghi đè ảnh đã có). Script mở thử vài URL public để xác nhận bucket đã Public.
+5. Máy nào chỉ cần **xem** ảnh thì chỉ cần `SUPABASE_URL` (và `SUPABASE_BUCKET`) trong `.env`. Backend tự ghép `imageUrl`.
 
-## Cách chạy
+**Lưu ý:** project gói Free tự dừng sau 1 tuần không có truy cập. Trước mỗi Sprint Review và trước ngày demo, cần vào dashboard bật lại (xem mục 8 của [luu-anh-san-pham.md](luu-anh-san-pham.md)). Thiếu `SUPABASE_URL` hoặc project đang dừng thì store vẫn chạy, chỉ hiện khung "Chưa có ảnh".
 
-```
-python -m venv tools/catalog/.venv
-tools/catalog/.venv/Scripts/python -m pip install -r tools/catalog/requirements.txt   # Pillow
-cd tools/catalog
-.venv/Scripts/python obf_fetch.py search "la roche posay"   # in ứng viên: barcode, số thành phần INCI, có ảnh, dung tích, PAO
-.venv/Scripts/python obf_fetch.py build                     # selection.csv -> products_real.csv + ảnh
-python validate_catalog.py ../../shared/catalog/products_real.csv
-```
-
-- Muốn thêm hoặc đổi sản phẩm: sửa `shared/catalog/real/selection.csv`, rồi chạy `build`.
-  - `build` báo `BỎ <SKU>` nếu sản phẩm thiếu tên, hãng, INCI (< 5 thành phần), dung tích, PAO hoặc ảnh.
-- Giới hạn API của OBF: đọc sản phẩm 15 req/phút, tìm kiếm 10 req/phút trên mỗi IP. Vượt có thể bị chặn IP ([tài liệu API](https://openfoodfacts.github.io/openfoodfacts-server/api/)).
-  - Script tự giãn khoảng cách giữa các request và gửi User-Agent `OmniAI-catalog/1.0`.
-  - JSON và ảnh gốc được cache trong `shared/catalog/real/.cache/` (gitignore), nên chạy lại `build` không gọi API nữa.
-  - Lần đầu mất khoảng 8 phút cho 80 sản phẩm.
-- `validate_catalog.py` nhận cả header cũ (`products.csv`) lẫn header có thêm 5 cột nguồn/ảnh, và kiểm thêm barcode, `image_key = <SKU>.webp`, URL https, ghi chú giấy phép.
-
-## Việc còn lại (ngoài T-47.1)
-
-Thay catalog hư cấu bằng `products_real.csv` sẽ ảnh hưởng tới nhiều người. Cần hẹn thời điểm với HungDQ và ChienPX trước khi làm:
-- **Migration mới:** upsert 80 SKU thật, thêm 3 cột ảnh vào `product` (decisions #26), ẩn 80 SKU hư cấu bằng `active=false` (G-07, không xoá).
-  - `csv_to_sql.py` hiện chỉ đọc các cột của `HEADER`, nên cần sửa để đọc thêm cột ảnh.
-- **Test:** `OmniAiApplicationTests` đang đếm 78 SKU active và kiểm `chatbot_catalog`.
-- **Bench, llm-eval, embedding:** dataset bench và báo cáo llm-eval tham chiếu SKU hư cấu (decisions #19). ChienPX đang embed catalog cho RAG (US-10).
-- **Ảnh:** upload `shared/catalog/real/images/` lên Supabase Storage. Backend ghép URL ảnh, web hiển thị ảnh cùng dòng ghi nguồn.
+## Việc còn lại
+- **Bench, llm-eval, sample ai-brain:** dataset bench, báo cáo llm-eval (`docs/llm-eval/`) và `ai-brain/samples/` còn tham chiếu 5 thương hiệu hư cấu. Cần viết lại dần theo catalog thật (decisions #30). pytest của ai-brain dùng stub nên không hỏng.
+- **Store:** phân trang và trang chi tiết (T-09.1), bộ lọc theo danh mục và giá (T-09.2). Hiện `/api/products` trả 20 SKU đầu.
+- **Admin:** upload và đổi ảnh từ màn admin (`ProductRequest` chưa có trường ảnh).
+- **Dữ liệu:** dịch tên sản phẩm `auto` sang tiếng Anh hoặc Việt; bổ sung hãng Hàn/Nhật (OBF gần như không có).
