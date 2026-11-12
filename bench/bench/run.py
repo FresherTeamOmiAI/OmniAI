@@ -9,7 +9,10 @@ Mỗi dòng dataset (JSONL):
                 "max_latency_ms": 5000}}
 
 transport: "simulator" (mặc định) gọi POST /api/simulator/{channel}/messages;
-           "ws" gửi qua WebSocket /ws/chat giống chat widget (chỉ dùng cho kênh WEB).
+           "ws" gửi qua WebSocket /ws/chat giống chat widget (chỉ dùng cho kênh WEB);
+           "tiktok" đóng vai buyer trên simulator TikTok Shop (POST {tiktok-sim-url}/sim/buyer/messages), hub nhận
+           webhook đã ký rồi trả lời bằng Send Message; bench lấy câu khách nhận được (chỉ dùng cho kênh TIKTOK,
+           cần simulator + backend + brain đang chạy và shop đã ủy quyền).
 must_not_match: finalText không được khớp regex này (không phân biệt hoa thường), vd. số giá tự bịa.
 """
 
@@ -25,11 +28,12 @@ from pathlib import Path
 import httpx
 from websockets.sync.client import connect
 
-from bench.policy_check import load_policies, violations
+from bench.policy_check import load_fallbacks, load_policies, violations
 
 ROOT = Path(__file__).resolve().parents[1]
 WS_PATH = "/ws/chat"
 TIMEOUT_S = 30
+TIKTOK_WAIT_MS = 25_000
 
 
 def ws_url(base_url: str) -> str:
@@ -57,6 +61,28 @@ def send_ws(url: str, case: dict, message_id: str) -> tuple[dict, int]:
         raw = ws.recv(timeout=TIMEOUT_S)
         latency_ms = round((time.perf_counter() - started) * 1000)
     return json.loads(raw), latency_ms
+
+
+def send_tiktok(sim_url: str, case: dict, message_id: str, fallbacks: dict[str, str]) -> tuple[dict, int]:
+    """Buyer nhắn trên simulator TikTok Shop và chờ tin trả lời của shop (đi qua webhook thật tới hub).
+
+    Chỉ thấy được câu khách nhận (finalText): không có rawText và violations như BotReply, nên raw_violations rỗng;
+    blocked suy ra bằng cách so finalText với fallback_message của kênh.
+    """
+    payload = {"buyer_user_id": message_id, "nickname": f"bench {case['id']}", "text": case["text"],
+               "wait_ms": TIKTOK_WAIT_MS}
+    started = time.perf_counter()
+    response = httpx.post(f"{sim_url.rstrip('/')}/sim/buyer/messages", json=payload,
+                          timeout=TIKTOK_WAIT_MS / 1000 + 5)
+    response.raise_for_status()
+    body = response.json()
+    if not body.get("reply"):
+        raise RuntimeError(f"{case['id']}: shop không trả lời trong {TIKTOK_WAIT_MS} ms "
+                           "(backend có chạy và shop đã ủy quyền chưa? xem docs/specs/bench.md)")
+    final_text = json.loads(body["reply"]["content"]).get("content", "")
+    latency_ms = body.get("reply_latency_ms") or round((time.perf_counter() - started) * 1000)
+    blocked = final_text.strip() == fallbacks.get(case["channel"], "")
+    return {"finalText": final_text, "blocked": blocked, "violations": []}, latency_ms
 
 
 def grade(policies, case: dict, reply: dict, latency_ms: int) -> dict:
@@ -91,17 +117,22 @@ def grade(policies, case: dict, reply: dict, latency_ms: int) -> dict:
     }
 
 
-def run_case(client: httpx.Client, policies, case: dict) -> dict:
+def run_case(client: httpx.Client, policies, case: dict, tiktok_sim_url: str = "http://localhost:8090",
+             fallbacks: dict[str, str] | None = None) -> dict:
     transport = case.get("transport", "simulator")
     message_id = f"bench-{case['id']}-{time.time_ns()}"
     if transport == "ws":
         if case["channel"] != "WEB":
             raise ValueError(f"{case['id']}: transport 'ws' chỉ dùng cho kênh WEB")
         reply, latency_ms = send_ws(ws_url(str(client.base_url)), case, message_id)
+    elif transport == "tiktok":
+        if case["channel"] != "TIKTOK":
+            raise ValueError(f"{case['id']}: transport 'tiktok' chỉ dùng cho kênh TIKTOK")
+        reply, latency_ms = send_tiktok(tiktok_sim_url, case, message_id, fallbacks or load_fallbacks())
     elif transport == "simulator":
         reply, latency_ms = send_simulator(client, case, message_id)
     else:
-        raise ValueError(f"{case['id']}: transport '{transport}' không hỗ trợ (simulator | ws)")
+        raise ValueError(f"{case['id']}: transport '{transport}' không hỗ trợ (simulator | ws | tiktok)")
     return grade(policies, case, reply, latency_ms)
 
 
@@ -147,15 +178,18 @@ def main() -> int:
     parser.add_argument("--base-url", default="http://localhost:8080")
     parser.add_argument("--dataset", default=str(ROOT / "datasets" / "sample.jsonl"))
     parser.add_argument("--out", default=str(ROOT / "reports"))
+    parser.add_argument("--tiktok-sim-url", default="http://localhost:8090",
+                        help="simulator TikTok Shop, dùng cho ca transport=tiktok")
     args = parser.parse_args()
 
     policies = load_policies()
+    fallbacks = load_fallbacks()
     cases = [json.loads(line) for line in Path(args.dataset).read_text(encoding="utf-8").splitlines() if line.strip()]
     print(f"Chạy {len(cases)} ca từ {Path(args.dataset).name} tới {args.base_url}...", flush=True)
     results = []
     with httpx.Client(base_url=args.base_url, timeout=TIMEOUT_S) as client:
         for i, case in enumerate(cases, 1):
-            result = run_case(client, policies, case)
+            result = run_case(client, policies, case, args.tiktok_sim_url, fallbacks)
             results.append(result)
             # In tiến độ từng ca: với LLM thật mỗi ca mất vài giây, không in thì cửa sổ trông như bị treo.
             status = "PASS" if result["passed"] else "FAIL"

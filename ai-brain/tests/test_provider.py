@@ -2,11 +2,14 @@ import json
 
 import httpx
 import pytest
+from fastapi.testclient import TestClient
 
 from app.catalog_access import require_config
+from app.llm.base import LLMError
 from app.llm.factory import get_provider
 from app.llm.gemini import GeminiProvider
 from app.llm.groq import GroqProvider
+from app.main import app
 from app.schemas import ChatRequest
 
 
@@ -147,6 +150,43 @@ def test_groq_qwen_does_not_set_reasoning_effort():
     provider = GroqProvider("qwen/qwen3.8-27b", "test-key", transport=httpx.MockTransport(handler))
     assert provider.generate(_request(), "prompt") == "Dạ được ạ."
     assert "reasoning_effort" not in seen["body"]
+
+
+def test_gemini_http_500_raises_llm_error():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, text="upstream down")
+
+    provider = GeminiProvider("gemini-3.6-flash", "test-key", transport=httpx.MockTransport(handler))
+    with pytest.raises(LLMError, match="HTTP 500"):
+        provider.generate(_request(), "prompt")
+
+
+def test_gemini_connect_error_raises_llm_error():
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection refused")
+
+    provider = GeminiProvider("gemini-3.6-flash", "test-key", transport=httpx.MockTransport(handler))
+    with pytest.raises(LLMError, match="ConnectError") as error:
+        provider.generate(_request(), "prompt")
+    assert "test-key" not in str(error.value)
+
+
+def test_chat_returns_502_when_provider_fails(monkeypatch):
+    class Broken:
+        name = "gemini"
+
+        def generate(self, request, system_prompt):
+            raise LLMError("gemini HTTP 500")
+
+    monkeypatch.setattr("app.main.provider", Broken())
+    client = TestClient(app, raise_server_exceptions=False)
+    response = client.post(
+        "/chat",
+        json={"message_id": "m1", "channel": "WEB", "channel_owned": True, "user_id": "u1", "text": "giá kem"},
+    )
+
+    assert response.status_code == 502
+    assert response.json() == {"error": "llm_unavailable"}
 
 
 def test_provider_error_does_not_include_api_key():

@@ -70,6 +70,8 @@ def load_passed() -> dict[str, dict]:
 
 def passes(row: dict, answer: str) -> tuple[bool, str]:
     lowered = answer.lower()
+    if "**" in answer:
+        return False, "còn markdown"
     if len(answer.strip()) < 40:
         return False, "quá ngắn"
     if not any(token in lowered for token in ("dạ", "bạn", "da", "shop", "ạ", "không", "nên")):

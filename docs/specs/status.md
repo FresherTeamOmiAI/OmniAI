@@ -1,6 +1,6 @@
 # Trạng thái hiện tại
 
-> Cập nhật: 2026-11-11 · lập lại kế hoạch sau buổi họp với thầy (decisions #22–#24) · Sprint hiện tại: **S2 (10–16/11/2026)**
+> Cập nhật: 2026-11-12 · US-25 kênh TikTok Shop qua simulator (T-25.1–T-25.3), chạy thử với Gemini + Postman; trước đó: T-06.8 timeout widget, lập lại kế hoạch (decisions #22–#24) · Sprint hiện tại: **S2 (10–16/11/2026)**
 
 Bảng này cho biết cái gì đã chạy được, cái gì mới là khung, cái gì chưa có. Agent đọc file này **trước khi** đi tìm code để khỏi tìm thứ chưa tồn tại. Kế hoạch chi tiết: `tools/tracking/backlog.py` và GitHub Issues (milestone Sprint 0–12).
 
@@ -14,14 +14,15 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | Script chạy Windows `tools/systembat` | Done | setup / run-all / stop-all / test-all / bench | US-02 |
 | CanonicalMessage + ChannelAdapter | Done | | |
 | MessageRouter + idempotency | Khung | Idempotency in-memory, chưa lưu hội thoại | US-06, US-11, US-29 |
-| Kênh WEB (WebSocket) | Done | T-06.1 FE widget auto-reconnect + T-06.2 BE adapter. Test adapter dùng mock, luồng WS thật chỉ có bench `transport: ws`. Widget chưa có timeout chờ trả lời (T-06.8) | US-06 |
+| Kênh WEB (WebSocket) | Done | T-06.1 FE widget auto-reconnect + T-06.2 BE adapter + T-06.8: server trả `invalid_message` cho tin JSON lỗi/rỗng, widget timeout 12 s, test WS thật `WebChatSocketIT` | US-06 |
 | Simulator API | Done | Dùng cho bench và `/admin/policy` | US-07 |
 | Kênh Telegram / Messenger | Đã bỏ | Bỏ khỏi dự án ngày 11/11 (decisions #22): xóa enum, YAML; hủy US-17, US-18 | |
-| Kênh Shopee / TikTok Shop | Khung | Đã có YAML luật. Simulator Shopee nhận giá, tồn kho và phát đơn có chữ ký (T-50.3, T-51.1). Chat Shopee (US-21) và TikTok Shop vẫn chưa | US-21, 25, 50, 51 |
+| Kênh TikTok Shop (simulator theo schema thật) | Done (sim) | App riêng `simulators/tiktok-shop` :8090 (decisions #28): OAuth2, Event, Customer Service, chữ ký request/webhook, rate limit 50 đồng thời, phân trang, fault injection `/sim/*`. Hub `channel.tiktok`: webhook kiểm chữ ký, trả 200 rồi xử lý async, chống trùng, token lưu DB (V8, decisions #29), tự refresh. Bảng đối chiếu `docs/channel-api/tiktok.md` (T-25.3). Token/sign/webhook/mã lỗi chung **chưa đối chiếu** docv2. Bench `tiktok-flow.jsonl` với Gemini: 3/5 (2 ca chỉ chậm > 5 s, 0 lọt vi phạm). Postman `backend/http/OmniAI-tiktok.postman_collection.json` 50/50 assertion, TC ở `docs/testcases/US-25.md` | US-25 |
+| Kênh Shopee | Khung | Đã có YAML luật. Simulator nhận giá, tồn kho và phát đơn có chữ ký (T-50.3, T-51.1). Chat Shopee (US-21) chưa | US-21, 50, 51 |
 | Đồng bộ hub ↔ kênh (trụ E) | Chưa | Đi: sản phẩm, giá, tồn kho, khuyến mãi, trạng thái đơn. Về: đơn hàng, duyệt sản phẩm, đánh giá (hội thoại CSKH ở US-11, 14). Bắt đầu S3, bảng US ở [backend.md](backend.md) | US-49–55 |
-| Dữ liệu sản phẩm thật kèm ảnh | Chưa | Catalog hiện là 80 SKU thương hiệu hư cấu. Nơi lưu ảnh chờ chốt (SRS Q-10) | US-47 |
+| Dữ liệu sản phẩm thật kèm ảnh | Khung | `shared/catalog/products_real.csv`: 80 sản phẩm thật từ Open Beauty Facts, có ảnh WebP và nguồn ([T-47.1](../catalog/du-lieu-san-pham-that.md), decisions #27). **DB vẫn là 80 SKU hư cấu**: chưa có migration, chưa có cột ảnh, chưa upload Supabase (decisions #26) | US-47 |
 | PolicyEngine + YAML | Done (v0) | YAML sàn là bản nháp | US-07, US-20 |
-| AI Brain `/chat` + LLMProvider | Khung | Chỉ chạy LLM thật: `LLM_PROVIDER` là `gemini` (mặc định) hoặc `groq`, đã bỏ `fake` (T-12.4, decisions #25). Thiếu `LLM_API_KEY` hoặc `CHATBOT_DB_URL` thì không khởi động. pytest dùng stub trong `ai-brain/tests/`. `gemini-3.6-flash` trả lời đúng ngữ cảnh 10/10 câu mẫu (T-06.4), p95 6,7 s > 5 s, PO chấp nhận ở S1 (decisions #21). LLM lỗi đang thành HTTP 500, câu trả lời còn markdown (T-06.7). Tên và giá niêm yết lấy từ view `chatbot_catalog` bằng role `chatbot_reader` | US-05, US-06 |
+| AI Brain `/chat` + LLMProvider | Khung | Chỉ chạy LLM thật: `LLM_PROVIDER` là `gemini` (mặc định) hoặc `groq`, đã bỏ `fake` (T-12.4, decisions #25). Thiếu `LLM_API_KEY` hoặc `CHATBOT_DB_URL` thì không khởi động. pytest dùng stub trong `ai-brain/tests/`. `gemini-3.6-flash` trả lời đúng ngữ cảnh 10/10 câu mẫu (T-06.4), p95 6,7 s > 5 s, PO chấp nhận ở S1 (decisions #21). LLM lỗi trả 502 `llm_unavailable`, câu trả lời là văn bản thuần không markdown (T-06.7). Tên và giá niêm yết lấy từ view `chatbot_catalog` bằng role `chatbot_reader` | US-05, US-06 |
 | AI Brain: chặn số tự bịa (`rules/grounding.py`) | Done | Giữ giá khi khớp `chatbot_catalog`. Vẫn bỏ tồn kho, khuyến mãi và giá model tự bịa | US-06 (T-06.6), US-15 |
 | Luật thành phần | Khung | Bản mẫu, cần chuyên gia review | US-27 |
 | RAG / tool / agent loop | Chưa | | US-10, US-15 |
@@ -41,15 +42,17 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | docs/specs + rule cho agent | Done | Stop hook `tools/agent/specs_guard.py` | |
 
 ## Lỗ hổng / nợ kỹ thuật đã biết
-- Idempotency chỉ nằm trong bộ nhớ, sẽ mất khi restart và sai khi chạy nhiều instance (S7 chuyển Redis).
+- Idempotency chỉ nằm trong bộ nhớ, sẽ mất khi restart và sai khi chạy nhiều instance (S7 chuyển Redis). Chống trùng webhook TikTok (`tts_notification_id`, `message_id`) cũng vậy.
+- TikTok: thuật toán ký, chữ ký webhook, số `type` webhook, API token và mã lỗi 105xxx/106xxx/36009004/36009006 là giả định, chờ đối chiếu docv2 (docs/channel-api/tiktok.md mục 1). Token trong `channel_credential` lưu dạng rõ.
+- Webhook TikTok lỗi sau khi đã trả 200 thì chỉ log, chưa có dead-letter (US-29).
 - Backend/ai-brain không tự đọc `.env` (script `.bat` nạp hộ, IDE thì phải tự cấu hình).
 - Chưa có `mvnw`, mỗi máy phải tự cài Maven.
-- Widget chat: server im lặng với tin JSON lỗi/rỗng nên widget hiện "đang trả lời" mãi; nối lại WebSocket thì `channelUserId` đổi theo session mới (T-06.8; tài khoản web ở US-13).
+- Widget chat: nối lại WebSocket thì `channelUserId` đổi theo session mới (tài khoản web ở US-13).
 - Câu Gemini có markdown (`**`), widget hiện thô (T-06.7).
 - Bench tính ca chậm hơn 5 s là fail, nên tỉ lệ pass với Gemini lẫn cả lỗi chất lượng và lỗi độ trễ (decisions #21). Chưa tách thành metric riêng.
 - Chạy brain và bench cần `LLM_API_KEY` và quota free tier; CI (US-16) sẽ phải giải quyết việc cấp key.
 
 ## Sprint S0–S2 (tóm tắt)
 - **S0** (03–09/11): SRS 1.0, US, UC (HungDQ; LucVT, ChienPX góp ý; không ký duyệt, decisions #16) · setup môi trường (cả 4) · spike chat API Shopee/TikTok (TuTM) · schema + 80 SKU (LucVT) · so sánh ≥3 LLM (ChienPX).
-- **S1** (làm gối lên tuần S0, review 10/11): chat web hoàn chỉnh (TuTM) · LLM thật (ChienPX) · PolicyEngine v0 + 5 ca bench web (HungDQ) · CRUD sản phẩm + import 80 SKU + màn admin (LucVT). Còn T-06.7, T-06.8 làm tiếp trong S2.
+- **S1** (làm gối lên tuần S0, review 10/11): chat web hoàn chỉnh (TuTM) · LLM thật (ChienPX) · PolicyEngine v0 + 5 ca bench web (HungDQ) · CRUD sản phẩm + import 80 SKU + màn admin (LucVT). T-06.7 đã xong. Còn T-06.8 làm tiếp trong S2.
 - **S2** (10–16/11, kéo lên 1 tuần; S3–S12 cũng kéo lên, decisions #24): simulator Shopee theo schema thật + RAG (ChienPX) · simulator TikTok Shop + lưu hội thoại (TuTM) · web store + dữ liệu thật kèm ảnh (LucVT) · bench 50 ca, tài liệu benchmark, bỏ FakeProvider, chuyển hướng (HungDQ). Vượt capacity có chủ đích: ChienPX 10 md, TuTM 7,5, LucVT 6,5, HungDQ 5.

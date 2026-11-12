@@ -7,6 +7,7 @@ trả lời nên câu không bị cắt như lúc trần 400 (T-06.4).
 
 import httpx
 
+from app.llm.base import LLMError
 from app.schemas import ChatRequest
 
 GENERATE_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
@@ -43,16 +44,19 @@ class GeminiProvider:
         parts = candidate.get("content", {}).get("parts", [])
         answer = "".join(part.get("text", "") for part in parts if not part.get("thought")).strip()
         if not answer:
-            raise RuntimeError("gemini trả nội dung rỗng")
+            raise LLMError("gemini trả nội dung rỗng")
         return answer
 
     def _post(self, url: str, payload: dict, headers: dict) -> dict:
-        with httpx.Client(transport=self._transport, timeout=TIMEOUT_SECONDS) as client:
-            response = client.post(
-                url,
-                json=payload,
-                headers={"User-Agent": "omniai-ai-brain/1.0", **headers},
-            )
+        try:
+            with httpx.Client(transport=self._transport, timeout=TIMEOUT_SECONDS) as client:
+                response = client.post(
+                    url,
+                    json=payload,
+                    headers={"User-Agent": "omniai-ai-brain/1.0", **headers},
+                )
+        except httpx.HTTPError as error:
+            raise LLMError(f"gemini không gọi được: {error.__class__.__name__}") from error
         if response.status_code >= 400:
-            raise RuntimeError(f"gemini HTTP {response.status_code}: {response.text[:800]}")
+            raise LLMError(f"gemini HTTP {response.status_code}: {response.text[:800]}")
         return response.json()

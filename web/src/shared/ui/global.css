@@ -56,6 +56,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 .chat-line { max-width: 85%; padding: 8px 12px; border-radius: 12px; white-space: pre-wrap; font-size: 14px; }
 .chat-line-me { align-self: flex-end; background: var(--accent); color: #fff; }
 .chat-line-bot { align-self: flex-start; background: var(--bg); }
+.chat-line-error { background: var(--warn-bg); color: var(--warn-ink); }
 .chat-line-typing { display: inline-flex; align-items: center; gap: 4px; padding: 10px 14px; min-height: 36px; }
 .typing-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); opacity: 0.4; animation: typing-pulse 1.4s infinite ease-in-out both; }
 .typing-dot:nth-child(1) { animation-delay: -0.32s; }

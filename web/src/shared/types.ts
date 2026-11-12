@@ -18,6 +18,12 @@ export interface BotReply {
   handoff: boolean
 }
 
+/** Frame lỗi từ /ws/chat (tin JSON hỏng hoặc text rỗng). messageId null nếu server không đọc được. */
+export interface WsErrorReply {
+  error: 'invalid_message'
+  messageId: string | null
+}
+
 export interface Page<T> {
   items: T[]
   page: number

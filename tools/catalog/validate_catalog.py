@@ -4,7 +4,9 @@
     python tools/catalog/validate_catalog.py path/to/x.csv
 
 Kiểm: đủ cột theo schema V4, >= 80 SKU, không trùng SKU, trường bắt buộc không rỗng, giá trị nằm trong
-bộ từ vựng ở docs/specs/data-model.md, số hợp lệ, mô tả không có claim y khoa. Mã thoát 1 nếu có lỗi.
+bộ từ vựng ở docs/specs/data-model.md, số hợp lệ, mô tả không có claim y khoa. File có thêm cột nguồn/ảnh
+(SOURCE_COLUMNS, vd. products_real.csv của T-47.1) thì kiểm thêm barcode, image_key, URL, ghi chú giấy phép.
+Mã thoát 1 nếu có lỗi.
 Chỉ dùng thư viện chuẩn, không cần venv.
 """
 
@@ -19,6 +21,8 @@ MIN_SKU = 80
 
 HEADER = ["sku", "name", "brand", "category", "skin_types", "skin_concerns", "usage_time", "ingredients_inci",
           "size_ml", "pao_months", "price_web", "price_shopee", "price_tiktok", "stock", "active", "description"]
+# Cột nguồn và ảnh của catalog thật (T-47.1, products_real.csv), mỗi sản phẩm 1 ảnh (decisions #26).
+SOURCE_COLUMNS = ["barcode", "source_url", "image_key", "image_source_url", "image_license_note"]
 REQUIRED = ["sku", "name", "brand", "category", "skin_types", "ingredients_inci", "size_ml", "pao_months",
             "price_web", "price_shopee", "price_tiktok", "stock", "active"]
 
@@ -41,8 +45,9 @@ def validate(path: Path) -> list[str]:
     errors: list[str] = []
     with path.open(encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f)
-        if reader.fieldnames != HEADER:
-            return [f"header sai: {reader.fieldnames}, cần {HEADER}"]
+        if reader.fieldnames not in (HEADER, HEADER + SOURCE_COLUMNS):
+            return [f"header sai: {reader.fieldnames}, cần {HEADER} (có thể thêm {SOURCE_COLUMNS} ở cuối)"]
+        has_source = reader.fieldnames == HEADER + SOURCE_COLUMNS
         rows = list(reader)
 
     if len(rows) < MIN_SKU:
@@ -89,6 +94,17 @@ def validate(path: Path) -> list[str]:
 
         if m := MEDICAL_CLAIM.search(row["name"] + " " + row["description"]):
             errors.append(f"{where}: có claim y khoa '{m.group()}'")
+
+        if has_source:
+            if not row["barcode"].isdigit():
+                errors.append(f"{where}: barcode '{row['barcode']}' phải là chữ số")
+            if row["image_key"] != f"{sku}.webp":
+                errors.append(f"{where}: image_key phải là '{sku}.webp'")
+            for col in ("source_url", "image_source_url"):
+                if not row[col].startswith("https://"):
+                    errors.append(f"{where}: {col} phải là URL https")
+            if not row["image_license_note"].strip():
+                errors.append(f"{where}: thiếu image_license_note (nguồn, giấy phép ảnh)")
     return errors
 
 

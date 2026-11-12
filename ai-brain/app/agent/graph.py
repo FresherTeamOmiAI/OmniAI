@@ -18,7 +18,8 @@ def system_prompt_for(request: ChatRequest, catalog: list[str] | None = None) ->
     base = (
         "Bạn là trợ lý tư vấn mỹ phẩm của shop. Khi khách hỏi giá, nêu đúng mức giá trong danh sách catalog. "
         "Không nói tồn kho và không nói khuyến mãi. "
-        "Không chẩn đoán bệnh, không dùng từ 'điều trị', 'chữa', 'đặc trị'."
+        "Không chẩn đoán bệnh, không dùng từ 'điều trị', 'chữa', 'đặc trị'. "
+        "Trả lời bằng văn bản thuần, không markdown, tối đa khoảng 5 câu."
     )
     if catalog:
         base += (

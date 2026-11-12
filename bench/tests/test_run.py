@@ -63,3 +63,81 @@ def test_raw_violations_come_from_bot_reply():
 
     assert result["passed"]
     assert result["raw_violations"] == ["no-other-channel"]
+
+
+# ---------- transport tiktok (simulator TikTok Shop) ----------
+
+import json  # noqa: E402
+
+import pytest  # noqa: E402
+
+from bench import run  # noqa: E402
+from bench.policy_check import load_fallbacks  # noqa: E402
+
+FALLBACKS = load_fallbacks()
+
+
+class FakeResponse:
+    def __init__(self, body):
+        self._body = body
+
+    def raise_for_status(self):
+        pass
+
+    def json(self):
+        return self._body
+
+
+def sim_reply(text, latency=1200):
+    return {"conversation_id": "c1", "message_id": "m1", "reply": {
+        "content": json.dumps({"content": text}, ensure_ascii=False), "sender": {"role": "ROBOT"}},
+        "reply_latency_ms": latency}
+
+
+def tiktok_case():
+    return {"id": "TTK-T", "channel": "TIKTOK", "transport": "tiktok", "text": "hi"}
+
+
+def test_fallbacks_are_loaded_per_channel():
+    assert FALLBACKS["TIKTOK"].startswith("Dạ, shop xin phép tư vấn trong phạm vi TikTok Shop")
+    assert "*" not in FALLBACKS
+
+
+def test_tiktok_reply_becomes_final_text(monkeypatch):
+    sent = {}
+
+    def fake_post(url, json, timeout):
+        sent.update(url=url, body=json)
+        return FakeResponse(sim_reply("Dạ kem chống nắng kiềm dầu ạ"))
+
+    monkeypatch.setattr(run.httpx, "post", fake_post)
+    reply, latency = run.send_tiktok("http://sim:8090/", tiktok_case(), "bench-1", FALLBACKS)
+
+    assert sent["url"] == "http://sim:8090/sim/buyer/messages"
+    assert sent["body"]["buyer_user_id"] == "bench-1" and sent["body"]["wait_ms"] > 0
+    assert reply == {"finalText": "Dạ kem chống nắng kiềm dầu ạ", "blocked": False, "violations": []}
+    assert latency == 1200
+
+
+def test_tiktok_fallback_means_blocked(monkeypatch):
+    monkeypatch.setattr(run.httpx, "post", lambda url, json, timeout: FakeResponse(sim_reply(FALLBACKS["TIKTOK"])))
+    reply, _ = run.send_tiktok("http://sim", tiktok_case(), "bench-2", FALLBACKS)
+    assert reply["blocked"] is True
+
+
+def test_tiktok_without_reply_is_an_error(monkeypatch):
+    monkeypatch.setattr(run.httpx, "post", lambda url, json, timeout: FakeResponse({"conversation_id": "c1", "reply": None}))
+    with pytest.raises(RuntimeError, match="không trả lời"):
+        run.send_tiktok("http://sim", tiktok_case(), "bench-3", FALLBACKS)
+
+
+def test_tiktok_transport_only_for_tiktok_channel():
+    with pytest.raises(ValueError, match="chỉ dùng cho kênh TIKTOK"):
+        run.run_case(None, POLICIES, {**tiktok_case(), "channel": "SHOPEE"})
+
+
+def test_tiktok_dataset_has_five_cases():
+    lines = (run.ROOT / "datasets" / "tiktok-flow.jsonl").read_text(encoding="utf-8").splitlines()
+    cases = [json.loads(line) for line in lines if line.strip()]
+    assert len(cases) == 5
+    assert {c["channel"] for c in cases} == {"TIKTOK"} and {c["transport"] for c in cases} == {"tiktok"}

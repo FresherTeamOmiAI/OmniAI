@@ -18,6 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -92,7 +93,7 @@ class WebChatAdapterTest {
     }
 
     @Test
-    void handleTextMessageIgnoresBlankOrNullText() throws Exception {
+    void handleTextMessageRepliesInvalidMessageForBlankOrNullText() throws Exception {
         adapter.handleTextMessage(session, new TextMessage("""
                 {"messageId": "m1", "text": "   "}
                 """));
@@ -101,15 +102,22 @@ class WebChatAdapterTest {
                 """));
 
         verify(router, never()).handle(any());
-        verify(session, never()).sendMessage(any());
+        ArgumentCaptor<TextMessage> captor = ArgumentCaptor.forClass(TextMessage.class);
+        verify(session, times(2)).sendMessage(captor.capture());
+        assertThat(captor.getAllValues().get(0).getPayload())
+                .contains("\"error\":\"invalid_message\"").contains("\"messageId\":\"m1\"");
+        assertThat(captor.getAllValues().get(1).getPayload())
+                .contains("\"error\":\"invalid_message\"").contains("\"messageId\":\"m2\"");
     }
 
     @Test
-    void handleTextMessageHandlesMalformedJsonGracefullyWithoutCrashing() throws Exception {
+    void handleTextMessageRepliesInvalidMessageForMalformedJsonWithoutClosing() throws Exception {
         adapter.handleTextMessage(session, new TextMessage("not-a-valid-json"));
 
         verify(router, never()).handle(any());
-        verify(session, never()).sendMessage(any());
+        ArgumentCaptor<TextMessage> captor = ArgumentCaptor.forClass(TextMessage.class);
+        verify(session).sendMessage(captor.capture());
+        assertThat(captor.getValue().getPayload()).contains("\"error\":\"invalid_message\"");
         verify(session, never()).close(any());
     }
 
