@@ -1,7 +1,7 @@
 # Hợp đồng API
 
-> Cập nhật: 2026-11-11 · commit c5ffbd9 · T-06.8
-> Nguồn: `backend/.../channel/simulator/*`, `channel/web/*`, `catalog/ProductController.java`, `catalog/AdminProductController.java`, `catalog/ProductRequest.java`, `brain/*`, `common/*`, `ai-brain/app/main.py`, `ai-brain/app/schemas.py`, `shared/schemas/canonical-message.schema.json`, `web/src/shared/types.ts`
+> Cập nhật: 2026-11-11 · commit 0f3d600 · US-25
+> Nguồn: `backend/.../channel/simulator/*`, `channel/web/*`, `channel/tiktok/*`, `catalog/ProductController.java`, `catalog/AdminProductController.java`, `catalog/ProductRequest.java`, `brain/*`, `common/*`, `ai-brain/app/main.py`, `ai-brain/app/schemas.py`, `shared/schemas/canonical-message.schema.json`, `web/src/shared/types.ts`
 
 JSON phía backend dùng **camelCase**. Riêng hợp đồng backend → ai-brain dùng **snake_case**.
 
@@ -32,7 +32,20 @@ Cần header `Authorization: Basic` với `ADMIN_USERNAME`/`ADMIN_PASSWORD` (SRS
 - Luật kiểm giống `tools/catalog/validate_catalog.py` (`catalog/CatalogVocabulary.java`): dạng SKU, bộ từ vựng ở [data-model.md](data-model.md), INCI ≥ 2 thành phần, giá/tồn kho ≥ 0, dung tích/PAO > 0, độ dài cột, tên/mô tả không có claim y khoa ("trị mụn", "đặc trị", "chữa"...).
 - Lỗi dạng ProblemDetail (RFC 9457, `application/problem+json`): `{type, title, status, detail, instance, errors?}`. `400` sai dữ liệu có `errors: [{field, message}]`; `400` JSON hỏng hoặc sai kiểu; `404`; `409` trùng SKU.
 
-Chưa có: `/api/conversations` (US-11, S2), API của simulator Shopee/TikTok Shop theo schema thật (US-21, US-25, S2), tài khoản thật (US-13, S3), API đồng bộ hub ↔ kênh (trụ E, từ S3, xem [backend.md](backend.md)).
+## Kênh TikTok Shop (US-25)
+
+Hub nói chuyện với sàn theo **đúng hợp đồng TikTok Shop** (snake_case, envelope `{code, message, request_id, data}`, ký HMAC-SHA256). API simulator đã code, DTO và mã lỗi: [../channel-api/tiktok.md](../channel-api/tiktok.md), [../channel-api/tiktok-dto.md](../channel-api/tiktok-dto.md). Endpoint của hub:
+
+| Method | Path | Request | Response | Ghi chú |
+|---|---|---|---|---|
+| POST | `/api/channels/tiktok/webhook` | Body thô `{type, tts_notification_id, shop_id, timestamp, data}`, header `Authorization` = hex(HMAC-SHA256(app_secret, app_key + body)) | `200 {code:0, message:"success"}` | Sai/thiếu chữ ký, timestamp lệch > 5 phút: `401 {error}`. Body hỏng: `400`. Hàng đợi đầy: `503` (sàn gửi lại). Trùng `tts_notification_id`: vẫn 200, không xử lý lại. Brain và gửi tin chạy sau khi đã trả 200 |
+| GET | `/api/channels/tiktok/oauth/callback?code&state` | | `{shops:[CredentialView]}` | Sàn redirect về sau khi seller đồng ý. `state` sai/hết hạn (10 phút)/đã dùng: `400 invalid_state`. Sàn lỗi: `502` |
+| GET | `/api/admin/channels/tiktok/authorize` | Basic | `{authorizeUrl, stateExpiresAt}` | Mở `authorizeUrl` bằng trình duyệt để ủy quyền |
+| GET | `/api/admin/channels/tiktok/credentials` | Basic | `[CredentialView]` | `CredentialView = {shopId, shopName, status, accessExpiresAt, refreshExpiresAt, scopes}`, **không** trả token |
+
+Simulator (cổng 8090) có thêm API điều khiển `/sim/*` (không có trên sàn thật, JSON snake_case): `POST /sim/buyer/messages {buyer_user_id*, nickname?, text*, wait_ms?}` → `{conversation_id, message_id, tts_notification_id, new_conversation, reply?, reply_latency_ms?}`; `GET|POST /sim/faults` (`api_latency_ms, webhook_delay_ms, webhook_duplicate, sensitive_words[], revoked_scopes[], block_sending`); `POST /sim/tokens/expire?kind=access|refresh`; `GET /sim/deliveries`; `POST /sim/reset`.
+
+Chưa có: `/api/conversations` (US-11, S2), API của simulator Shopee theo schema thật (US-21, S2), tài khoản thật (US-13, S3), API đồng bộ hub ↔ kênh (trụ E, từ S3, xem [backend.md](backend.md)).
 
 ## Kiểu dữ liệu chung (`com.omniai.common`, `web/src/shared/types.ts`)
 

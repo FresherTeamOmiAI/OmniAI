@@ -33,3 +33,14 @@ omniai:
   admin:
     username: ${ADMIN_USERNAME:admin}
     password: ${ADMIN_PASSWORD:admin}
+  # Kênh TikTok Shop (US-25). S2 trỏ tới simulator simulators/tiktok-shop (decisions #22, #26).
+  # Khóa app phải trùng với simulator; giá trị mặc định là khóa test, không phải bí mật.
+  tiktok:
+    app-key: ${TIKTOK_APP_KEY:omniai-test-app}
+    app-secret: ${TIKTOK_APP_SECRET:omniai-test-secret}
+    base-url: ${TIKTOK_SIM_URL:http://localhost:8090}
+    redirect-uri: ${TIKTOK_REDIRECT_URI:http://localhost:8080/api/channels/tiktok/oauth/callback}
+    webhook-url: ${TIKTOK_WEBHOOK_URL:http://localhost:8080/api/channels/tiktok/webhook}
+    webhook-max-skew: 5m
+    max-concurrent: 40
+    timeout: 10s

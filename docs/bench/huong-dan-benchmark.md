@@ -184,4 +184,4 @@ Hai bộ này đo kiến thức chung, không đo tư vấn bán hàng. Dùng đ
 
 **Tài liệu API của sàn** (cho simulator theo schema thật, T-21.4 và T-25.3)
 - Shopee Open Platform: `https://open.shopee.com`. Chưa kiểm tra được: công cụ không tải được trang này, cần mở bằng trình duyệt.
-- TikTok Shop Partner Center: `https://partner.tiktokshop.com/docv2`. Chưa kiểm tra được nội dung: trang chỉ hiện khi chạy JavaScript, cần mở bằng trình duyệt.
+- TikTok Shop Partner Center: `https://partner.tiktokshop.com/docv2`. Trang chỉ hiện khi chạy JavaScript. Ngày 11/11/2026 TuTM mở bằng trình duyệt và lưu các trang API Reference; bảng đối chiếu nằm ở [docs/channel-api/tiktok.md](../channel-api/tiktok.md), kèm danh sách trang chưa đối chiếu.

@@ -1,0 +1,16 @@
+{
+  "code": 0,
+  "message": "success",
+  "request_id": "2026111108000001018908102811E8C70B",
+  "data": {
+    "access_token": "TTP_pwSm2AAAAABmmtFz1xlyKMnwg74T2GJ5s0uQbS8jPjb",
+    "access_token_expire_in": 1763450400,
+    "refresh_token": "TTP_NTUxZTNhYTQ2ZDk2YmRmZWNmYWY2YWY2",
+    "refresh_token_expire_in": 1794381600,
+    "open_id": "7010736057180325637",
+    "seller_name": "OmniAI Beauty",
+    "seller_base_region": "VN",
+    "user_type": 0,
+    "granted_scopes": ["seller.authorization.info", "seller.customer_service"]
+  }
+}
