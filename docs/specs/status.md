@@ -1,6 +1,6 @@
 # Trạng thái hiện tại
 
-> Cập nhật: 2026-11-12 · T-47.2 chốt nơi lưu ảnh sản phẩm: Supabase (decisions #26); trước đó: T-06.8 timeout widget + phản hồi tin lỗi /ws/chat; lập lại kế hoạch sau buổi họp với thầy (decisions #22–#24) · Sprint hiện tại: **S2 (10–16/11/2026)**
+> Cập nhật: 2026-11-12 · T-47.1 có file 80 sản phẩm thật từ Open Beauty Facts (decisions #27); T-47.2 chốt nơi lưu ảnh sản phẩm: Supabase (decisions #26); trước đó: T-06.8 timeout widget + phản hồi tin lỗi /ws/chat; lập lại kế hoạch sau buổi họp với thầy (decisions #22–#24) · Sprint hiện tại: **S2 (10–16/11/2026)**
 
 Bảng này cho biết cái gì đã chạy được, cái gì mới là khung, cái gì chưa có. Agent đọc file này **trước khi** đi tìm code để khỏi tìm thứ chưa tồn tại. Kế hoạch chi tiết: `tools/tracking/backlog.py` và GitHub Issues (milestone Sprint 0–12).
 
@@ -19,7 +19,7 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | Kênh Telegram / Messenger | Đã bỏ | Bỏ khỏi dự án ngày 11/11 (decisions #22): xóa enum, YAML; hủy US-17, US-18 | |
 | Kênh Shopee / TikTok Shop | Chưa | Đã có YAML luật. 100% simulator theo schema thật, không làm adapter thật (decisions #22). Làm ở S2: Shopee do ChienPX, TikTok Shop do TuTM | US-21, 25 |
 | Đồng bộ hub ↔ kênh (trụ E) | Chưa | Đi: sản phẩm, giá, tồn kho, khuyến mãi, trạng thái đơn. Về: đơn hàng, duyệt sản phẩm, đánh giá (hội thoại CSKH ở US-11, 14). Bắt đầu S3, bảng US ở [backend.md](backend.md) | US-49–55 |
-| Dữ liệu sản phẩm thật kèm ảnh | Chưa | Catalog hiện là 80 SKU thương hiệu hư cấu. Nơi lưu ảnh đã chốt: Supabase Storage (decisions #26, [T-47.2](../catalog/luu-anh-san-pham.md)), chưa có code | US-47 |
+| Dữ liệu sản phẩm thật kèm ảnh | Khung | `shared/catalog/products_real.csv`: 80 sản phẩm thật từ Open Beauty Facts, có ảnh WebP và nguồn ([T-47.1](../catalog/du-lieu-san-pham-that.md), decisions #27). **DB vẫn là 80 SKU hư cấu**: chưa có migration, chưa có cột ảnh, chưa upload Supabase (decisions #26) | US-47 |
 | PolicyEngine + YAML | Done (v0) | YAML sàn là bản nháp | US-07, US-20 |
 | AI Brain `/chat` + LLMProvider | Khung | Chỉ chạy LLM thật: `LLM_PROVIDER` là `gemini` (mặc định) hoặc `groq`, đã bỏ `fake` (T-12.4, decisions #25). Thiếu `LLM_API_KEY` hoặc `CHATBOT_DB_URL` thì không khởi động. pytest dùng stub trong `ai-brain/tests/`. `gemini-3.6-flash` trả lời đúng ngữ cảnh 10/10 câu mẫu (T-06.4), p95 6,7 s > 5 s, PO chấp nhận ở S1 (decisions #21). LLM lỗi trả 502 `llm_unavailable`, câu trả lời là văn bản thuần không markdown (T-06.7). Tên và giá niêm yết lấy từ view `chatbot_catalog` bằng role `chatbot_reader` | US-05, US-06 |
 | AI Brain: chặn số tự bịa (`rules/grounding.py`) | Done | Giữ giá khi khớp `chatbot_catalog`. Vẫn bỏ tồn kho, khuyến mãi và giá model tự bịa | US-06 (T-06.6), US-15 |

@@ -38,3 +38,7 @@ sample/
 
 # Excel lock files
 ~$*.xlsx
+
+# Catalog thật (T-47.1): cache API Open Beauty Facts và ảnh đã resize, sinh lại bằng tools/catalog/obf_fetch.py
+shared/catalog/real/.cache/
+shared/catalog/real/images/

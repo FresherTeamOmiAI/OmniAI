@@ -1,6 +1,6 @@
 # Mô hình dữ liệu
 
-> Cập nhật: 2026-11-12 · commit 0821a35 · Owner: LucVT (catalog, customer, identity, order, promotion)
+> Cập nhật: 2026-11-12 · commit 1324b0f · Owner: LucVT (catalog, customer, identity, order, promotion)
 > Nguồn: `backend/src/main/resources/db/migration/*.sql`, `backend/.../catalog/*`, `backend/.../customer/*`
 
 DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flyway** quản lý, JPA để `ddl-auto: validate`. Vì vậy mọi thay đổi bảng đều phải viết migration mới `V<n>__<mo_ta>.sql`. **Không sửa migration đã merge.**
@@ -48,7 +48,8 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 - INCI tham khảo cấu trúc trên Open Beauty Facts, viết lại cho thương hiệu hư cấu. Không dùng tên INCI có dấu phẩy (vd. `1,2-Hexanediol`), vì cột INCI tách theo dấu phẩy.
 - Phủ đủ nhóm hoạt chất của `ingredients.py`: retinoid 7, AHA 7, BHA 5, vitamin C 2, BPO 2. Có thêm lựa chọn thay thế (bakuchiol, azelaic, PHA) và sản phẩm có `Parfum`/`Alcohol Denat.` để test dị ứng sau này. Lưu ý: `Sodium Ascorbyl Phosphate` (HYD-SER-36) chưa được `ingredients.py` nhận là vitamin C (T-27.4).
 - Giá: Shopee ≈ web + 4%, TikTok ≈ web − 3%, làm tròn nghìn đồng (8 SKU cũ giữ giá V2).
-- Kiểm tra: `python tools/catalog/validate_catalog.py` (chỉ dùng thư viện chuẩn, mã thoát 1 nếu lỗi). Script kiểm header, ≥ 80 SKU, trùng SKU, trường bắt buộc, bộ từ vựng, số hợp lệ, claim y khoa trong tên/mô tả.
+- Kiểm tra: `python tools/catalog/validate_catalog.py [file.csv]` (chỉ dùng thư viện chuẩn, mã thoát 1 nếu lỗi). Script kiểm header, ≥ 80 SKU, trùng SKU, trường bắt buộc, bộ từ vựng, số hợp lệ, claim y khoa trong tên/mô tả. File có thêm 5 cột nguồn/ảnh (`SOURCE_COLUMNS`) thì kiểm thêm barcode, `image_key = <SKU>.webp`, URL https, ghi chú giấy phép.
+- **Catalog thật (T-47.1, chưa nạp vào DB):** `shared/catalog/products_real.csv`, 80 sản phẩm thật từ Open Beauty Facts. Cột như `products.csv`, thêm `barcode, source_url, image_key, image_source_url, image_license_note`. Sinh bằng `tools/catalog/obf_fetch.py build` từ `shared/catalog/real/selection.csv` (cột do shop tự đặt: SKU, loại da, giá, tồn kho, mô tả). Ảnh WebP ở `shared/catalog/real/images/` (gitignore). Nguồn, giấy phép (ODbL, CC BY-SA 3.0, bắt buộc ghi nguồn khi hiển thị) và việc còn lại: [../catalog/du-lieu-san-pham-that.md](../catalog/du-lieu-san-pham-that.md).
 - Import vào DB (T-08.2): `python tools/catalog/csv_to_sql.py V<n>__<mo_ta>.sql` chạy validator rồi ghi migration upsert vào `backend/src/main/resources/db/migration/`. Script từ chối ghi đè file đã có. Sửa CSV sau khi V5 đã merge thì sinh **file V<n> mới** (upsert nên chạy lại cả CSV được). Không xoá SKU nào: muốn bỏ SKU thì đặt `active=false` trong CSV.
 
 ## Repository
