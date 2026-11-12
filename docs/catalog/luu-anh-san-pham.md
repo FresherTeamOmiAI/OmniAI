@@ -8,7 +8,9 @@
 1. Ảnh sản phẩm lưu ở **local (trong repo và thư mục trên máy)** hay ở **Supabase Storage**?
 2. Mỗi sản phẩm có **1 ảnh** hay **nhiều ảnh**? AC của US-47 chỉ yêu cầu "ít nhất 1 ảnh mở được".
 
-**Đề xuất:** chọn **local**, lưu nhiều ảnh mỗi sản phẩm (bảng riêng). DB chỉ lưu khoá ảnh để sau này đổi sang Supabase mà không phải migrate dữ liệu. Lý do ở mục 5.
+**Đề xuất của T-47.2:** chọn **local**, lưu nhiều ảnh mỗi sản phẩm (bảng riêng). DB chỉ lưu khoá ảnh để sau này đổi sang Supabase mà không phải migrate dữ liệu. Lý do ở mục 5.
+
+**PO chốt ngày 12/11/2026: Supabase Storage** ([decisions #26](../specs/decisions.md)). Đề xuất local và bảng chấm điểm vẫn giữ lại bên dưới để thấy đánh đổi. Cách xử lý các điểm yếu của Supabase xem mục 8. Câu hỏi 2 (1 hay nhiều ảnh) chưa chốt.
 
 ## 2. Ảnh được dùng ở đâu
 
@@ -88,3 +90,17 @@ Chỉ là định hướng, sẽ làm ở task tương ứng:
 - Ảnh thật có bản quyền và nhãn hiệu. Chỉ dùng cho demo nội bộ, ghi nguồn từng ảnh, ưu tiên nguồn có giấy phép rõ (T-47.1).
 - Repo lớn thêm khoảng 25 MB. Chặn bằng giới hạn kích thước trong script resize.
 - Ảnh admin upload trên máy demo sẽ mất nếu xoá thư mục. Chấp nhận được cho demo, ghi vào `tools/systembat/README.md` khi làm.
+
+## 8. Làm theo quyết định của PO (Supabase)
+
+Các điểm yếu của B ở mục 5, và cách xử lý khi code:
+
+| Điểm yếu | Cách xử lý |
+|---|---|
+| Test và CI cần mạng, cần khóa | Backend đi qua một interface lưu ảnh. Test và CI dùng bản cài đặt giả trong bộ nhớ, không gọi Supabase |
+| Project tự dừng sau 1 tuần không dùng | Một người giữ project, kiểm tra và bật lại trước mỗi Sprint Review và trước ngày demo |
+| Bucket public, ảnh có bản quyền | Chỉ upload ảnh có ghi nguồn và điều kiện sử dụng (T-47.1). Không đưa link bucket vào tài liệu công khai |
+| Khoá service | Đặt trong `.env` (ví dụ `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`), không commit. Thêm vào `.env.example` và overview.md khi code |
+| Gói Free không resize | Script của T-47.1 resize sang WebP 800 px trước khi upload |
+
+Vẫn giữ quy tắc DB chỉ lưu khoá ảnh (`<SKU>/<n>.webp`), backend ghép URL public từ `SUPABASE_URL` và tên bucket. Mục 6 vẫn áp dụng, chỉ khác là simulator lấy ảnh bằng URL public của Supabase, không qua `/images/**`.
