@@ -50,6 +50,14 @@ export interface Product {
   priceTiktok: number
   stock: number
   active: boolean
+  // Nguồn và ảnh (V8, T-47.1). null với sản phẩm admin tự tạo.
+  barcode: string | null
+  sourceUrl: string | null
+  imageKey: string | null
+  imageSourceUrl: string | null
+  imageLicenseNote: string | null
+  // URL public trên Supabase, backend ghép từ imageKey; null khi chưa có ảnh hoặc chưa cấu hình SUPABASE_URL.
+  imageUrl: string | null
   updatedAt: string
 }
 

@@ -32,7 +32,7 @@ Dữ liệu 2 chiều hub <-> sàn (trụ E, chưa có code, bảng US ở backe
 | `ai-brain/`; simulator Shopee (trong `backend/`) | FastAPI, Python 3.11; Java | ChienPX | [ai-brain.md](ai-brain.md), [backend.md](backend.md) |
 | `web/` | React 19 + Vite 8 + TS, react-router 7 | ai làm phần nào tự làm UI phần đó | [web.md](web.md) |
 | `shared/policies/`, `shared/schemas/` | YAML, JSON Schema | HungDQ | [policy.md](policy.md), [api-contracts.md](api-contracts.md) |
-| `shared/catalog/`, `tools/catalog/` | CSV 80 SKU hư cấu (đang nạp vào DB) + CSV 80 sản phẩm thật (`products_real.csv`, chưa nạp) + validator + script sinh migration + `obf_fetch.py` lấy dữ liệu Open Beauty Facts (Python; riêng script này cần Pillow, `tools/catalog/requirements.txt`) | LucVT | [data-model.md](data-model.md) |
+| `shared/catalog/`, `tools/catalog/` | Catalog thật 366 SKU (`products.csv`, sinh từ `real/selection.csv`) + `obf_fetch.py`/`obf_annotate.py` lấy dữ liệu Open Beauty Facts + validator + script sinh migration + `upload_images.py` đẩy ảnh lên Supabase (Python; `obf_fetch.py build` cần Pillow, `tools/catalog/requirements.txt`) | LucVT | [data-model.md](data-model.md), [../catalog/du-lieu-san-pham-that.md](../catalog/du-lieu-san-pham-that.md) |
 
 ## Cổng
 
@@ -47,7 +47,8 @@ Dữ liệu 2 chiều hub <-> sàn (trụ E, chưa có code, bảng US ở backe
 
 ## Biến môi trường (`.env.example`)
 - Docker: `POSTGRES_DB/USER/PASSWORD/PORT`, `REDIS_PORT`, `RABBITMQ_PORT`, `RABBITMQ_UI_PORT`.
-- Backend: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `BRAIN_URL`, `OMNIAI_POLICY_DIR` (mặc định `../shared/policies`, tính từ `backend/`), `WEB_ALLOWED_ORIGINS`, `PORT`, `ADMIN_USERNAME`/`ADMIN_PASSWORD` (tài khoản `/api/admin/**`, mặc định `admin`/`admin`, chỉ dùng khi dev).
+- Backend: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `BRAIN_URL`, `OMNIAI_POLICY_DIR` (mặc định `../shared/policies`, tính từ `backend/`), `WEB_ALLOWED_ORIGINS`, `PORT`, `ADMIN_USERNAME`/`ADMIN_PASSWORD` (tài khoản `/api/admin/**`, mặc định `admin`/`admin`, chỉ dùng khi dev), `SUPABASE_URL` + `SUPABASE_BUCKET` (mặc định `product-images`) để ghép URL ảnh sản phẩm (trống thì `imageUrl = null`).
+- Ảnh sản phẩm: `SUPABASE_SERVICE_KEY` (khoá service_role) **chỉ** dùng cho `tools/catalog/upload_images.py`, không commit, không đưa vào backend/web. Cách tạo project: `docs/catalog/du-lieu-san-pham-that.md`.
 - AI Brain: `LLM_PROVIDER` (`gemini` mặc định, hoặc `groq`; không còn `fake`), `LLM_MODEL`, `LLM_API_KEY` (**bắt buộc**), `CHATBOT_DB_URL` (**bắt buộc**, role `chatbot_reader` chỉ đọc view `chatbot_catalog`). Thiếu một trong hai biến bắt buộc thì brain không khởi động (decisions #25).
 - Backend còn đọc `CHATBOT_DB_PASSWORD` để bật đăng nhập cho role `chatbot_reader` lúc khởi động.
 - Kênh sàn (khóa test để simulator ký webhook và adapter kiểm chữ ký, US-21, US-25): `SHOPEE_PARTNER_ID/KEY`, `TIKTOK_APP_KEY/SECRET`.

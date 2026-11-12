@@ -1,6 +1,6 @@
 # Backend (Spring Boot)
 
-> Cập nhật: 2026-11-11 · commit c5ffbd9 · T-06.8
+> Cập nhật: 2026-11-12 · commit ee28494 · T-47.1
 > Nguồn: `backend/pom.xml`, `backend/src/main/java/com/omniai/**`, `backend/src/test/**`
 
 Spring Boot 4.1.2, Java 21, Maven (chưa có `mvnw`). Starter đang dùng: webmvc, websocket, validation, data-jpa, flyway (+postgresql), actuator, security, lombok. Test dùng spring-boot-starter-test, webmvc-test (MockMvc), security-test + Testcontainers (postgresql). Kiến trúc modular monolith: mỗi package là một module.
@@ -65,8 +65,8 @@ Quy ước: thay đổi trên hub đi qua hàng đợi đồng bộ, mỗi kênh
 ## Test hiện có
 - `policy/PolicyEngineTest`: link, SĐT, chặn tên kênh khác (Shopee/TikTok), WEB giữ link, làm mềm claim y khoa, giá tiền không bị tưởng là SĐT, "giá trị" không bị tưởng là "trị". File YAML sai (11 ca) hoặc thiếu kênh thì lỗi lúc khởi động; cắt `max_length` không tách emoji. Chạy bộ ca dùng chung với bench `shared/policies/tests/cases.yaml` trên cả 3 kênh.
 - `channel/MessageRouterTest`: cùng câu trả lời nhưng mỗi kênh lọc khác nhau, trùng messageId chỉ trả lời 1 lần, brain lỗi thì handoff. Dùng mock BrainClient.
-- `OmniAiApplicationTests`: Flyway + pgvector + catalog 80 SKU trên Testcontainers.
-- `catalog/AdminProductApiTest` (MockMvc): 401 khi thiếu/sai Basic; store, simulator, actuator vẫn mở; list admin gồm SKU ẩn; tạo (chuẩn hóa, 201), trùng SKU 409, validate 400 theo field, sửa và ẩn/hiện phản ánh ngay ở `/api/products`, không đổi SKU. Mỗi test rollback (`@Transactional`).
+- `OmniAiApplicationTests`: Flyway + pgvector + catalog thật trên Testcontainers. Số SKU/active/hết hàng/hãng mong đợi đọc từ `shared/catalog/products.csv` qua `TestCatalog` (test không hardcode, catalog lớn lên không phải sửa); kiểm V8 đã xoá 5 hãng hư cấu, mọi SKU có barcode/nguồn/`image_key`/giấy phép.
+- `catalog/AdminProductApiTest` (MockMvc): 401 khi thiếu/sai Basic; store, simulator, actuator vẫn mở; list admin gồm SKU ẩn; tạo (chuẩn hóa, 201), trùng SKU 409, validate 400 theo field, sửa và ẩn/hiện phản ánh ngay ở `/api/products`, không đổi SKU, sửa không làm mất cột ảnh/nguồn, `imageUrl` ghép đúng từ `omniai.images.base-url` (`@TestPropertySource`, không gọi mạng). Dùng SKU thật `CERA-CLE-01`. Mỗi test rollback (`@Transactional`).
 - Container Postgres dùng chung qua `TestcontainersConfig` (`@Import`); test `@SpringBootTest` mới cũng import class này.
 - Test tay API admin: Postman collection `backend/http/OmniAI-admin-products.postman_collection.json` (chạy được bằng newman) và `backend/http/admin-products.http` (REST Client). Hướng dẫn và bảng TC: `docs/testcases/US-08.md`.
 - `channel/web/WebChatAdapterTest`: toCanonical tạo UUID khi messageId rỗng/blank, giữ nguyên id nếu có; định tuyến đúng CanonicalMessage; gửi BotReply qua WebSocket; tin rỗng/JSON hỏng thì trả `invalid_message` mà không đóng session; đóng session khi lỗi transport.
