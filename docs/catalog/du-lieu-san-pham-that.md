@@ -16,7 +16,7 @@
 - **Ảnh:** mỗi SKU có 1 ảnh WebP (≤ 800 px, ≤ 150 KB; lớn nhất 105 KB, tổng 5,6 MB) ở `shared/catalog/real/images/<SKU>.webp`.
   - Thư mục ảnh nằm trong gitignore, sinh lại bằng `build`.
   - Ảnh được upload lên Supabase Storage. DB lưu `image_key = <SKU>.webp`, backend ghép `imageUrl`.
-- **Store** (`/`) hiện ảnh, link "Nguồn" tới trang OBF và dòng ghi nguồn ở cuối trang.
+- **Store** (`/`) hiện ảnh, phân trang 20 SKU/trang, dòng ghi nguồn Open Beauty Facts ở cuối trang (không ghi nguồn từng thẻ; `sourceUrl` vẫn có trong API).
 
 ## Nguồn và giấy phép
 
@@ -101,6 +101,6 @@ Lệnh `search <từ khóa>` vẫn còn để tra nhanh qua API (đọc sản ph
 
 ## Việc còn lại
 - **Bench, llm-eval, sample ai-brain:** dataset bench, báo cáo llm-eval (`docs/llm-eval/`) và `ai-brain/samples/` còn tham chiếu 5 thương hiệu hư cấu. Cần viết lại dần theo catalog thật (decisions #30). pytest của ai-brain dùng stub nên không hỏng.
-- **Store:** phân trang và trang chi tiết (T-09.1), bộ lọc theo danh mục và giá (T-09.2). Hiện `/api/products` trả 20 SKU đầu.
+- **Store:** trang chi tiết (T-09.1), bộ lọc theo danh mục và giá (T-09.2). Phân trang đã có.
 - **Admin:** upload và đổi ảnh từ màn admin (`ProductRequest` chưa có trường ảnh).
 - **Dữ liệu:** dịch tên sản phẩm `auto` sang tiếng Anh hoặc Việt; bổ sung hãng Hàn/Nhật (OBF gần như không có).
