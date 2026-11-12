@@ -1,6 +1,6 @@
 # Mô hình dữ liệu
 
-> Cập nhật: 2026-11-11 · commit 5bd0986 · Owner: LucVT (catalog, customer, identity, order, promotion)
+> Cập nhật: 2026-11-12 · commit 0821a35 · Owner: LucVT (catalog, customer, identity, order, promotion)
 > Nguồn: `backend/src/main/resources/db/migration/*.sql`, `backend/.../catalog/*`, `backend/.../customer/*`
 
 DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flyway** quản lý, JPA để `ddl-auto: validate`. Vì vậy mọi thay đổi bảng đều phải viết migration mới `V<n>__<mo_ta>.sql`. **Không sửa migration đã merge.**
@@ -43,7 +43,7 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 
 ## Dữ liệu catalog (`shared/catalog/products.csv`)
 
-- 80 SKU, 5 thương hiệu **hư cấu** (Lumi Lab, Sen Việt, Hydra Mint, Mộc Nhiên, Vân Khê), 10 danh mục. US-47 (S2) tìm dữ liệu sản phẩm thật kèm ảnh để thay; nơi lưu ảnh chờ chốt (SRS Q-10). Gồm 8 SKU của V2 (cùng mã, giá, INCI). Có 4 SKU hết hàng (`stock=0`) và 2 SKU ẩn (`active=false`) để test.
+- 80 SKU, 5 thương hiệu **hư cấu** (Lumi Lab, Sen Việt, Hydra Mint, Mộc Nhiên, Vân Khê), 10 danh mục. US-47 (S2) tìm dữ liệu sản phẩm thật kèm ảnh để thay; nơi lưu ảnh chờ PO chốt (SRS Q-10), đề xuất lưu local và có bảng `product_image` ở [../catalog/luu-anh-san-pham.md](../catalog/luu-anh-san-pham.md) (T-47.2). Gồm 8 SKU của V2 (cùng mã, giá, INCI). Có 4 SKU hết hàng (`stock=0`) và 2 SKU ẩn (`active=false`) để test.
 - Cột = cột bảng `product` (trừ `id`, `updated_at`), cùng thứ tự với header. UTF-8, phân cách `,`, ô có dấu phẩy được đặt trong `"..."`. `active` là `true|false`.
 - INCI tham khảo cấu trúc trên Open Beauty Facts, viết lại cho thương hiệu hư cấu. Không dùng tên INCI có dấu phẩy (vd. `1,2-Hexanediol`), vì cột INCI tách theo dấu phẩy.
 - Phủ đủ nhóm hoạt chất của `ingredients.py`: retinoid 7, AHA 7, BHA 5, vitamin C 2, BPO 2. Có thêm lựa chọn thay thế (bakuchiol, azelaic, PHA) và sản phẩm có `Parfum`/`Alcohol Denat.` để test dị ứng sau này. Lưu ý: `Sodium Ascorbyl Phosphate` (HYD-SER-36) chưa được `ingredients.py` nhận là vitamin C (T-27.4).
