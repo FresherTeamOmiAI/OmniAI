@@ -1,7 +1,7 @@
 # Mô hình dữ liệu
 
-> Cập nhật: 2026-11-11 · commit 0f3d600 · Owner: LucVT (catalog, customer, identity, order, promotion); TuTM (channel_credential)
-> Nguồn: `backend/src/main/resources/db/migration/*.sql`, `backend/.../catalog/*`, `backend/.../customer/*`, `backend/.../channel/credential/*`
+> Cập nhật: 2026-11-12 · commit 8dbf10a · Owner: LucVT (catalog, customer, identity, order, promotion); TuTM (channel_credential, conversation)
+> Nguồn: `backend/src/main/resources/db/migration/*.sql`, `backend/.../catalog/*`, `backend/.../customer/*`, `backend/.../channel/credential/*`, `backend/.../conversation/*`
 
 DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flyway** quản lý, JPA để `ddl-auto: validate`. Vì vậy mọi thay đổi bảng đều phải viết migration mới `V<n>__<mo_ta>.sql`. **Không sửa migration đã merge.**
 
@@ -17,6 +17,7 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 | `V6__chatbot_catalog.sql` | View `chatbot_catalog` và role `chatbot_reader` NOLOGIN. Chỉ tên, thương hiệu, loại da. Không có giá, tồn kho, email |
 | `V7__chatbot_catalog_prices.sql` | Thêm `price_web`, `price_shopee`, `price_tiktok` vào view. Vẫn không có tồn kho |
 | `V8__channel_credential.sql` | Bảng `channel_credential`: token OAuth2 của shop trên kênh sàn (US-25, decisions #29). Owner: TuTM |
+| `V9__conversation.sql` | Bảng `conversation`, `conversation_message`, `message_violation`: lưu hội thoại mọi kênh (US-11, decisions #30). Owner: TuTM |
 
 ## Bảng
 
@@ -48,6 +49,16 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 - `status`: `ACTIVE | NEEDS_REAUTH | REVOKED` (CHECK). `NEEDS_REAUTH` khi refresh token hết hạn, `REVOKED` khi nhận webhook SELLER_DEAUTHORIZATION. Khác `ACTIVE` thì hub không gọi API sàn.
 - Token đang lưu **dạng rõ** vì là khóa test của simulator. Nối sàn thật thì phải mã hóa 2 cột token.
 
+**conversation** (`conversation/Conversation.java`, owner TuTM): 1 hội thoại trên 1 kênh. Ghi bởi `ConversationService` mỗi khi `MessageRouter` nhận/trả tin.
+- `channel`, `external_id` (= `CanonicalMessage.conversationId`, vd. `web:<session>`, `tiktok:<conversation_id>`); unique (`channel`, `external_id`). Tạo bằng upsert `ON CONFLICT` nên 2 tin đầu đến cùng lúc không tạo 2 dòng.
+- `channel_user_id`, `customer_id` (FK `customer`, null khi chưa liên kết danh tính), `started_at`, `last_message_at` (không lùi khi tin đến trễ), `message_count` (số dòng IN + OUT). Index (`channel`, `last_message_at` DESC).
+
+**conversation_message** (`conversation/ConversationMessage.java`): 1 tin. `direction` `IN | OUT` (CHECK).
+- `message_id`: IN là messageId tin khách, OUT là messageId của tin mà bot trả lời. Unique (`conversation_id`, `direction`, `message_id`): kênh gửi lại cùng tin thì không thêm dòng.
+- `text`: IN = tin khách, OUT = `finalText` (câu khách nhận sau policy). `raw_text`: chỉ OUT, câu gốc của AI Brain. `blocked`, `handoff`, `created_at` (IN = `receivedAt` của kênh, OUT = lúc trả lời).
+
+**message_violation** (`@ElementCollection` `StoredViolation` của `ConversationMessage`): (`message_id`, `position`) PK, `rule_id`, `action` `BLOCK | REDACT | REPLACE` (CHECK), `matched`. Xóa tin thì xóa theo (CASCADE).
+
 ## Dữ liệu catalog (`shared/catalog/products.csv`)
 
 - 80 SKU, 5 thương hiệu **hư cấu** (Lumi Lab, Sen Việt, Hydra Mint, Mộc Nhiên, Vân Khê), 10 danh mục. US-47 (S2) tìm dữ liệu sản phẩm thật kèm ảnh để thay; ảnh lưu ở Supabase Storage, DB chỉ lưu khoá ảnh (decisions #26). Mỗi sản phẩm 1 ảnh, dự kiến thêm cột `image_key`, `image_source_url`, `image_license_note` vào `product`; hướng thiết kế ở [../catalog/luu-anh-san-pham.md](../catalog/luu-anh-san-pham.md) (T-47.2), chưa có migration. Gồm 8 SKU của V2 (cùng mã, giá, INCI). Có 4 SKU hết hàng (`stock=0`) và 2 SKU ẩn (`active=false`) để test.
@@ -65,9 +76,11 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 - `CustomerRepository`: `findByEmail`, `findByPhone`.
 - `ChannelIdentityRepository`: `findByChannelAndExternalId`, `findByCustomerId`.
 - `ChannelCredentialRepository`: `findByChannelAndShopId`, `findByChannelOrderByShopId`.
+- `ConversationRepository`: `upsert` (native `INSERT ... ON CONFLICT ... RETURNING id`), `touch` (tăng `message_count`, dời `last_message_at`), `findByChannel`.
+- `ConversationMessageRepository`: `existsByConversationIdAndDirectionAndMessageId`, `findByConversationId` (phân trang).
 
 ## Dự kiến (chưa có)
-`conversation`/`message` (US-11, S2), cột vector cho product (US-10, S2), OTP/JWT (US-13, S3, chỉ email), mã liên kết `OMNI-XXXXXX` 6 ký tự kèm đếm số lần sai theo danh tính kênh (US-22, S4, SRS G-01), order (US-09/23), promotion/voucher/lịch sử giá (US-33, S5, mốc giờ theo `Asia/Ho_Chi_Minh`), consent log (US-30, S7). Cho trụ E (decisions #23): ảnh sản phẩm (US-47, S2), trạng thái đồng bộ theo kênh (US-49, S3), đơn từ sàn (US-51, S5), trạng thái duyệt sản phẩm (US-54, S7), đánh giá sản phẩm (US-55, S8).
+Cột vector cho product (US-10, S2), OTP/JWT (US-13, S3, chỉ email), mã liên kết `OMNI-XXXXXX` 6 ký tự kèm đếm số lần sai theo danh tính kênh (US-22, S4, SRS G-01), order (US-09/23), promotion/voucher/lịch sử giá (US-33, S5, mốc giờ theo `Asia/Ho_Chi_Minh`), consent log (US-30, S7). Cho trụ E (decisions #23): ảnh sản phẩm (US-47, S2), trạng thái đồng bộ theo kênh (US-49, S3), đơn từ sàn (US-51, S5), trạng thái duyệt sản phẩm (US-54, S7), đánh giá sản phẩm (US-55, S8).
 
 ## Test
-`OmniAiApplicationTests` chạy Flyway trên Postgres thật (Testcontainers) và kiểm tra catalog đủ 80 SKU (78 active, 4 hết hàng), SKU của V2 được upsert, extension vector, cùng các ràng buộc V4 (giá âm, `usage_time` sai, thiếu giá kênh đều bị DB từ chối). Vì vậy cần Docker. `channel/tiktok/TiktokWebhookIT` lưu và đọc lại `channel_credential` (V8).
+`OmniAiApplicationTests` chạy Flyway trên Postgres thật (Testcontainers) và kiểm tra catalog đủ 80 SKU (78 active, 4 hết hàng), SKU của V2 được upsert, extension vector, cùng các ràng buộc V4 (giá âm, `usage_time` sai, thiếu giá kênh đều bị DB từ chối). Vì vậy cần Docker. `channel/tiktok/TiktokWebhookIT` lưu và đọc lại `channel_credential` (V8). `conversation/ConversationStoreIT` kiểm V9 qua `MessageRouter` thật: IN/OUT, vi phạm, chống trùng, mỗi kênh 1 hội thoại.
