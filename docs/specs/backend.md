@@ -1,6 +1,6 @@
 # Backend (Spring Boot)
 
-> Cập nhật: 2026-11-12 · commit 8dbf10a · T-11.1, T-11.2; trước đó T-25.1, T-25.2
+> Cập nhật: 2026-11-12 · commit 8dbf10a · T-11.1–T-11.3; trước đó T-25.1, T-25.2
 > Nguồn: `backend/pom.xml`, `backend/src/main/java/com/omniai/**` (gồm `conversation/*`), `backend/src/test/**`, `simulators/tiktok-shop/**`
 
 Spring Boot 4.1.2, Java 21, Maven (chưa có `mvnw`). Starter đang dùng: webmvc, websocket, validation, data-jpa, flyway (+postgresql), actuator, security, lombok. Test dùng spring-boot-starter-test, webmvc-test (MockMvc), security-test + Testcontainers (postgresql). Kiến trúc modular monolith: mỗi package là một module.
@@ -86,7 +86,7 @@ Quy ước: thay đổi trên hub đi qua hàng đợi đồng bộ, mỗi kênh
 - `channel/tiktok/`: `TiktokSignerTest` (test vector chung với simulator), `TiktokContractTest` (đọc fixture docv2, webhook → CanonicalMessage, lọc role), `TiktokApiTest` (MockRestServiceServer: tham số chung + sign, lỗi giữ `request_id`, 429 retry), `TiktokTokenManagerTest` (refresh trước hạn, refresh khi lỗi token, NEEDS_REAUTH, sai scope không retry, 8 luồng chỉ refresh 1 lần), `TiktokWebhookIT` (Spring + Testcontainers: sai chữ ký/replay 401, Brain chậm 5 s vẫn trả 200 < 3 s, trùng notification/message chỉ trả lời 1 lần, bỏ tin ROBOT/SHOP, luật TIKTOK, fallback khi `45101006`, V8 + REVOKED, OAuth state).
 - Simulator `simulators/tiktok-shop` (`mvn test`, không cần Docker): `AuthFlowTest`, `GatewayTest`, `CustomerServiceTest` (phân trang, invalid_params `45101002`, lỗi nghiệp vụ, khớp fixture), `RateLimitTest` (60 request đồng thời → 429), `WebhookTest` (chữ ký, retry khi 500/quá giờ, gửi trùng, Event API), `TiktokSignerTest`. Cả hai module có awaitility ở test scope.
 - `channel/MessageRouterTest`: cùng câu trả lời nhưng mỗi kênh lọc khác nhau, trùng messageId chỉ trả lời 1 lần, phân biệt key theo kênh, làm mềm claim y khoa trên WEB, brain lỗi thì handoff; lưu IN trước Brain và OUT sau, lưu lỗi không chặn trả lời, Brain ném exception thành handoff. Dùng mock BrainClient và recorder giả.
-- `conversation/ConversationStoreIT` (Spring + Testcontainers, mock BrainClient): IN/OUT đủ rawText, finalText, blocked, vi phạm; cùng hội thoại dùng 1 dòng `conversation`, gửi trùng không nhân dòng; cùng user khác kênh thành 2 hội thoại.
+- `conversation/ConversationStoreIT` (Spring + Testcontainers, mock BrainClient): IN/OUT đủ rawText, finalText, blocked, vi phạm; cùng hội thoại dùng 1 dòng `conversation`, gửi trùng không nhân dòng; cùng user khác kênh thành 2 hội thoại; Brain `unavailable()` hoặc ném exception thì vẫn lưu IN + OUT, OUT `handoff=true` (T-11.3). TC tay: `docs/testcases/US-11.md`.
 - `conversation/ConversationApiTest` (MockMvc, `@Transactional` rollback, seed qua repository): 401 khi thiếu/sai Basic; lọc kênh không phân biệt hoa thường; phân trang mới nhất trước; kênh lạ/size/page sai 400; `/messages` trả rawText, finalText, vi phạm theo thứ tự thời gian; id lạ 404.
 - `policy/PolicyEngineTest`: link, SĐT, chặn tên kênh khác (Shopee/TikTok), WEB giữ link, làm mềm claim y khoa, giá tiền không bị tưởng là SĐT, "giá trị" không bị tưởng là "trị".
 - `OmniAiApplicationTests`: Flyway + pgvector trên Testcontainers.

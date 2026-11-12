@@ -115,6 +115,45 @@ class ConversationStoreIT {
         assertThat(c.getLastMessageAt()).isAfterOrEqualTo(c.getStartedAt());
     }
 
+    // --- T-11.3: AI Brain lỗi thì tin vẫn được lưu, handoff=true (NFR-06) ---
+
+    @Test
+    void brainUnavailableStillStoresBothMessagesWithHandoff() {
+        // HttpBrainClient trả unavailable() khi Brain sập, timeout 10 s hoặc trả lỗi HTTP.
+        when(brainClient.ask(any())).thenReturn(BrainResponse.unavailable());
+        CanonicalMessage m = message(ChannelType.WEB, "u-" + UUID.randomUUID(), "m-" + UUID.randomUUID(),
+                "Serum nào cho da dầu?");
+
+        BotReply reply = router.handle(m);
+
+        assertThat(reply.handoff()).isTrue();
+        assertStoredWithHandoff(m, reply);
+    }
+
+    @Test
+    void brainExceptionStillStoresBothMessagesWithHandoff() {
+        when(brainClient.ask(any())).thenThrow(new IllegalStateException("brain nổ"));
+        CanonicalMessage m = message(ChannelType.TIKTOK, "u-" + UUID.randomUUID(), "m-" + UUID.randomUUID(),
+                "Kem này có cồn không?");
+
+        BotReply reply = router.handle(m);
+
+        assertThat(reply.handoff()).isTrue();
+        assertStoredWithHandoff(m, reply);
+    }
+
+    private void assertStoredWithHandoff(CanonicalMessage m, BotReply reply) {
+        Conversation c = conversationOf(m);
+        assertThat(c.getMessageCount()).isEqualTo(2);
+        List<Map<String, Object>> rows = rows(c.getId());
+        assertThat(rows).extracting(r -> r.get("direction")).containsExactly("IN", "OUT");
+        assertThat(rows.get(0).get("text")).isEqualTo(m.text());
+        assertThat(rows.get(0).get("handoff")).isEqualTo(false);
+        assertThat(rows.get(1).get("handoff")).isEqualTo(true);
+        assertThat(rows.get(1).get("text")).isEqualTo(reply.finalText());
+        assertThat(rows.get(1).get("raw_text")).isEqualTo(BrainResponse.unavailable().reply());
+    }
+
     @Test
     void sameUserOnDifferentChannelsGivesSeparateConversations() {
         when(brainClient.ask(any())).thenReturn(new BrainResponse("Chào bạn", "test", List.of(), false));
