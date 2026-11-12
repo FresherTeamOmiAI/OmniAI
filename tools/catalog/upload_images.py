@@ -76,9 +76,10 @@ def main(argv: list[str]) -> int:
             print(f"[{i}/{len(files)}] đã gửi", flush=True)
         time.sleep(0.05)
 
-    sample = [p.name for p in files[:: max(1, len(files) // 5)]][:5]
-    not_public = [name for name in sample if name not in {f.split(":")[0] for f in failed}
-                  and not _safe_public_ok(base, bucket, name)]
+    failed_names = {f.split(":")[0] for f in failed}
+    uploaded = [p.name for p in files if p.name not in failed_names]
+    sample = uploaded[:: max(1, len(uploaded) // 5)][:5]  # chỉ mở thử ảnh đã upload được
+    not_public = [name for name in sample if not _safe_public_ok(base, bucket, name)]
     print(f"Upload {len(files) - len(failed)}/{len(files)} ảnh vào bucket '{bucket}'. "
           f"Mở thử {len(sample)} URL public: {len(sample) - len(not_public)} OK")
     for msg in failed:
