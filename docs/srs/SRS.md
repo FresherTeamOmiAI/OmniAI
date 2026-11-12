@@ -601,7 +601,7 @@ Mọi câu hỏi và góp ý của đợt review S0 đã được PO chốt ngà
 | Q-07 | BR của UC-25 cần CI (US-16, P1, S3). Trước S3 thì sao? | **Chốt 06/11 (PO).** Người mở PR dán kết quả bench/test vào mô tả PR (đã ghi trong `docs/TEAM_GIT_WORKFLOW.md`) |
 | Q-08 | Kênh sàn chạy bằng "simulator theo schema thật" có được thầy chấp nhận không | **Chốt 06/11: thầy chấp nhận.** Shopee và TikTok Shop dùng simulator theo schema thật (decisions #12, #17); adapter thật vẫn bật nếu sàn duyệt app kịp. **11/11: chốt 100% simulator**, không làm adapter thật (decisions #22) |
 | Q-09 | Dữ liệu nào đi từ hub ra kênh, dữ liệu nào từ kênh về hub? | **Chốt 11/11 (PO; team tự quyết rồi báo cáo thầy).** Đi: sản phẩm, giá theo kênh, tồn kho, khuyến mãi, trạng thái xử lý đơn. Về: hội thoại CSKH, đơn hàng, trạng thái duyệt/vi phạm sản phẩm, đánh giá. Không làm: trả hàng/hoàn tiền, vận chuyển, đối soát tài chính, quảng cáo (decisions #23) |
-| Q-10 | Ảnh sản phẩm lưu ở đâu: Supabase Storage hay local? | **Mở.** LucVT so sánh ở T-47.2, PO chốt trong S2 |
+| Q-10 | Ảnh sản phẩm lưu ở đâu: Supabase Storage hay local? | **Đã chốt 12/11: Supabase Storage** (decisions #26). So sánh ở T-47.2: [docs/catalog/luu-anh-san-pham.md](../catalog/luu-anh-san-pham.md) |
 
 ### 9.2 Góp ý review và quyết định của PO
 G-01 đến G-11 do LucVT góp ý (PR #174), G-12 đến G-15 do ChienPX góp ý (comment trên issue #1). PO đồng ý tất cả và đã sửa vào chỗ ghi ở cột cuối.
