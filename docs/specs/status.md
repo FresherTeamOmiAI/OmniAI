@@ -1,6 +1,6 @@
 # Trạng thái hiện tại
 
-> Cập nhật: 2026-11-12 · T-47.1 catalog thật 366 SKU trong DB, 366 ảnh đã lên Supabase (decisions #27, #30); US-25 kênh TikTok Shop qua simulator (T-25.1–T-25.3), chạy thử với Gemini + Postman; trước đó: T-06.8 timeout widget, lập lại kế hoạch (decisions #22–#24) · Sprint hiện tại: **S2 (10–16/11/2026)**
+> Cập nhật: 2026-11-12 · US-11 lưu hội thoại mọi kênh (T-11.1–T-11.3); T-47.1 catalog thật 366 SKU trong DB, 366 ảnh đã lên Supabase (decisions #27, #30); US-25 kênh TikTok Shop qua simulator (T-25.1–T-25.3), chạy thử với Gemini + Postman; trước đó: T-06.8 timeout widget, lập lại kế hoạch (decisions #22–#24) · Sprint hiện tại: **S2 (10–16/11/2026)**
 
 Bảng này cho biết cái gì đã chạy được, cái gì mới là khung, cái gì chưa có. Agent đọc file này **trước khi** đi tìm code để khỏi tìm thứ chưa tồn tại. Kế hoạch chi tiết: `tools/tracking/backlog.py` và GitHub Issues (milestone Sprint 0–12).
 
@@ -13,7 +13,8 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | Docker (Postgres+pgvector, Redis, RabbitMQ) | Done | Redis và RabbitMQ chưa được dùng | |
 | Script chạy Windows `tools/systembat` | Done | setup / run-all / stop-all / test-all / bench | US-02 |
 | CanonicalMessage + ChannelAdapter | Done | | |
-| MessageRouter + idempotency | Khung | Idempotency in-memory, chưa lưu hội thoại | US-06, US-11, US-29 |
+| MessageRouter + idempotency | Khung | Idempotency in-memory (US-29). Đã lưu hội thoại | US-06, US-11, US-29 |
+| Lưu hội thoại mọi kênh | Done | `conversation/*`, bảng V11 (decisions #31). `MessageRouter` lưu tin khách trước khi gọi Brain, lưu câu bot kèm rawText/finalText/vi phạm/blocked/handoff. Brain lỗi hay ném exception thì vẫn lưu, `handoff=true`. API `GET /api/conversations` (lọc kênh, phân trang) và `/{id}/messages`, cần Basic ADMIN. Test `ConversationStoreIT` (gồm T-11.3 Brain lỗi), `ConversationApiTest`, TC tay `docs/testcases/US-11.md`. Chưa có màn admin (US-14, S3) | US-11 |
 | Kênh WEB (WebSocket) | Done | T-06.1 FE widget auto-reconnect + T-06.2 BE adapter + T-06.8: server trả `invalid_message` cho tin JSON lỗi/rỗng, widget timeout 12 s, test WS thật `WebChatSocketIT` | US-06 |
 | Simulator API | Done | Dùng cho bench và `/admin/policy` | US-07 |
 | Kênh Telegram / Messenger | Đã bỏ | Bỏ khỏi dự án ngày 11/11 (decisions #22): xóa enum, YAML; hủy US-17, US-18 | |
@@ -45,6 +46,7 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 - Idempotency chỉ nằm trong bộ nhớ, sẽ mất khi restart và sai khi chạy nhiều instance (S7 chuyển Redis). Chống trùng webhook TikTok (`tts_notification_id`, `message_id`) cũng vậy.
 - TikTok: thuật toán ký, chữ ký webhook, số `type` webhook, API token và mã lỗi 105xxx/106xxx/36009004/36009006 là giả định, chờ đối chiếu docv2 (docs/channel-api/tiktok.md mục 1). Token trong `channel_credential` lưu dạng rõ.
 - Webhook TikTok lỗi sau khi đã trả 200 thì chỉ log, chưa có dead-letter (US-29).
+- Hội thoại: DB lỗi lúc lưu thì chỉ log, mất bản ghi lượt đó. TikTok báo `45101006` thì hub gửi `fallback_message` nhưng DB vẫn ghi `finalText` ban đầu. Chưa có xóa/ẩn dữ liệu hội thoại theo yêu cầu khách (BVDLCN, US-30).
 - Backend/ai-brain không tự đọc `.env` (script `.bat` nạp hộ, IDE thì phải tự cấu hình).
 - Chưa có `mvnw`, mỗi máy phải tự cài Maven.
 - Widget chat: nối lại WebSocket thì `channelUserId` đổi theo session mới (tài khoản web ở US-13).

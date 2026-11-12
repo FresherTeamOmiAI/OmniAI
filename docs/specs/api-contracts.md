@@ -1,7 +1,7 @@
 # Hợp đồng API
 
-> Cập nhật: 2026-11-12 · commit 8dbf10a · US-25, T-47.1
-> Nguồn: `backend/.../channel/simulator/*`, `channel/web/*`, `channel/tiktok/*`, `catalog/ProductController.java`, `catalog/AdminProductController.java`, `catalog/ProductRequest.java`, `brain/*`, `common/*`, `ai-brain/app/main.py`, `ai-brain/app/schemas.py`, `shared/schemas/canonical-message.schema.json`, `web/src/shared/types.ts`
+> Cập nhật: 2026-11-12 · commit 67e63cc · US-11 (T-11.2); trước đó US-25, T-47.1
+> Nguồn: `backend/.../channel/simulator/*`, `channel/web/*`, `channel/tiktok/*`, `catalog/ProductController.java`, `catalog/AdminProductController.java`, `catalog/ProductRequest.java`, `conversation/ConversationController.java`, `brain/*`, `common/*`, `ai-brain/app/main.py`, `ai-brain/app/schemas.py`, `shared/schemas/canonical-message.schema.json`, `web/src/shared/types.ts`
 
 JSON phía backend dùng **camelCase**. Riêng hợp đồng backend → ai-brain dùng **snake_case**.
 
@@ -32,6 +32,19 @@ Cần header `Authorization: Basic` với `ADMIN_USERNAME`/`ADMIN_PASSWORD` (SRS
 - Luật kiểm giống `tools/catalog/validate_catalog.py` (`catalog/CatalogVocabulary.java`): dạng SKU, bộ từ vựng ở [data-model.md](data-model.md), INCI ≥ 2 thành phần, giá/tồn kho ≥ 0, dung tích/PAO > 0, độ dài cột, tên/mô tả không có claim y khoa ("trị mụn", "đặc trị", "chữa"...).
 - Lỗi dạng ProblemDetail (RFC 9457, `application/problem+json`): `{type, title, status, detail, instance, errors?}`. `400` sai dữ liệu có `errors: [{field, message}]`; `400` JSON hỏng hoặc sai kiểu; `404`; `409` trùng SKU.
 
+## Hội thoại (`/api/conversations`, US-11, T-11.2)
+
+Cần Basic ADMIN giống `/api/admin/**` (hội thoại là dữ liệu cá nhân, decisions #31); thiếu/sai thì `401`. Dữ liệu do `MessageRouter` ghi cho mọi kênh. Màn admin xem hội thoại ở US-14 (S3).
+
+| Method | Path | Request | Response | Ghi chú |
+|---|---|---|---|---|
+| GET | `/api/conversations?channel=&page=&size=` | | `PageResponse<ConversationView>` | Mới nhất trước (`lastMessageAt` giảm dần). `channel` không phân biệt hoa thường (`web`, `SHOPEE`), bỏ trống = mọi kênh, kênh lạ `400`. `size` mặc định 20, 1–100, ngoài khoảng hoặc `page` < 0 thì `400`. Không nhận `sort` |
+| GET | `/api/conversations/{id}/messages?page=&size=` | | `PageResponse<MessageView>` | Theo thời gian tăng dần. `size` mặc định 50, tối đa 100. Không có hội thoại thì `404` |
+
+- `ConversationView = {id, channel, conversationId, channelUserId, customerId?, startedAt, lastMessageAt, messageCount}`. `conversationId` = `CanonicalMessage.conversationId` (id phía kênh), `id` là id trong hub dùng cho `/messages`. `messageCount` đếm cả IN lẫn OUT.
+- `MessageView = {id, direction: IN|OUT, messageId, text, rawText?, violations[], blocked, handoff, createdAt}`. IN: `text` là tin khách, `rawText` null. OUT: `text` = `finalText` (khách nhận), `rawText` = câu AI gốc, `violations[]` = `PolicyViolation`. `messageId` của OUT là id tin khách mà nó trả lời.
+- Lỗi `400`/`404` trả theo xử lý lỗi mặc định của Spring (`ResponseStatusException`), chưa phải ProblemDetail như admin sản phẩm.
+
 ## Kênh TikTok Shop (US-25)
 
 Hub nói chuyện với sàn theo **đúng hợp đồng TikTok Shop** (snake_case, envelope `{code, message, request_id, data}`, ký HMAC-SHA256). API simulator đã code, DTO và mã lỗi: [../channel-api/tiktok.md](../channel-api/tiktok.md), [../channel-api/tiktok-dto.md](../channel-api/tiktok-dto.md). Endpoint của hub:
@@ -45,7 +58,7 @@ Hub nói chuyện với sàn theo **đúng hợp đồng TikTok Shop** (snake_ca
 
 Simulator (cổng 8090) có thêm API điều khiển `/sim/*` (không có trên sàn thật, JSON snake_case): `POST /sim/buyer/messages {buyer_user_id*, nickname?, text*, wait_ms?}` → `{conversation_id, message_id, tts_notification_id, new_conversation, reply?, reply_latency_ms?}`; `GET|POST /sim/faults` (`api_latency_ms, webhook_delay_ms, webhook_duplicate, sensitive_words[], revoked_scopes[], block_sending`); `POST /sim/tokens/expire?kind=access|refresh`; `GET /sim/deliveries`; `POST /sim/reset`.
 
-Chưa có: `/api/conversations` (US-11, S2), API của simulator Shopee theo schema thật (US-21, S2), tài khoản thật (US-13, S3), API đồng bộ hub ↔ kênh (trụ E, từ S3, xem [backend.md](backend.md)).
+Chưa có: API của simulator Shopee theo schema thật (US-21, S2), tài khoản thật (US-13, S3), API đồng bộ hub ↔ kênh (trụ E, từ S3, xem [backend.md](backend.md)).
 
 ## Kiểu dữ liệu chung (`com.omniai.common`, `web/src/shared/types.ts`)
 
