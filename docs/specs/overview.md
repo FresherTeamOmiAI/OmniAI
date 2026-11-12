@@ -36,7 +36,7 @@ Dữ liệu 2 chiều hub <-> sàn (trụ E, chưa có code, bảng US ở backe
 | `ai-brain/`; simulator Shopee (trong `backend/`) | FastAPI, Python 3.11; Java | ChienPX | [ai-brain.md](ai-brain.md), [backend.md](backend.md) |
 | `web/` | React 19 + Vite 8 + TS, react-router 7 | ai làm phần nào tự làm UI phần đó | [web.md](web.md) |
 | `shared/policies/`, `shared/schemas/` | YAML, JSON Schema | HungDQ | [policy.md](policy.md), [api-contracts.md](api-contracts.md) |
-| `shared/catalog/`, `tools/catalog/` | CSV 80 SKU + validator + script sinh migration (Python) | LucVT | [data-model.md](data-model.md) |
+| `shared/catalog/`, `tools/catalog/` | CSV 80 SKU hư cấu (đang nạp vào DB) + CSV 80 sản phẩm thật (`products_real.csv`, chưa nạp) + validator + script sinh migration + `obf_fetch.py` lấy dữ liệu Open Beauty Facts (Python; riêng script này cần Pillow, `tools/catalog/requirements.txt`) | LucVT | [data-model.md](data-model.md) |
 
 ## Cổng
 

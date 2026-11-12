@@ -15,7 +15,7 @@ Specs không chép lại code. Khi spec và code mâu thuẫn thì **code là ch
 | Thêm/sửa endpoint, DTO, WebSocket, gọi Brain | [api-contracts.md](api-contracts.md) + spec của module đó |
 | Kênh / adapter / MessageRouter (TuTM) | [backend.md](backend.md), [api-contracts.md](api-contracts.md) |
 | Luật kênh, PolicyEngine (HungDQ) | [policy.md](policy.md) |
-| Catalog, customer, identity, order, promotion (LucVT) | [data-model.md](data-model.md), [backend.md](backend.md) |
+| Catalog, customer, identity, order, promotion (LucVT) | [data-model.md](data-model.md), [backend.md](backend.md); ảnh sản phẩm: [../catalog/luu-anh-san-pham.md](../catalog/luu-anh-san-pham.md); dữ liệu sản phẩm thật: [../catalog/du-lieu-san-pham-that.md](../catalog/du-lieu-san-pham-that.md) |
 | AI Brain, LLM, agent, luật thành phần (ChienPX) | [ai-brain.md](ai-brain.md), [api-contracts.md](api-contracts.md) |
 | Bench, dataset, metric | [bench.md](bench.md), [policy.md](policy.md) |
 | Phương pháp benchmark, tài liệu tham khảo | [../bench/huong-dan-benchmark.md](../bench/huong-dan-benchmark.md) |
