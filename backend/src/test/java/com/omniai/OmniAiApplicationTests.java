@@ -24,31 +24,44 @@ class OmniAiApplicationTests {
     @Autowired
     JdbcTemplate jdbc;
 
-    /** V5 (T-08.2) nạp 80 SKU từ shared/catalog/products.csv, gồm 2 SKU ẩn và 4 SKU hết hàng. */
+    /**
+     * V9 xoá 80 SKU hư cấu, V10 nạp catalog thật từ shared/catalog/products.csv (T-47.1). Số mong đợi tính từ CSV.
+     */
     @Test
-    void flywayImportsCatalogOf80Skus() {
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM product", Integer.class)).isEqualTo(80);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM product WHERE active", Integer.class)).isEqualTo(78);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM product WHERE stock = 0", Integer.class)).isEqualTo(4);
-        assertThat(jdbc.queryForObject("SELECT COUNT(DISTINCT brand) FROM product", Integer.class)).isEqualTo(5);
+    void flywayImportsRealCatalogFromCsv() {
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM product", Long.class)).isEqualTo(TestCatalog.size());
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM product WHERE active", Long.class))
+                .isEqualTo(TestCatalog.activeCount());
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM product WHERE stock = 0", Long.class))
+                .isEqualTo(TestCatalog.outOfStockCount());
+        assertThat(jdbc.queryForObject("SELECT COUNT(DISTINCT brand) FROM product", Long.class))
+                .isEqualTo(TestCatalog.brandCount());
         assertThat(jdbc.queryForObject("SELECT COUNT(DISTINCT category) FROM product", Integer.class)).isEqualTo(10);
+        assertThat(TestCatalog.size()).isGreaterThanOrEqualTo(80);
     }
 
-    /** SKU có sẵn từ V2 được upsert: giữ giá cũ, có thêm các trường của V4. */
+    /** V9 (decisions #30): không còn SKU nào của 5 thương hiệu hư cấu từ V2/V5. */
     @Test
-    void catalogImportUpdatesSkusSeededByV2() {
-        var row = jdbc.queryForMap("SELECT price_web, usage_time, skin_concerns, description FROM product"
-                + " WHERE sku = 'LUMI-SUN-01'");
-        assertThat(row.get("price_web")).isEqualTo(289000L);
-        assertThat(row.get("usage_time")).isEqualTo("am");
-        assertThat(row.get("skin_concerns")).isEqualTo("oil-control,sun-protection");
-        assertThat((String) row.get("description")).isNotBlank();
+    void fictionalCatalogIsDeleted() {
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM product WHERE split_part(sku, '-', 1)"
+                + " IN ('LUMI', 'SEN', 'HYD', 'MOC', 'VAN') OR brand IN ('Lumi Lab', 'Hydra Mint')", Integer.class)).isZero();
+    }
+
+    /** Mỗi SKU của catalog thật có barcode, nguồn, khoá ảnh <SKU>.webp và ghi chú giấy phép (US-47 AC). */
+    @Test
+    void realCatalogHasSourceAndImageForEverySku() {
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM product WHERE barcode IS NULL OR source_url IS NULL"
+                + " OR image_key <> sku || '.webp' OR image_license_note IS NULL", Integer.class)).isZero();
+        var row = jdbc.queryForMap("SELECT barcode, image_key, source_url FROM product WHERE sku = 'CERA-CLE-01'");
+        assertThat(row.get("barcode")).isEqualTo("3337875597197");
+        assertThat(row.get("image_key")).isEqualTo("CERA-CLE-01.webp");
+        assertThat((String) row.get("source_url")).endsWith("/product/3337875597197");
     }
 
     @Test
     void chatbotReaderCanReadCatalogAndNotCustomers() {
-        Integer names = jdbc.queryForObject("SELECT COUNT(*) FROM chatbot_catalog", Integer.class);
-        assertThat(names).isEqualTo(78);
+        Long names = jdbc.queryForObject("SELECT COUNT(*) FROM chatbot_catalog", Long.class);
+        assertThat(names).isEqualTo(TestCatalog.activeCount());
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM information_schema.columns WHERE table_name = 'chatbot_catalog' AND column_name = 'price_web'",
                 Integer.class)).isEqualTo(1);
@@ -62,7 +75,7 @@ class OmniAiApplicationTests {
                 try {
                     try (ResultSet rows = statement.executeQuery("SELECT COUNT(*) FROM chatbot_catalog")) {
                         assertThat(rows.next()).isTrue();
-                        assertThat(rows.getInt(1)).isEqualTo(78);
+                        assertThat((long) rows.getInt(1)).isEqualTo(TestCatalog.activeCount());
                     }
                     assertThatThrownBy(() -> query(statement, "SELECT email FROM customer"))
                             .isInstanceOf(DataAccessException.class)

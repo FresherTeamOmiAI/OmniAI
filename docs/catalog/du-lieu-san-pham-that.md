@@ -1,14 +1,14 @@
 # Catalog sản phẩm thật kèm ảnh (T-47.1)
 
 > Cập nhật: 2026-11-12 · commit ee28494 · Owner: LucVT
-> Nguồn: `shared/catalog/products.csv`, `shared/catalog/real/selection.csv`, `tools/catalog/obf_fetch.py`, `tools/catalog/obf_annotate.py`, `tools/catalog/upload_images.py`, `backend/.../db/migration/V8__product_source_image.sql`, `V9__import_catalog_real.sql`
-> Liên quan: US-47, [luu-anh-san-pham.md](luu-anh-san-pham.md) (T-47.2), [decisions #26, #27, #28](../specs/decisions.md)
+> Nguồn: `shared/catalog/products.csv`, `shared/catalog/real/selection.csv`, `tools/catalog/obf_fetch.py`, `tools/catalog/obf_annotate.py`, `tools/catalog/upload_images.py`, `backend/.../db/migration/V9__product_source_image.sql`, `V10__import_catalog_real.sql`
+> Liên quan: US-47, [luu-anh-san-pham.md](luu-anh-san-pham.md) (T-47.2), [decisions #26, #27, #30](../specs/decisions.md)
 
 ## Kết quả
 
 - **Catalog trong DB là sản phẩm thật** của 50 hãng có bán ở VN, tổng 366 SKU.
-  - V8 xoá 80 SKU của 5 thương hiệu hư cấu (decisions #28).
-  - V9 nạp `shared/catalog/products.csv`.
+  - V9 xoá 80 SKU của 5 thương hiệu hư cấu (decisions #30).
+  - V10 nạp `shared/catalog/products.csv`.
 - **Theo danh mục:** moisturizer 112, cleanser 83, sunscreen 57, serum 28, lip-care 28, mask 19, toner 15, exfoliant 11, spot-treatment 7, eye-cream 6. Trong đó 80 SKU `manual` (người soạn, đã duyệt ở PR #241) và 286 SKU `auto` (tự soạn theo quy tắc).
 - **Ca test:** 364 SKU active, 2 SKU ẩn (`NEUT-SUN-02`, `NIVE-MSK-01`), 4 SKU hết hàng.
 - **Hãng nhiều nhất:** Nivea 68, Garnier 30, L'Oréal Paris 26, Neutrogena 26, La Roche-Posay 23, CeraVe 21, Bioderma 19, Cetaphil 15, Avène 13.
@@ -44,7 +44,7 @@ obf_fetch.py dump       tải dump OBF vào shared/catalog/real/.cache/ (gitigno
 obf_fetch.py discover   lọc dump -> THÊM dòng annotated_by=auto vào selection.csv (không sửa dòng có sẵn)
 obf_fetch.py build      selection.csv + dữ liệu OBF -> shared/catalog/products.csv + ảnh WebP
 validate_catalog.py     kiểm products.csv
-csv_to_sql.py V<n>__... sinh migration upsert theo sku (V9 cho đợt này; lần sau đặt V<n> mới, không sửa V9)
+csv_to_sql.py V<n>__... sinh migration upsert theo sku (V10 cho đợt này; lần sau đặt V<n> mới, không sửa V10)
 upload_images.py        đẩy ảnh lên Supabase (ghi đè nếu đã có)
 ```
 
@@ -100,7 +100,7 @@ Lệnh `search <từ khóa>` vẫn còn để tra nhanh qua API (đọc sản ph
 **Lưu ý:** project gói Free tự dừng sau 1 tuần không có truy cập. Trước mỗi Sprint Review và trước ngày demo, cần vào dashboard bật lại (xem mục 8 của [luu-anh-san-pham.md](luu-anh-san-pham.md)). Thiếu `SUPABASE_URL` hoặc project đang dừng thì store vẫn chạy, chỉ hiện khung "Chưa có ảnh".
 
 ## Việc còn lại
-- **Bench, llm-eval, sample ai-brain:** dataset bench, báo cáo llm-eval (`docs/llm-eval/`) và `ai-brain/samples/` còn tham chiếu 5 thương hiệu hư cấu. Cần viết lại dần theo catalog thật (decisions #28). pytest của ai-brain dùng stub nên không hỏng.
+- **Bench, llm-eval, sample ai-brain:** dataset bench, báo cáo llm-eval (`docs/llm-eval/`) và `ai-brain/samples/` còn tham chiếu 5 thương hiệu hư cấu. Cần viết lại dần theo catalog thật (decisions #30). pytest của ai-brain dùng stub nên không hỏng.
 - **Store:** phân trang và trang chi tiết (T-09.1), bộ lọc theo danh mục và giá (T-09.2). Hiện `/api/products` trả 20 SKU đầu.
 - **Admin:** upload và đổi ảnh từ màn admin (`ProductRequest` chưa có trường ảnh).
 - **Dữ liệu:** dịch tên sản phẩm `auto` sang tiếng Anh hoặc Việt; bổ sung hãng Hàn/Nhật (OBF gần như không có).

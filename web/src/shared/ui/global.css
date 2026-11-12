@@ -38,6 +38,11 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 .product-inci { margin: 0; font-size: 13px; color: var(--muted); }
 .product-price { margin: 0; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
 .product-stock { margin: 0; font-size: 13px; }
+.product-image { aspect-ratio: 1; display: grid; place-items: center; overflow: hidden; border-radius: 8px; background: #fff; border: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+.product-image img { width: 100%; height: 100%; object-fit: contain; }
+.product-inci { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.product-source { font-size: 12px; color: var(--muted); }
+.store-attribution { margin: 24px 0 0; font-size: 12px; color: var(--muted); }
 
 .chat, .chat-toggle { position: fixed; right: 20px; bottom: 20px; }
 .chat-toggle { background: var(--accent); color: #fff; border: 0; border-radius: 999px; padding: 12px 20px; }

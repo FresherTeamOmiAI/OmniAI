@@ -1,14 +1,14 @@
 """Sinh migration Flyway từ shared/catalog/products.csv (T-08.2). Owner: LucVT.
 
     python tools/catalog/csv_to_sql.py V5__import_catalog_80.sql
-    python tools/catalog/csv_to_sql.py V9__import_catalog_real.sql            # catalog thật (T-47.1)
+    python tools/catalog/csv_to_sql.py V10__import_catalog_real.sql            # catalog thật (T-47.1)
     python tools/catalog/csv_to_sql.py V10__catalog_update.sql path/to/x.csv
 
 Ghi vào backend/src/main/resources/db/migration/<tên file>. Chạy validate_catalog.py trước, có lỗi thì dừng.
 Mỗi dòng là upsert theo `sku` (ON CONFLICT DO UPDATE), nên SKU đã có (vd. 8 SKU của V2) được cập nhật,
 SKU mới được thêm, không xoá SKU nào. Muốn đổi catalog sau khi migration đã merge thì sửa CSV rồi sinh
 file V<n> MỚI, không sửa file cũ (Flyway kiểm checksum).
-CSV có thêm cột nguồn/ảnh (SOURCE_COLUMNS, có từ V8) thì các cột đó cũng được upsert; ô rỗng thành NULL.
+CSV có thêm cột nguồn/ảnh (SOURCE_COLUMNS, có từ V9) thì các cột đó cũng được upsert; ô rỗng thành NULL.
 Chỉ dùng thư viện chuẩn.
 """
 

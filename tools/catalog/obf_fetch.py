@@ -44,7 +44,7 @@ CACHE_DIR = REAL_DIR / ".cache"
 DUMP_PATH = CACHE_DIR / "obf-products.csv.gz"
 IMAGE_DIR = REAL_DIR / "images"
 SELECTION_CSV = REAL_DIR / "selection.csv"
-OUTPUT_CSV = DEFAULT_CSV  # shared/catalog/products.csv: catalog thật thay hẳn catalog hư cấu (decisions #28)
+OUTPUT_CSV = DEFAULT_CSV  # shared/catalog/products.csv: catalog thật thay hẳn catalog hư cấu (decisions #30)
 
 # name: tên hiển thị (dòng manual là tên tiếng Anh chuẩn, dòng auto là tên trên OBF); bỏ trống thì lấy từ OBF.
 # pao_months: dùng khi OBF không có periods_after_opening (đa số sản phẩm).

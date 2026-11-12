@@ -1,8 +1,10 @@
 package com.omniai.catalog;
 
+import com.omniai.TestCatalog;
 import com.omniai.TestcontainersConfig;
 import com.omniai.brain.BrainClient;
 import com.omniai.brain.BrainResponse;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -10,6 +12,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -22,8 +25,10 @@ import java.util.List;
 import java.util.Map;
 
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.matchesPattern;
+import static org.hamcrest.Matchers.startsWith;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
@@ -36,17 +41,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * API admin sản phẩm (T-08.1, US-08 AC, UC-20) trên catalog 80 SKU của V5.
- * Mỗi test rollback (@Transactional) để không làm lệch số SKU mà test khác đếm.
+ * API admin sản phẩm (T-08.1, US-08 AC, UC-20) trên catalog thật của V10 (T-47.1). Số SKU mong đợi đọc từ
+ * shared/catalog/products.csv qua {@link TestCatalog}. Mỗi test rollback (@Transactional) để không làm lệch số SKU.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(TestcontainersConfig.class)
+@TestPropertySource(properties = "omniai.images.base-url=https://test.supabase.co/")
 @Transactional
 class AdminProductApiTest {
 
     private static final RequestPostProcessor ADMIN = httpBasic("admin", "admin");
-    private static final long LUMI_SUN_01 = 1L;
+    /** SKU thật luôn active, có ảnh (dòng manual trong shared/catalog/real/selection.csv). */
+    private static final String SKU = "CERA-CLE-01";
+    private long skuId;
 
     @Autowired
     MockMvc mvc;
@@ -60,6 +68,11 @@ class AdminProductApiTest {
     /** Simulator gọi AI Brain qua HTTP; mock để test không cần ai-brain chạy. */
     @MockitoBean
     BrainClient brainClient;
+
+    @BeforeEach
+    void findSku() {
+        skuId = jdbc.queryForObject("SELECT id FROM product WHERE sku = ?", Long.class, SKU);
+    }
 
     // --- Xác thực (SRS Q-01) ---
 
@@ -89,12 +102,12 @@ class AdminProductApiTest {
     void adminListIncludesHiddenProductsAndSearches() throws Exception {
         mvc.perform(get("/api/admin/products").with(ADMIN))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.total").value(80));
-        mvc.perform(get("/api/admin/products?active=false").with(ADMIN))
-                .andExpect(jsonPath("$.total").value(2))
-                .andExpect(jsonPath("$.items[*].sku", containsInAnyOrder("MOC-SER-40", "LUMI-MSK-72")));
-        mvc.perform(get("/api/admin/products?q=lumi-sun").with(ADMIN))
-                .andExpect(jsonPath("$.items[*].sku", hasItem("LUMI-SUN-01")));
+                .andExpect(jsonPath("$.total").value(TestCatalog.size()));
+        mvc.perform(get("/api/admin/products?active=false&size=100").with(ADMIN))
+                .andExpect(jsonPath("$.total").value(TestCatalog.hiddenSkus().size()))
+                .andExpect(jsonPath("$.items[*].sku", containsInAnyOrder(TestCatalog.hiddenSkus().toArray())));
+        mvc.perform(get("/api/admin/products?q=cera-cle").with(ADMIN))
+                .andExpect(jsonPath("$.items[*].sku", hasItem(SKU)));
     }
 
     @Test
@@ -118,17 +131,18 @@ class AdminProductApiTest {
                 .andExpect(jsonPath("$.skinTypes").value("oily,dry"))
                 .andExpect(jsonPath("$.ingredientsInci").value("Aqua, Glycerin, Niacinamide"))
                 .andExpect(jsonPath("$.active").value(true))
+                .andExpect(jsonPath("$.imageUrl").isEmpty())
                 .andReturn().getResponse().getContentAsString();
         long id = json.readTree(created).get("id").asLong();
 
         mvc.perform(get("/api/products/" + id)).andExpect(status().isOk());
-        mvc.perform(get("/api/products?size=1")).andExpect(jsonPath("$.total").value(79));
+        mvc.perform(get("/api/products?size=1")).andExpect(jsonPath("$.total").value(TestCatalog.activeCount() + 1));
     }
 
     @Test
     void duplicateSkuIsConflict() throws Exception {
         Map<String, Object> p = validProduct();
-        p.put("sku", "lumi-sun-01");
+        p.put("sku", "cera-cle-01");
         mvc.perform(admin(post("/api/admin/products"), p))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.title").value("Trùng SKU"));
@@ -172,19 +186,43 @@ class AdminProductApiTest {
     @Test
     void updateShowsInStoreImmediately() throws Exception {
         Map<String, Object> p = validProduct();
-        p.put("sku", "LUMI-SUN-01");
+        p.put("sku", SKU);
         p.put("priceWeb", 300000);
-        mvc.perform(admin(put("/api/admin/products/" + LUMI_SUN_01), p))
+        mvc.perform(admin(put("/api/admin/products/" + skuId), p))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.priceWeb").value(300000));
-        mvc.perform(get("/api/products/" + LUMI_SUN_01)).andExpect(jsonPath("$.priceWeb").value(300000));
+        mvc.perform(get("/api/products/" + skuId)).andExpect(jsonPath("$.priceWeb").value(300000));
+    }
+
+    /** ProductRequest không có cột ảnh/nguồn: admin sửa sản phẩm không được làm mất chúng (V9). */
+    @Test
+    void updateKeepsImageAndSource() throws Exception {
+        Map<String, Object> p = validProduct();
+        p.put("sku", SKU);
+        mvc.perform(admin(put("/api/admin/products/" + skuId), p))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.imageKey").value(SKU + ".webp"))
+                .andExpect(jsonPath("$.barcode").value("3337875597197"));
+    }
+
+    // --- Ảnh (decisions #26) ---
+
+    @Test
+    void storeProductHasPublicImageUrlAndAttribution() throws Exception {
+        mvc.perform(get("/api/products/" + skuId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.imageUrl")
+                        .value("https://test.supabase.co/storage/v1/object/public/product-images/" + SKU + ".webp"))
+                .andExpect(jsonPath("$.sourceUrl").value("https://world.openbeautyfacts.org/product/3337875597197"))
+                .andExpect(jsonPath("$.imageLicenseNote", containsString("CC BY-SA")));
+        mvc.perform(get("/api/products?size=1")).andExpect(jsonPath("$.items[0].imageUrl", startsWith("https://test.supabase.co/")));
     }
 
     @Test
     void updateCannotChangeSku() throws Exception {
         Map<String, Object> p = validProduct();
-        p.put("sku", "LUMI-SUN-99");
-        mvc.perform(admin(put("/api/admin/products/" + LUMI_SUN_01), p))
+        p.put("sku", "CERA-CLE-99");
+        mvc.perform(admin(put("/api/admin/products/" + skuId), p))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("sku"));
     }
@@ -202,28 +240,28 @@ class AdminProductApiTest {
 
     @Test
     void hiddenProductDisappearsFromStoreButAdminStillSeesIt() throws Exception {
-        mvc.perform(admin(patch("/api/admin/products/" + LUMI_SUN_01 + "/active"), Map.of("active", false)))
+        mvc.perform(admin(patch("/api/admin/products/" + skuId + "/active"), Map.of("active", false)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.active").value(false));
 
-        mvc.perform(get("/api/products/" + LUMI_SUN_01)).andExpect(status().isNotFound());
-        mvc.perform(get("/api/products?size=1")).andExpect(jsonPath("$.total").value(77));
-        mvc.perform(get("/api/admin/products/" + LUMI_SUN_01).with(ADMIN)).andExpect(jsonPath("$.active").value(false));
+        mvc.perform(get("/api/products/" + skuId)).andExpect(status().isNotFound());
+        mvc.perform(get("/api/products?size=1")).andExpect(jsonPath("$.total").value(TestCatalog.activeCount() - 1));
+        mvc.perform(get("/api/admin/products/" + skuId).with(ADMIN)).andExpect(jsonPath("$.active").value(false));
 
-        mvc.perform(admin(patch("/api/admin/products/" + LUMI_SUN_01 + "/active"), Map.of("active", true)))
+        mvc.perform(admin(patch("/api/admin/products/" + skuId + "/active"), Map.of("active", true)))
                 .andExpect(status().isOk());
-        mvc.perform(get("/api/products/" + LUMI_SUN_01)).andExpect(status().isOk());
+        mvc.perform(get("/api/products/" + skuId)).andExpect(status().isOk());
     }
 
     @Test
     void storeDetailOfInactiveSkuFromCatalogIsNotFound() throws Exception {
-        Long id = jdbc.queryForObject("SELECT id FROM product WHERE sku = 'MOC-SER-40'", Long.class);
+        Long id = jdbc.queryForObject("SELECT id FROM product WHERE sku = ?", Long.class, TestCatalog.hiddenSkus().getFirst());
         mvc.perform(get("/api/products/" + id)).andExpect(status().isNotFound());
     }
 
     @Test
     void setActiveRequiresValue() throws Exception {
-        mvc.perform(admin(patch("/api/admin/products/" + LUMI_SUN_01 + "/active"), Map.of()))
+        mvc.perform(admin(patch("/api/admin/products/" + skuId + "/active"), Map.of()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("active"));
     }
@@ -242,7 +280,7 @@ class AdminProductApiTest {
         Map<String, Object> p = new LinkedHashMap<>();
         p.put("sku", "TEST-SER-01");
         p.put("name", "Serum thử nghiệm Niacinamide 5%");
-        p.put("brand", "Lumi Lab");
+        p.put("brand", "CeraVe");
         p.put("category", "serum");
         p.put("skinTypes", "oily,combination");
         p.put("skinConcerns", "pores,oil-control");
