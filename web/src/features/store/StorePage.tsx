@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { formatVnd } from '../../shared/lib/format'
-import { fetchProducts } from './api'
+import { fetchProducts, STORE_PAGE_SIZE } from './api'
 import type { Product } from './types'
 
 const SKIN_TYPES = [
@@ -14,26 +14,47 @@ const SKIN_TYPES = [
 // Trang store demo. Owner: LucVT (sprint 2: trang chi tiết, giỏ hàng, đơn ảo).
 export function StorePage() {
   const [skinType, setSkinType] = useState('')
+  const [page, setPage] = useState(0)
   const [products, setProducts] = useState<Product[]>([])
+  const [total, setTotal] = useState(0)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchProducts(skinType)
-      .then((page) => {
-        setProducts(page.items)
+    let stale = false
+    fetchProducts(skinType, page)
+      .then((result) => {
+        if (stale) return
+        setProducts(result.items)
+        setTotal(result.total)
         setError(null)
       })
-      .catch((e: Error) => setError(e.message))
-  }, [skinType])
+      .catch((e: Error) => !stale && setError(e.message))
+    return () => {
+      stale = true
+    }
+  }, [skinType, page])
+
+  const totalPages = Math.max(1, Math.ceil(total / STORE_PAGE_SIZE))
+
+  function changeSkinType(value: string) {
+    setSkinType(value)
+    setPage(0)
+  }
+
+  function goTo(next: number) {
+    setPage(next)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   return (
     <main className="store">
       <div className="store-filters" role="group" aria-label="Lọc theo loại da">
         {SKIN_TYPES.map((s) => (
-          <button key={s.value} type="button" className={s.value === skinType ? 'chip chip-active' : 'chip'} onClick={() => setSkinType(s.value)}>
+          <button key={s.value} type="button" className={s.value === skinType ? 'chip chip-active' : 'chip'} onClick={() => changeSkinType(s.value)}>
             {s.label}
           </button>
         ))}
+        <span className="toolbar-count muted">{total} sản phẩm</span>
       </div>
       {error && <p className="error">{error}</p>}
       <ul className="product-grid">
@@ -47,14 +68,16 @@ export function StorePage() {
             <p className="product-inci">{p.ingredientsInci}</p>
             <p className="product-price">{formatVnd(p.priceWeb)}</p>
             <p className="product-stock">{p.stock > 0 ? `Còn ${p.stock}` : 'Hết hàng'}</p>
-            {p.sourceUrl && (
-              <a className="product-source" href={p.sourceUrl} target="_blank" rel="noreferrer">
-                Nguồn: Open Beauty Facts
-              </a>
-            )}
           </li>
         ))}
       </ul>
+      {totalPages > 1 && (
+        <nav className="pager" aria-label="Phân trang">
+          <button type="button" className="btn btn-sm" disabled={page === 0} onClick={() => goTo(page - 1)}>‹ Trước</button>
+          <span>Trang {page + 1}/{totalPages}</span>
+          <button type="button" className="btn btn-sm" disabled={page + 1 >= totalPages} onClick={() => goTo(page + 1)}>Sau ›</button>
+        </nav>
+      )}
       {/* Bắt buộc theo giấy phép ODbL / CC BY-SA 3.0 của Open Beauty Facts (docs/catalog/du-lieu-san-pham-that.md) */}
       <p className="store-attribution">
         Dữ liệu và ảnh sản phẩm: <a href="https://world.openbeautyfacts.org" target="_blank" rel="noreferrer">Open Beauty Facts</a>{' '}
