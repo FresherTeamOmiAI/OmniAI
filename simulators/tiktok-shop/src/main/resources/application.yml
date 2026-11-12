@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: tiktok-shop-simulator
+  jackson:
+    # JSON của TikTok Shop là snake_case; record Java viết camelCase.
+    property-naming-strategy: SNAKE_CASE
+
+server:
+  port: ${TIKTOK_SIM_PORT:8090}
+
+# Cấu hình simulator. Khóa app phải trùng với backend (TIKTOK_APP_KEY/SECRET trong .env).
+sim:
+  app-key: ${TIKTOK_APP_KEY:omniai-test-app}
+  app-secret: ${TIKTOK_APP_SECRET:omniai-test-secret}
+  # Nơi seller được đưa về sau khi bấm "Đồng ý" ở trang ủy quyền (thật: cấu hình trong Partner Center).
+  redirect-uri: ${TIKTOK_REDIRECT_URI:http://localhost:8080/api/channels/tiktok/oauth/callback}
+  # Hiện trang xác nhận (false) hay redirect ngay (true).
+  auto-approve: false
+  shop:
+    id: "7494049642642441621"
+    name: OmniAI Beauty (simulator)
+    region: VN
+    seller-type: LOCAL
+    cipher: ROW_OmniAiSimShopCipher01
+    code: VNOMNIAI01
+  granted-scopes:
+    - seller.authorization.info
+    - seller.customer_service
+    - seller.shop.info
+  # Địa chỉ webhook mặc định khi chưa ai gọi Update Shop Webhook.
+  default-webhook-address: ${TIKTOK_WEBHOOK_URL:http://localhost:8080/api/channels/tiktok/webhook}
+  access-token-ttl: 7d
+  refresh-token-ttl: 365d
+  timestamp-skew: 5m
+  rate-limit:
+    max-concurrent: 50
+  webhook:
+    timeout: 3s
+    max-attempts: 3
+    backoff: 1s

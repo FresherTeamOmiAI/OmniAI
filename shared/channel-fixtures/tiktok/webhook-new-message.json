@@ -1,0 +1,19 @@
+{
+  "type": 14,
+  "tts_notification_id": "7327112393057371910",
+  "shop_id": "7494049642642441621",
+  "timestamp": 1762845600,
+  "data": {
+    "message_id": "7494560109732334263",
+    "conversation_id": "7494560109732334261",
+    "type": "TEXT",
+    "content": "{\"content\": \"Shop ơi, da dầu nên dùng kem chống nắng nào?\"}",
+    "create_time": 1762845600,
+    "is_visible": true,
+    "index": "7494560109732334274",
+    "sender": {
+      "im_user_id": "7494560109732334262",
+      "role": "BUYER"
+    }
+  }
+}
