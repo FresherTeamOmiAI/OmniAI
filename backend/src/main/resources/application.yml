@@ -44,3 +44,8 @@ omniai:
     webhook-max-skew: 5m
     max-concurrent: 40
     timeout: 10s
+  # Ảnh sản phẩm trên Supabase Storage (decisions #26). Backend chỉ ghép URL public, không cần khoá service.
+  # SUPABASE_URL trống thì imageUrl = null (web hiện khung trống).
+  images:
+    base-url: ${SUPABASE_URL:}
+    bucket: ${SUPABASE_BUCKET:product-images}

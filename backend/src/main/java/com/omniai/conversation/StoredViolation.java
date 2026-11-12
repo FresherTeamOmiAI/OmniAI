@@ -10,7 +10,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/** Một luật policy đã kích hoạt trên câu bot (bảng message_violation, V9). */
+/** Một luật policy đã kích hoạt trên câu bot (bảng message_violation, V11). */
 @Embeddable
 @Getter
 @Setter

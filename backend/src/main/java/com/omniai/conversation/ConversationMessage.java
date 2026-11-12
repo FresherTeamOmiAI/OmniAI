@@ -22,7 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Một tin trong hội thoại (bảng conversation_message, V9). IN = tin khách gửi, OUT = câu bot gửi ra kênh.
+ * Một tin trong hội thoại (bảng conversation_message, V11). IN = tin khách gửi, OUT = câu bot gửi ra kênh.
  * Câu OUT giữ cả rawText (AI nói gì) lẫn text = finalText (khách nhận gì) và các luật đã kích hoạt. Owner: TuTM.
  */
 @Entity

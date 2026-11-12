@@ -1,6 +1,6 @@
 # Backend (Spring Boot)
 
-> Cập nhật: 2026-11-12 · commit 8dbf10a · T-11.1–T-11.3; trước đó T-25.1, T-25.2
+> Cập nhật: 2026-11-12 · commit 67e63cc · T-11.1–T-11.3; trước đó T-25.1, T-25.2, T-47.1
 > Nguồn: `backend/pom.xml`, `backend/src/main/java/com/omniai/**` (gồm `conversation/*`), `backend/src/test/**`, `simulators/tiktok-shop/**`
 
 Spring Boot 4.1.2, Java 21, Maven (chưa có `mvnw`). Starter đang dùng: webmvc, websocket, validation, data-jpa, flyway (+postgresql), actuator, security, lombok. Test dùng spring-boot-starter-test, webmvc-test (MockMvc), security-test + Testcontainers (postgresql). Kiến trúc modular monolith: mỗi package là một module.
@@ -15,7 +15,7 @@ Spring Boot 4.1.2, Java 21, Maven (chưa có `mvnw`). Starter đang dùng: webmv
 | `channel.simulator` | Giả lập kênh bất kỳ (bench, khi chưa có API sàn) | `SimulatorController`, `SimulatorAdapter` (record, không phải bean), `SimulatorRequest` | TuTM |
 | `channel.tiktok` | Kênh TikTok Shop (US-25): webhook, OAuth2, gửi tin | `TiktokWebhookController` → `TiktokWebhookQueue` → `TiktokWebhookProcessor`, `TiktokChatAdapter`, `TiktokShopClient` (`HttpTiktokShopClient`), `TiktokApi` (ký + envelope + 429), `TiktokTokenManager`, `TiktokOAuthController`, `TiktokSigner`, `TiktokErrorCode`, `TiktokModels` (DTO snake_case, JsonMapper riêng) | TuTM |
 | `channel.credential` | Token OAuth2 của shop trên kênh sàn (bảng V8) | `ChannelCredential`, `ChannelCredentialRepository` | TuTM |
-| `conversation` | Lưu hội thoại mọi kênh (bảng V9, US-11) | `ConversationRecorder` (interface router gọi; `NOOP` cho test), `ConversationService` (bản thật + đọc cho API), `ConversationController` (`/api/conversations`), `ConversationView`, `MessageView`, `Conversation`, `ConversationMessage`, `StoredViolation`, các repository | TuTM |
+| `conversation` | Lưu hội thoại mọi kênh (bảng V11, US-11) | `ConversationRecorder` (interface router gọi; `NOOP` cho test), `ConversationService` (bản thật + đọc cho API), `ConversationController` (`/api/conversations`), `ConversationView`, `MessageView`, `Conversation`, `ConversationMessage`, `StoredViolation`, các repository | TuTM |
 | `brain` | Client gọi ai-brain | `BrainClient` (interface để mock), `HttpBrainClient` (RestClient), `BrainRequest/Response` | ChienPX/TuTM |
 | `policy` | Áp luật kênh | `PolicyEngine`, `ChannelPolicy`, `PolicyRule`, `PolicyAction`, `PolicyResult`, `PolicyViolation`. Xem [policy.md](policy.md) | HungDQ |
 | `catalog` | Sản phẩm: API đọc cho store/AI, API admin | `Product`, `ProductRepository`, `ProductController` (đọc, chỉ active), `AdminProductController` + `ProductService` (CRUD admin), `ProductRequest`, `CatalogVocabulary` (luật dữ liệu), `ProductErrors`, `AdminProductExceptionHandler` (ProblemDetail) | LucVT |
@@ -25,7 +25,7 @@ Spring Boot 4.1.2, Java 21, Maven (chưa có `mvnw`). Starter đang dùng: webmv
 ## MessageRouter
 - `handle(CanonicalMessage)`: kiểm tra idempotency → `recorder.inbound` (lưu tin khách) → `brainClient.ask` → `policyEngine.apply(channel, reply)` → `recorder.reply` (lưu câu bot) → trả `BotReply`.
 - Idempotency key là `CHANNEL:messageId`, lưu trong LRU map 10.000 phần tử **trong bộ nhớ**. Chạy nhiều instance thì không đúng nữa; S7 (US-29) sẽ chuyển sang Redis. Trúng cache thì không lưu lại; mất cache (restart) thì DB tự bỏ dòng trùng.
-- Lưu hội thoại (US-11, decisions #30): tin khách lưu **trước** khi gọi Brain để Brain treo/sập thì tin vẫn còn. Brain ném exception bất kỳ thì router đổi thành `BrainResponse.unavailable()` (handoff). Lưu lỗi (DB sập) chỉ log, khách vẫn nhận câu trả lời. Mỗi lần ghi là 1 transaction ngắn, không giữ transaction trong lúc chờ Brain.
+- Lưu hội thoại (US-11, decisions #31): tin khách lưu **trước** khi gọi Brain để Brain treo/sập thì tin vẫn còn. Brain ném exception bất kỳ thì router đổi thành `BrainResponse.unavailable()` (handoff). Lưu lỗi (DB sập) chỉ log, khách vẫn nhận câu trả lời. Mỗi lần ghi là 1 transaction ngắn, không giữ transaction trong lúc chờ Brain.
 - Mọi kênh đi qua router nên tự được lưu; adapter mới không cần làm gì thêm.
 
 ## Thêm kênh mới
@@ -66,7 +66,7 @@ Hub (backend) là nguồn dữ liệu gốc. Thiết kế chi tiết viết ở 
 Quy ước: thay đổi trên hub đi qua hàng đợi đồng bộ, mỗi kênh một connector, gửi lỗi thì thử lại và không gửi trùng (US-49). Mọi webhook từ sàn đều kiểm chữ ký và chống trùng. Nội dung đẩy ra sàn phải qua luật của kênh (US-54).
 
 ## Bảo mật (`common/SecurityConfig.java`)
-- `/api/admin/**` và `/api/conversations/**` cần đăng nhập (role ADMIN, HTTP Basic, 1 tài khoản in-memory từ `omniai.admin.*`, SRS Q-01; hội thoại thêm ở US-11, decisions #30). Mọi đường khác `permitAll`: store, simulator, `/ws/chat`, webhook kênh, actuator.
+- `/api/admin/**` và `/api/conversations/**` cần đăng nhập (role ADMIN, HTTP Basic, 1 tài khoản in-memory từ `omniai.admin.*`, SRS Q-01; hội thoại thêm ở US-11, decisions #31). Mọi đường khác `permitAll`: store, simulator, `/ws/chat`, webhook kênh, actuator.
 - Stateless, tắt CSRF/form login/logout. `ADMIN_PASSWORD` rỗng thì không khởi động; còn là `admin` (mặc định dev) thì log WARN.
 - Thêm endpoint cần khóa thì đặt dưới `/api/admin/` (riêng `/api/conversations` giữ đúng tên trong backlog nên có rule riêng). US-13 (S3) thay tài khoản in-memory bằng tài khoản thật.
 
@@ -76,8 +76,8 @@ Quy ước: thay đổi trên hub đi qua hàng đợi đồng bộ, mỗi kênh
 ## Test hiện có
 - `policy/PolicyEngineTest`: link, SĐT, chặn tên kênh khác (Shopee/TikTok), WEB giữ link, làm mềm claim y khoa, giá tiền không bị tưởng là SĐT, "giá trị" không bị tưởng là "trị". File YAML sai (11 ca) hoặc thiếu kênh thì lỗi lúc khởi động; cắt `max_length` không tách emoji. Chạy bộ ca dùng chung với bench `shared/policies/tests/cases.yaml` trên cả 3 kênh.
 - `channel/MessageRouterTest`: cùng câu trả lời nhưng mỗi kênh lọc khác nhau, trùng messageId chỉ trả lời 1 lần, brain lỗi thì handoff. Dùng mock BrainClient.
-- `OmniAiApplicationTests`: Flyway + pgvector + catalog 80 SKU trên Testcontainers.
-- `catalog/AdminProductApiTest` (MockMvc): 401 khi thiếu/sai Basic; store, simulator, actuator vẫn mở; list admin gồm SKU ẩn; tạo (chuẩn hóa, 201), trùng SKU 409, validate 400 theo field, sửa và ẩn/hiện phản ánh ngay ở `/api/products`, không đổi SKU. Mỗi test rollback (`@Transactional`).
+- `OmniAiApplicationTests`: Flyway + pgvector + catalog thật trên Testcontainers. Số SKU/active/hết hàng/hãng mong đợi đọc từ `shared/catalog/products.csv` qua `TestCatalog` (test không hardcode, catalog lớn lên không phải sửa); kiểm V9 đã xoá 5 hãng hư cấu, mọi SKU có barcode/nguồn/`image_key`/giấy phép.
+- `catalog/AdminProductApiTest` (MockMvc): 401 khi thiếu/sai Basic; store, simulator, actuator vẫn mở; list admin gồm SKU ẩn; tạo (chuẩn hóa, 201), trùng SKU 409, validate 400 theo field, sửa và ẩn/hiện phản ánh ngay ở `/api/products`, không đổi SKU, sửa không làm mất cột ảnh/nguồn, `imageUrl` ghép đúng từ `omniai.images.base-url` (`@TestPropertySource`, không gọi mạng). Dùng SKU thật `CERA-CLE-01`. Mỗi test rollback (`@Transactional`).
 - Container Postgres dùng chung qua `TestcontainersConfig` (`@Import`); test `@SpringBootTest` mới cũng import class này.
 - Test tay API admin: Postman collection `backend/http/OmniAI-admin-products.postman_collection.json` (chạy được bằng newman) và `backend/http/admin-products.http` (REST Client). Hướng dẫn và bảng TC: `docs/testcases/US-08.md`.
 - `channel/web/WebChatAdapterTest`: toCanonical tạo UUID khi messageId rỗng/blank, giữ nguyên id nếu có; định tuyến đúng CanonicalMessage; gửi BotReply qua WebSocket; tin rỗng/JSON hỏng thì trả `invalid_message` mà không đóng session; đóng session khi lỗi transport.

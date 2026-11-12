@@ -25,7 +25,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 /**
- * Lưu hội thoại qua MessageRouter thật trên Postgres (Testcontainers, V9). Chỉ giả AI Brain.
+ * Lưu hội thoại qua MessageRouter thật trên Postgres (Testcontainers, V11). Chỉ giả AI Brain.
  * DB dùng chung với các IT khác nên mỗi test dùng userId ngẫu nhiên và chỉ đếm dòng của hội thoại mình.
  */
 @SpringBootTest

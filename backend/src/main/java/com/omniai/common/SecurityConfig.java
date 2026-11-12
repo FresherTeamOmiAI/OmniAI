@@ -33,7 +33,7 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        // Hội thoại là dữ liệu cá nhân của khách (US-11, decisions #30).
+                        // Hội thoại là dữ liệu cá nhân của khách (US-11, decisions #31).
                         .requestMatchers("/api/conversations", "/api/conversations/**").hasRole("ADMIN")
                         .anyRequest().permitAll())
                 .httpBasic(Customizer.withDefaults())

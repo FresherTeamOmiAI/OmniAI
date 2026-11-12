@@ -1,4 +1,4 @@
--- Lưu hội thoại mọi kênh (US-11, T-11.1, decisions #30). Owner: TuTM.
+-- Lưu hội thoại mọi kênh (US-11, T-11.1, decisions #31). Owner: TuTM.
 -- Mỗi lượt chat = 1 dòng IN (tin khách) + 1 dòng OUT (câu bot). Luật vi phạm của câu OUT nằm ở bảng con.
 
 CREATE TABLE conversation (

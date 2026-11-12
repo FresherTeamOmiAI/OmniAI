@@ -16,7 +16,7 @@ import lombok.Setter;
 import java.time.Instant;
 
 /**
- * Một hội thoại trên một kênh (bảng conversation, V9). Khóa tự nhiên: (channel, externalId),
+ * Một hội thoại trên một kênh (bảng conversation, V11). Khóa tự nhiên: (channel, externalId),
  * với externalId = {@code CanonicalMessage.conversationId}. Owner: TuTM.
  */
 @Entity
