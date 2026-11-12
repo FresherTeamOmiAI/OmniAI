@@ -30,7 +30,7 @@ Dữ liệu 2 chiều hub <-> sàn (trụ E, chưa có code, bảng US ở backe
 | Thư mục | Công nghệ | Owner | Spec |
 |---|---|---|---|
 | `backend/` `com.omniai.channel`, `common`, admin inbox, đồng bộ hub ↔ kênh, simulator TikTok Shop | Spring Boot 4.1, Java 21 | TuTM | [backend.md](backend.md) |
-| `simulators/tiktok-shop/` (app riêng, decisions #26) | Spring Boot 4.1, Java 21 | TuTM | [backend.md](backend.md), [../channel-api/tiktok.md](../channel-api/tiktok.md) |
+| `simulators/tiktok-shop/` (app riêng, decisions #28) | Spring Boot 4.1, Java 21 | TuTM | [backend.md](backend.md), [../channel-api/tiktok.md](../channel-api/tiktok.md) |
 | `backend/` `policy`, `bench/`, CI, `tools/` | Java / Python | HungDQ | [policy.md](policy.md), [bench.md](bench.md) |
 | `backend/` `catalog`, `customer`, `identity`, `order`, `promotion`, web store | Java | LucVT | [data-model.md](data-model.md) |
 | `ai-brain/`; simulator Shopee (trong `backend/`) | FastAPI, Python 3.11; Java | ChienPX | [ai-brain.md](ai-brain.md), [backend.md](backend.md) |
