@@ -11,6 +11,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 import java.time.Duration;
+import java.util.List;
 
 @Component
 public class HttpBrainClient implements BrainClient {
@@ -28,14 +29,15 @@ public class HttpBrainClient implements BrainClient {
     }
 
     @Override
-    public BrainResponse ask(CanonicalMessage message) {
+    public BrainResponse ask(CanonicalMessage message, List<BrainTurn> history) {
         BrainRequest request = new BrainRequest(
                 message.messageId(),
                 message.channel().name(),
                 message.channel().isOwned(),
                 message.channelUserId(),
                 message.customerId(),
-                message.text());
+                message.text(),
+                history == null ? List.of() : history);
         try {
             BrainResponse response = restClient.post()
                     .uri("/chat")

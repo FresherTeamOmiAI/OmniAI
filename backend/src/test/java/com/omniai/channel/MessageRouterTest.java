@@ -2,12 +2,14 @@ package com.omniai.channel;
 
 import com.omniai.brain.BrainClient;
 import com.omniai.brain.BrainResponse;
+import com.omniai.brain.BrainTurn;
 import com.omniai.channel.simulator.SimulatorAdapter;
 import com.omniai.channel.simulator.SimulatorRequest;
 import com.omniai.common.BotReply;
 import com.omniai.common.CanonicalMessage;
 import com.omniai.common.ChannelType;
 import com.omniai.conversation.ConversationRecorder;
+import com.omniai.conversation.TurnHistory;
 import com.omniai.policy.PolicyEngine;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,7 +24,7 @@ class MessageRouterTest {
 
     /** Brain giả: luôn trả lời "ngây thơ" có link để kiểm tra policy từng kênh. */
     private final AtomicInteger brainCalls = new AtomicInteger();
-    private final BrainClient naiveBrain = message -> {
+    private final BrainClient naiveBrain = (message, history) -> {
         brainCalls.incrementAndGet();
         return new BrainResponse("Bạn đặt trên website https://omni-demo.local cho rẻ nhé", "test", List.of(), false);
     };
@@ -72,7 +74,7 @@ class MessageRouterTest {
 
     @Test
     void routerAppliesMedicalClaimSofteningOnWebReply() {
-        BrainClient medicalBrain = m -> new BrainResponse("Serum này đặc trị mụn viêm rất nhanh", "test", List.of(), false);
+        BrainClient medicalBrain = (m, history) -> new BrainResponse("Serum này đặc trị mụn viêm rất nhanh", "test", List.of(), false);
         MessageRouter medRouter = new MessageRouter(medicalBrain, new PolicyEngine("../shared/policies"), ConversationRecorder.NOOP);
 
         BotReply reply = medRouter.handle(message(ChannelType.WEB, "m-med"));
@@ -83,11 +85,27 @@ class MessageRouterTest {
 
     @Test
     void brainDownTriggersHandoff() {
-        MessageRouter routerWithDeadBrain = new MessageRouter(m -> BrainResponse.unavailable(), new PolicyEngine("../shared/policies"), ConversationRecorder.NOOP);
+        MessageRouter routerWithDeadBrain = new MessageRouter((m, history) -> BrainResponse.unavailable(), new PolicyEngine("../shared/policies"), ConversationRecorder.NOOP);
 
         BotReply reply = routerWithDeadBrain.handle(message(ChannelType.WEB, "m-down"));
 
         assertThat(reply.handoff()).isTrue();
+    }
+
+    @Test
+    void passesEarlierTurnsToTheBrain() {
+        List<List<BrainTurn>> seen = new ArrayList<>();
+        BrainClient brain = (message, history) -> {
+            seen.add(history);
+            return new BrainResponse("Chào bạn", "test", List.of(), false);
+        };
+        TurnHistory history = message -> List.of(new BrainTurn("assistant", "Gợi ý trong shop:\n1. CeraVe — Foaming Cleanser — 289.000đ"));
+        MessageRouter r = new MessageRouter(brain, new PolicyEngine("../shared/policies"), ConversationRecorder.NOOP, history);
+
+        r.handle(message(ChannelType.WEB, "m-hist"));
+
+        assertThat(seen).hasSize(1);
+        assertThat(seen.get(0)).containsExactly(new BrainTurn("assistant", "Gợi ý trong shop:\n1. CeraVe — Foaming Cleanser — 289.000đ"));
     }
 
     /** Recorder giả: ghi lại thứ tự lời gọi, có thể bắt ném lỗi như DB sập. */
@@ -111,7 +129,7 @@ class MessageRouterTest {
     @Test
     void recordsInboundBeforeAskingBrainAndReplyAfter() {
         RecordingRecorder recorder = new RecordingRecorder();
-        BrainClient brain = m -> {
+        BrainClient brain = (m, history) -> {
             recorder.calls.add("brain");
             return new BrainResponse("Chào bạn", "test", List.of(), false);
         };
@@ -139,7 +157,7 @@ class MessageRouterTest {
     @Test
     void brainExceptionBecomesHandoffAndIsRecorded() {
         RecordingRecorder recorder = new RecordingRecorder();
-        BrainClient crashing = m -> {
+        BrainClient crashing = (m, history) -> {
             throw new IllegalStateException("brain nổ");
         };
         MessageRouter r = new MessageRouter(crashing, new PolicyEngine("../shared/policies"), recorder);

@@ -35,4 +35,6 @@ public interface ConversationRepository extends JpaRepository<Conversation, Long
     void touch(Long id, Instant at);
 
     Page<Conversation> findByChannel(ChannelType channel, Pageable pageable);
+
+    java.util.Optional<Conversation> findByChannelAndExternalId(ChannelType channel, String externalId);
 }

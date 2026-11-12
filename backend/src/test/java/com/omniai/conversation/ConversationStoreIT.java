@@ -68,7 +68,7 @@ class ConversationStoreIT {
 
     @Test
     void storesInboundAndReplyWithRawFinalTextAndViolations() {
-        when(brainClient.ask(any())).thenReturn(new BrainResponse(LINK_REPLY, "test", List.of(), false));
+        when(brainClient.ask(any(), any())).thenReturn(new BrainResponse(LINK_REPLY, "test", List.of(), false));
         CanonicalMessage m = message(ChannelType.SHOPEE, "u-" + UUID.randomUUID(), "m-" + UUID.randomUUID(),
                 "Chỗ nào rẻ hơn?");
 
@@ -99,7 +99,7 @@ class ConversationStoreIT {
 
     @Test
     void messagesOfSameConversationShareOneRowAndDuplicatesAreNotStoredTwice() {
-        when(brainClient.ask(any())).thenReturn(new BrainResponse("Chào bạn", "test", List.of(), false));
+        when(brainClient.ask(any(), any())).thenReturn(new BrainResponse("Chào bạn", "test", List.of(), false));
         String user = "u-" + UUID.randomUUID();
         CanonicalMessage first = message(ChannelType.WEB, user, "m1-" + UUID.randomUUID(), "Xin chào");
         CanonicalMessage second = message(ChannelType.WEB, user, "m2-" + UUID.randomUUID(), "Có kem chống nắng không?");
@@ -120,7 +120,7 @@ class ConversationStoreIT {
     @Test
     void brainUnavailableStillStoresBothMessagesWithHandoff() {
         // HttpBrainClient trả unavailable() khi Brain sập, timeout 10 s hoặc trả lỗi HTTP.
-        when(brainClient.ask(any())).thenReturn(BrainResponse.unavailable());
+        when(brainClient.ask(any(), any())).thenReturn(BrainResponse.unavailable());
         CanonicalMessage m = message(ChannelType.WEB, "u-" + UUID.randomUUID(), "m-" + UUID.randomUUID(),
                 "Serum nào cho da dầu?");
 
@@ -132,7 +132,7 @@ class ConversationStoreIT {
 
     @Test
     void brainExceptionStillStoresBothMessagesWithHandoff() {
-        when(brainClient.ask(any())).thenThrow(new IllegalStateException("brain nổ"));
+        when(brainClient.ask(any(), any())).thenThrow(new IllegalStateException("brain nổ"));
         CanonicalMessage m = message(ChannelType.TIKTOK, "u-" + UUID.randomUUID(), "m-" + UUID.randomUUID(),
                 "Kem này có cồn không?");
 
@@ -156,7 +156,7 @@ class ConversationStoreIT {
 
     @Test
     void sameUserOnDifferentChannelsGivesSeparateConversations() {
-        when(brainClient.ask(any())).thenReturn(new BrainResponse("Chào bạn", "test", List.of(), false));
+        when(brainClient.ask(any(), any())).thenReturn(new BrainResponse("Chào bạn", "test", List.of(), false));
         String user = "u-" + UUID.randomUUID();
         CanonicalMessage web = message(ChannelType.WEB, user, "m-" + UUID.randomUUID(), "Hi");
         CanonicalMessage tiktok = message(ChannelType.TIKTOK, user, "m-" + UUID.randomUUID(), "Hi");

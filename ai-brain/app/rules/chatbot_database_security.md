@@ -7,6 +7,7 @@ Tài liệu này là quy tắc của OmniAI, không phải mẫu database chung.
 | Nguồn | Chatbot |
 |---|---|
 | View `chatbot_catalog` | Được đọc. Cột: `brand`, `name`, `category`, `skin_types`, `skin_concerns`, `usage_time`, `price_web`, `price_shopee`, `price_tiktok`. Chỉ sản phẩm `active`. |
+| View `chatbot_catalog_search` | Được đọc khi tìm sản phẩm. Thêm `sku` và `embedding`. Vẫn chỉ sản phẩm `active`, không có tồn kho. |
 | `product.stock` | Không. Tồn kho vẫn chờ tool ở US-15. |
 | `customer` | Không. Có email và số điện thoại. |
 | `channel_identity` | Không. Có mã người dùng trên sàn và thời điểm consent. |
@@ -23,7 +24,7 @@ Tài liệu này là quy tắc của OmniAI, không phải mẫu database chung.
 
 Một lượt chat chỉ gọi model một lần. Timeout backend tới brain là 10 giây, nên không thêm một lượt model chỉ để sinh SQL.
 
-1. Brain chạy đúng một câu `SELECT` đã viết sẵn trong code.
+1. Brain chạy câu `SELECT` đã viết sẵn trong code. Hỏi sản phẩm thì thêm một câu đọc `chatbot_catalog_search` (có `embedding`), vẫn viết sẵn, không do model sinh.
 2. Câu đó vẫn đi qua validator, rồi thực thi bằng `chatbot_reader`.
 3. Các dòng trả về được gắn vào system prompt.
 4. Model viết câu trả lời. `grounding.py` giữ giá khi số tiền khớp catalog vừa đọc, và vẫn xóa tồn kho, khuyến mãi, hoặc giá model tự bịa.

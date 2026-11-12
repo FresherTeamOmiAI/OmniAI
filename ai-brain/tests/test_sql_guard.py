@@ -1,6 +1,6 @@
 import pytest
 
-from app.rules.sql_guard import CATALOG_SQL, SqlRejected, validate_sql
+from app.rules.sql_guard import CATALOG_SQL, SEARCH_SQL, SqlRejected, validate_sql
 
 
 def test_fixed_catalog_query_is_allowed():
@@ -27,3 +27,13 @@ def test_rejects_customer_table_and_writes():
         )
     with pytest.raises(SqlRejected):
         validate_sql("SELECT brand, stock FROM chatbot_catalog")
+    with pytest.raises(SqlRejected):
+        validate_sql("SELECT brand, stock FROM chatbot_catalog_search")
+
+
+def test_search_query_can_read_embedding_but_not_from_the_public_catalog():
+    sql = validate_sql(SEARCH_SQL)
+    assert "chatbot_catalog_search" in sql
+    assert "embedding" in sql.lower()
+    with pytest.raises(SqlRejected):
+        validate_sql("SELECT embedding FROM chatbot_catalog")

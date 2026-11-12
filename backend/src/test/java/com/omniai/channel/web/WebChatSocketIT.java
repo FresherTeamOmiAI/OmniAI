@@ -45,7 +45,7 @@ class WebChatSocketIT {
 
     @BeforeEach
     void connect() throws Exception {
-        when(brainClient.ask(any())).thenReturn(new BrainResponse(FIXED_REPLY, "test", List.of(), false));
+        when(brainClient.ask(any(), any())).thenReturn(new BrainResponse(FIXED_REPLY, "test", List.of(), false));
         session = new StandardWebSocketClient()
                 .execute(new TextWebSocketHandler() {
                     @Override

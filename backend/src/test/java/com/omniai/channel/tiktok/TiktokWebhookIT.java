@@ -74,7 +74,7 @@ class TiktokWebhookIT {
     @BeforeEach
     void setUp() {
         reset(brainClient, shopClient);
-        when(brainClient.ask(any())).thenReturn(new BrainResponse(REPLY, "test", List.of(), false));
+        when(brainClient.ask(any(), any())).thenReturn(new BrainResponse(REPLY, "test", List.of(), false));
     }
 
     // ---------- helper ----------
@@ -133,7 +133,7 @@ class TiktokWebhookIT {
         mvc.perform(post(WEBHOOK).contentType(MediaType.APPLICATION_JSON).header("Authorization", signature)
                         .content(body.replace("hi", "hello")))
                 .andExpect(status().isUnauthorized());
-        verify(brainClient, after(300).never()).ask(any());
+        verify(brainClient, after(300).never()).ask(any(), any());
     }
 
     @Test
@@ -153,7 +153,7 @@ class TiktokWebhookIT {
 
     @Test
     void acknowledgesWithinThreeSecondsEvenWhenBrainIsSlow() throws Exception {
-        when(brainClient.ask(any())).thenAnswer(inv -> {
+        when(brainClient.ask(any(), any())).thenAnswer(inv -> {
             Thread.sleep(5_000);
             return new BrainResponse(REPLY, "test", List.of(), false);
         });
@@ -196,7 +196,7 @@ class TiktokWebhookIT {
         for (String role : List.of("ROBOT", "SHOP", "CUSTOMER_SERVICE", "SYSTEM")) {
             postSigned(newMessage(id(), id(), role, "Dạ shop chào bạn")).andExpect(status().isOk());
         }
-        verify(brainClient, after(500).never()).ask(any());
+        verify(brainClient, after(500).never()).ask(any(), any());
         verify(shopClient, never()).sendText(anyString(), anyString(), anyString());
     }
 
@@ -204,7 +204,7 @@ class TiktokWebhookIT {
 
     @Test
     void replyGoesThroughTiktokPolicy() throws Exception {
-        when(brainClient.ask(any())).thenReturn(new BrainResponse(
+        when(brainClient.ask(any(), any())).thenReturn(new BrainResponse(
                 "Bạn nhắn Zalo shop để được giá tốt hơn nhé", "test", List.of(), false));
         String conversation = id();
         postSigned(newMessage(id(), conversation, "BUYER", "rẻ hơn ở đâu?")).andExpect(status().isOk());
