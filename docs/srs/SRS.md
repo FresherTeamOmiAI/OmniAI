@@ -112,7 +112,7 @@ Máy dev Windows chạy bằng `tools/systembat/*.bat`. Cần JDK 21, Maven 3.9+
 - A-02: Có ít nhất một model miễn phí đạt tiêu chí trong `docs/llm-eval/README.md` (US-05).
 - A-03: Không có khách thật. Dùng persona tổng hợp và team đóng vai; dataset bench tự xây. Báo cáo cuối phải nêu rõ giới hạn này.
 - A-04: (bỏ 11/11 cùng kênh Telegram.)
-- A-05: Catalog 80 SKU đợt 1 dùng thương hiệu hư cấu (tham khảo Open Beauty Facts). US-47 tìm dữ liệu sản phẩm thật kèm ảnh để thay; ảnh và nhãn hiệu của bên thứ ba chỉ dùng cho mục đích học tập. *(sửa 11/11)*
+- A-05: Catalog là sản phẩm thật của các hãng có bán ở VN, lấy từ Open Beauty Facts (ODbL, ảnh CC BY-SA 3.0, US-47, decisions #27, #30); 80 SKU hư cấu đợt 1 đã xoá. Giá, tồn kho, loại da, mô tả do shop demo tự đặt. Ảnh và nhãn hiệu của bên thứ ba chỉ dùng cho mục đích học tập, mọi nơi hiển thị phải ghi nguồn. *(sửa 12/11)*
 - A-06: Luật thành phần cần người có chuyên môn (dược sĩ hoặc bác sĩ da liễu) review trước khi demo.
 - A-07: Schema simulator lấy từ tài liệu công khai của Shopee Open Platform và TikTok Shop Partner Center tại thời điểm đọc (T-21.4, T-25.3); sàn đổi API sau đó thì simulator không tự cập nhật. *(thêm 11/11)*
 

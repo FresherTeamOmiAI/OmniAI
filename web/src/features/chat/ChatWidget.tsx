@@ -1,4 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
+import { formatVnd } from '../../shared/lib/format'
+import { getJson } from '../../shared/lib/http'
+import type { Page, Product } from '../../shared/types'
+import { ProductThumb, splitSuggestion } from './suggestionCards'
 import { useChatSocket } from './useChatSocket'
 
 const STATUS_LABEL = {
@@ -11,7 +15,31 @@ const STATUS_LABEL = {
 export function ChatWidget() {
   const [open, setOpen] = useState(true)
   const [draft, setDraft] = useState('')
+  const [products, setProducts] = useState<Product[]>([])
   const { lines, status, isPending, send, reconnect } = useChatSocket()
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      const all: Product[] = []
+      let page = 0
+      try {
+        for (;;) {
+          const result = await getJson<Page<Product>>(`/api/products?page=${page}&size=100`)
+          all.push(...result.items)
+          if (cancelled || all.length >= result.total || result.items.length === 0) break
+          page += 1
+        }
+        if (!cancelled) setProducts(all)
+      } catch {
+        if (!cancelled) setProducts([])
+      }
+    }
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
   const linesEndRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -62,16 +90,36 @@ export function ChatWidget() {
             Thử hỏi: &ldquo;Kem chống nắng cho da dầu&rdquo; hoặc &ldquo;Mình đang mang thai, dùng retinol được không?&rdquo;
           </li>
         )}
-        {lines.map((line) => (
-          <li
-            key={line.id}
-            className={`chat-line chat-line-${line.from}${line.error ? ' chat-line-error' : ''}`}
-            role={line.error ? 'alert' : undefined}
-          >
-            {line.text}
-            {line.handoff && <em className="chat-handoff">Đã chuyển cho nhân viên hỗ trợ</em>}
-          </li>
-        ))}
+        {lines.map((line) => {
+          const suggestion = line.from === 'bot' && !line.error ? splitSuggestion(line.text, products) : null
+          const items = suggestion?.items ?? []
+          const note = suggestion && items.length > 0 ? suggestion.note : line.text
+          return (
+            <li
+              key={line.id}
+              className={`chat-line chat-line-${line.from}${line.error ? ' chat-line-error' : ''}${items.length > 0 ? ' chat-line-rich' : ''}`}
+              role={line.error ? 'alert' : undefined}
+            >
+              {items.length > 0 && (
+                <ul className="chat-skus">
+                  {items.map((item) => (
+                    <li key={item.key} className="chat-sku">
+                      <ProductThumb category={item.category} label={item.sku ?? item.brand} imageUrl={item.imageUrl} />
+                      <div className="chat-sku-copy">
+                        {item.sku && <span className="chat-sku-code">{item.sku}</span>}
+                        <p className="chat-sku-name">{item.name}</p>
+                        <p className="chat-sku-brand">{item.brand}</p>
+                        <p className="chat-sku-price">{formatVnd(item.price)}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {items.length > 0 ? note && <p className="chat-note">{note}</p> : line.text}
+              {line.handoff && <em className="chat-handoff">Đã chuyển cho nhân viên hỗ trợ</em>}
+            </li>
+          )
+        })}
         {isPending && (
           <li className="chat-line chat-line-bot chat-line-typing" aria-live="polite">
             <span className="typing-dot" />

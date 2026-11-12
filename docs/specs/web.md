@@ -1,6 +1,6 @@
 # Web (React + Vite)
 
-> Cập nhật: 2026-11-11 · commit c5ffbd9 · T-06.8
+> Cập nhật: 2026-11-12 · T-09.1 store phân trang, bỏ link nguồn từng thẻ
 > Nguồn: `web/src/**`, `web/vite.config.ts`, `web/package.json`
 
 React 19, Vite 8, TypeScript 7, react-router 7, lint bằng oxlint. Chưa có thư viện UI, state hay test. Chạy `npm run dev` (:5173) hoặc `run-web.bat`. Kiểm tra bằng `npm run build` (gồm `tsc -b`).
@@ -23,7 +23,7 @@ Feature chỉ import từ `shared/` hoặc qua `index.ts` của feature khác, *
 
 | Path | Component | Feature |
 |---|---|---|
-| `/` | `StorePage`: danh sách sản phẩm, lọc theo loại da | `features/store` (LucVT) |
+| `/` | `StorePage`: danh sách sản phẩm phân trang 20 SKU/trang (`?page&size=20&sort=id`, nút Trước/Sau, đổi loại da thì về trang 1), lọc theo loại da, ảnh từ `imageUrl` (khung trống nếu null), không ghi nguồn từng thẻ; cuối trang dòng ghi nguồn Open Beauty Facts (ODbL, CC BY-SA 3.0, **bắt buộc**) | `features/store` (LucVT) |
 | `/admin/products` | `ProductAdminPage`: đăng nhập admin, bảng sản phẩm (gồm SKU ẩn, tìm, lọc trạng thái, phân trang), dialog thêm/sửa, nút ẩn/hiện | `features/product-admin` (LucVT) |
 | `/admin/policy` | `PolicyPlaygroundPage`: gửi 1 câu vào WEB/SHOPEE/TIKTOK qua simulator, so sánh rawText và finalText | `features/policy-playground` (HungDQ) |
 | mọi trang trừ `/admin/*` | `ChatWidget` + `useChatSocket` (WS `/ws/chat`, trạng thái `connecting/open/closed`), gắn trong `ShopLayout` | `features/chat` (TuTM) |

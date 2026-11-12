@@ -2,15 +2,19 @@ package com.omniai.channel;
 
 import com.omniai.brain.BrainClient;
 import com.omniai.brain.BrainResponse;
+import com.omniai.brain.BrainTurn;
 import com.omniai.channel.simulator.SimulatorAdapter;
 import com.omniai.channel.simulator.SimulatorRequest;
 import com.omniai.common.BotReply;
 import com.omniai.common.CanonicalMessage;
 import com.omniai.common.ChannelType;
+import com.omniai.conversation.ConversationRecorder;
+import com.omniai.conversation.TurnHistory;
 import com.omniai.policy.PolicyEngine;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -20,7 +24,7 @@ class MessageRouterTest {
 
     /** Brain giả: luôn trả lời "ngây thơ" có link để kiểm tra policy từng kênh. */
     private final AtomicInteger brainCalls = new AtomicInteger();
-    private final BrainClient naiveBrain = message -> {
+    private final BrainClient naiveBrain = (message, history) -> {
         brainCalls.incrementAndGet();
         return new BrainResponse("Bạn đặt trên website https://omni-demo.local cho rẻ nhé", "test", List.of(), false);
     };
@@ -29,7 +33,7 @@ class MessageRouterTest {
 
     @BeforeEach
     void setUp() {
-        router = new MessageRouter(naiveBrain, new PolicyEngine("../shared/policies"));
+        router = new MessageRouter(naiveBrain, new PolicyEngine("../shared/policies"), ConversationRecorder.NOOP);
     }
 
     private static CanonicalMessage message(ChannelType channel, String messageId) {
@@ -70,8 +74,8 @@ class MessageRouterTest {
 
     @Test
     void routerAppliesMedicalClaimSofteningOnWebReply() {
-        BrainClient medicalBrain = m -> new BrainResponse("Serum này đặc trị mụn viêm rất nhanh", "test", List.of(), false);
-        MessageRouter medRouter = new MessageRouter(medicalBrain, new PolicyEngine("../shared/policies"));
+        BrainClient medicalBrain = (m, history) -> new BrainResponse("Serum này đặc trị mụn viêm rất nhanh", "test", List.of(), false);
+        MessageRouter medRouter = new MessageRouter(medicalBrain, new PolicyEngine("../shared/policies"), ConversationRecorder.NOOP);
 
         BotReply reply = medRouter.handle(message(ChannelType.WEB, "m-med"));
 
@@ -81,10 +85,87 @@ class MessageRouterTest {
 
     @Test
     void brainDownTriggersHandoff() {
-        MessageRouter routerWithDeadBrain = new MessageRouter(m -> BrainResponse.unavailable(), new PolicyEngine("../shared/policies"));
+        MessageRouter routerWithDeadBrain = new MessageRouter((m, history) -> BrainResponse.unavailable(), new PolicyEngine("../shared/policies"), ConversationRecorder.NOOP);
 
         BotReply reply = routerWithDeadBrain.handle(message(ChannelType.WEB, "m-down"));
 
         assertThat(reply.handoff()).isTrue();
+    }
+
+    @Test
+    void passesEarlierTurnsToTheBrain() {
+        List<List<BrainTurn>> seen = new ArrayList<>();
+        BrainClient brain = (message, history) -> {
+            seen.add(history);
+            return new BrainResponse("Chào bạn", "test", List.of(), false);
+        };
+        TurnHistory history = message -> List.of(new BrainTurn("assistant", "Gợi ý trong shop:\n1. CeraVe — Foaming Cleanser — 289.000đ"));
+        MessageRouter r = new MessageRouter(brain, new PolicyEngine("../shared/policies"), ConversationRecorder.NOOP, history);
+
+        r.handle(message(ChannelType.WEB, "m-hist"));
+
+        assertThat(seen).hasSize(1);
+        assertThat(seen.get(0)).containsExactly(new BrainTurn("assistant", "Gợi ý trong shop:\n1. CeraVe — Foaming Cleanser — 289.000đ"));
+    }
+
+    /** Recorder giả: ghi lại thứ tự lời gọi, có thể bắt ném lỗi như DB sập. */
+    private static final class RecordingRecorder implements ConversationRecorder {
+        final List<String> calls = new ArrayList<>();
+        boolean fail;
+
+        @Override
+        public void inbound(CanonicalMessage message) {
+            calls.add("in:" + message.messageId());
+            if (fail) throw new IllegalStateException("DB sập");
+        }
+
+        @Override
+        public void reply(CanonicalMessage message, BotReply reply) {
+            calls.add("out:" + reply.messageId() + ":handoff=" + reply.handoff());
+            if (fail) throw new IllegalStateException("DB sập");
+        }
+    }
+
+    @Test
+    void recordsInboundBeforeAskingBrainAndReplyAfter() {
+        RecordingRecorder recorder = new RecordingRecorder();
+        BrainClient brain = (m, history) -> {
+            recorder.calls.add("brain");
+            return new BrainResponse("Chào bạn", "test", List.of(), false);
+        };
+        MessageRouter r = new MessageRouter(brain, new PolicyEngine("../shared/policies"), recorder);
+
+        r.handle(message(ChannelType.WEB, "m-rec"));
+        r.handle(message(ChannelType.WEB, "m-rec"));
+
+        // Gửi trùng messageId thì trả cache, không lưu lần nữa.
+        assertThat(recorder.calls).containsExactly("in:m-rec", "brain", "out:m-rec:handoff=false");
+    }
+
+    @Test
+    void storageFailureDoesNotBlockReply() {
+        RecordingRecorder recorder = new RecordingRecorder();
+        recorder.fail = true;
+        MessageRouter r = new MessageRouter(naiveBrain, new PolicyEngine("../shared/policies"), recorder);
+
+        BotReply reply = r.handle(message(ChannelType.WEB, "m-dbdown"));
+
+        assertThat(reply.finalText()).isNotBlank();
+        assertThat(recorder.calls).hasSize(2);
+    }
+
+    @Test
+    void brainExceptionBecomesHandoffAndIsRecorded() {
+        RecordingRecorder recorder = new RecordingRecorder();
+        BrainClient crashing = (m, history) -> {
+            throw new IllegalStateException("brain nổ");
+        };
+        MessageRouter r = new MessageRouter(crashing, new PolicyEngine("../shared/policies"), recorder);
+
+        BotReply reply = r.handle(message(ChannelType.SHOPEE, "m-crash"));
+
+        assertThat(reply.handoff()).isTrue();
+        assertThat(reply.finalText()).isEqualTo(BrainResponse.unavailable().reply());
+        assertThat(recorder.calls).containsExactly("in:m-crash", "out:m-crash:handoff=true");
     }
 }

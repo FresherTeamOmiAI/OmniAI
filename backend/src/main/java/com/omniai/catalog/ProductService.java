@@ -125,7 +125,7 @@ public class ProductService {
     static void check(ProductRequest r) {
         List<FieldViolation> errors = new ArrayList<>();
         if (!SKU.matcher(r.sku()).matches()) {
-            errors.add(new FieldViolation("sku", "phải có dạng BRAND-LOAI-NN, vd. LUMI-SUN-01"));
+            errors.add(new FieldViolation("sku", "phải có dạng BRAND-LOAI-NN, vd. CERA-CLE-01"));
         }
         if (!CATEGORIES.contains(r.category())) {
             errors.add(new FieldViolation("category", "không hợp lệ, chọn một trong " + sorted(CATEGORIES)));

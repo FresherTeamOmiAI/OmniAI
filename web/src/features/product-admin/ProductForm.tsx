@@ -169,8 +169,8 @@ export function ProductForm({ token, product, onSaved, onClose, onUnauthorized }
         <div className="dialog-body">
           {message && <p className="form-message" role="alert">{message}</p>}
           <div className="form-grid">
-            {field('sku', 'SKU', textInput('sku', { disabled: !creating, placeholder: 'LUMI-SER-81', autoFocus: creating }),
-              creating ? 'Dạng BRAND-LOẠI-SỐ, ví dụ LUMI-SER-81. Không sửa được sau khi tạo.' : 'SKU không sửa được. Nhập sai thì ẩn sản phẩm rồi tạo SKU mới.')}
+            {field('sku', 'SKU', textInput('sku', { disabled: !creating, placeholder: 'CERA-SER-02', autoFocus: creating }),
+              creating ? 'Dạng BRAND-LOẠI-SỐ, ví dụ CERA-SER-02. Không sửa được sau khi tạo.' : 'SKU không sửa được. Nhập sai thì ẩn sản phẩm rồi tạo SKU mới.')}
             {field('brand', 'Thương hiệu', textInput('brand', { placeholder: 'Lumi Lab' }))}
             {field('name', 'Tên sản phẩm', textInput('name', { autoFocus: !creating }), 'Không dùng từ như thuốc: "trị mụn", "đặc trị", "chữa"…', true)}
             {field('category', 'Loại sản phẩm', (

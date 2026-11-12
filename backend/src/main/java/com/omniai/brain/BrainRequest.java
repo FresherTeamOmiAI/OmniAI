@@ -2,6 +2,8 @@ package com.omniai.brain;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.List;
+
 /** Body gửi sang ai-brain POST /chat (snake_case cho khớp Pydantic). */
 public record BrainRequest(
         @JsonProperty("message_id") String messageId,
@@ -9,5 +11,6 @@ public record BrainRequest(
         @JsonProperty("channel_owned") boolean channelOwned,
         @JsonProperty("user_id") String userId,
         @JsonProperty("customer_id") Long customerId,
-        String text) {
+        String text,
+        List<BrainTurn> history) {
 }

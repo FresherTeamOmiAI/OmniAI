@@ -40,7 +40,7 @@ Python 3.11, FastAPI, Pydantic 2, uvicorn, httpx, psycopg 3, sqlglot. Chưa có 
 
 ## Lộ trình (backlog)
 - S1 (US-06): T-06.4 đã chạy 10/10 câu mẫu tiếng Việt qua `gemini-3.6-flash` (`ai-brain/samples/vi-context-results.jsonl`, 2026-11-06). API vẫn cộng token suy nghĩ vào `maxOutputTokens`, nên trần để 2048 và `thinkingLevel=low`. p95 của 10 câu là 6.716 ms, 4 câu vượt 5 s. PO chọn nới NFR-01 hoặc đổi sang qwen trước Sprint Review S1 (16/11).
-- S2 (US-10): embedding catalog vào pgvector + tool `search_product`.
+- S2 (US-10): `app/rag/` nhúng catalog 768 chiều vào `product.embedding`, tool `search_product` lọc loại da / giá / nhóm hàng và trả top 3 sản phẩm `active`. Câu hỏi có ràng buộc thì prompt chỉ nhận các sản phẩm đó. Ghi vector bằng `python -m app.rag.index_catalog` (`CATALOG_WRITE_URL`). 10 ca ở `bench/datasets/rag.jsonl`.
 - S3 (US-15): agent loop có tool (LangGraph) + `get_price_and_stock`.
 - S4–S8: `get_customer_profile`, `get_orders_all_channels`, `check_ingredients`, routine builder, `get_promotions`, handoff.
 - `ingredients.py` hiện là **bản mẫu**, cần người có chuyên môn review.
