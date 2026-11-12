@@ -1,6 +1,6 @@
 # Backend (Spring Boot)
 
-> Cập nhật: 2026-11-12 · commit 8dbf10a · T-11.1; trước đó T-25.1, T-25.2
+> Cập nhật: 2026-11-12 · commit 8dbf10a · T-11.1, T-11.2; trước đó T-25.1, T-25.2
 > Nguồn: `backend/pom.xml`, `backend/src/main/java/com/omniai/**` (gồm `conversation/*`), `backend/src/test/**`, `simulators/tiktok-shop/**`
 
 Spring Boot 4.1.2, Java 21, Maven (chưa có `mvnw`). Starter đang dùng: webmvc, websocket, validation, data-jpa, flyway (+postgresql), actuator, security, lombok. Test dùng spring-boot-starter-test, webmvc-test (MockMvc), security-test + Testcontainers (postgresql). Kiến trúc modular monolith: mỗi package là một module.
@@ -15,7 +15,7 @@ Spring Boot 4.1.2, Java 21, Maven (chưa có `mvnw`). Starter đang dùng: webmv
 | `channel.simulator` | Giả lập kênh bất kỳ (bench, khi chưa có API sàn) | `SimulatorController`, `SimulatorAdapter` (record, không phải bean), `SimulatorRequest` | TuTM |
 | `channel.tiktok` | Kênh TikTok Shop (US-25): webhook, OAuth2, gửi tin | `TiktokWebhookController` → `TiktokWebhookQueue` → `TiktokWebhookProcessor`, `TiktokChatAdapter`, `TiktokShopClient` (`HttpTiktokShopClient`), `TiktokApi` (ký + envelope + 429), `TiktokTokenManager`, `TiktokOAuthController`, `TiktokSigner`, `TiktokErrorCode`, `TiktokModels` (DTO snake_case, JsonMapper riêng) | TuTM |
 | `channel.credential` | Token OAuth2 của shop trên kênh sàn (bảng V8) | `ChannelCredential`, `ChannelCredentialRepository` | TuTM |
-| `conversation` | Lưu hội thoại mọi kênh (bảng V9, US-11) | `ConversationRecorder` (interface router gọi; `NOOP` cho test), `ConversationService` (bản thật), `Conversation`, `ConversationMessage`, `StoredViolation`, các repository | TuTM |
+| `conversation` | Lưu hội thoại mọi kênh (bảng V9, US-11) | `ConversationRecorder` (interface router gọi; `NOOP` cho test), `ConversationService` (bản thật + đọc cho API), `ConversationController` (`/api/conversations`), `ConversationView`, `MessageView`, `Conversation`, `ConversationMessage`, `StoredViolation`, các repository | TuTM |
 | `brain` | Client gọi ai-brain | `BrainClient` (interface để mock), `HttpBrainClient` (RestClient), `BrainRequest/Response` | ChienPX/TuTM |
 | `policy` | Áp luật kênh | `PolicyEngine`, `ChannelPolicy`, `PolicyRule`, `PolicyAction`, `PolicyResult`, `PolicyViolation`. Xem [policy.md](policy.md) | HungDQ |
 | `catalog` | Sản phẩm: API đọc cho store/AI, API admin | `Product`, `ProductRepository`, `ProductController` (đọc, chỉ active), `AdminProductController` + `ProductService` (CRUD admin), `ProductRequest`, `CatalogVocabulary` (luật dữ liệu), `ProductErrors`, `AdminProductExceptionHandler` (ProblemDetail) | LucVT |
@@ -66,9 +66,9 @@ Hub (backend) là nguồn dữ liệu gốc. Thiết kế chi tiết viết ở 
 Quy ước: thay đổi trên hub đi qua hàng đợi đồng bộ, mỗi kênh một connector, gửi lỗi thì thử lại và không gửi trùng (US-49). Mọi webhook từ sàn đều kiểm chữ ký và chống trùng. Nội dung đẩy ra sàn phải qua luật của kênh (US-54).
 
 ## Bảo mật (`common/SecurityConfig.java`)
-- Chỉ `/api/admin/**` cần đăng nhập (role ADMIN, HTTP Basic, 1 tài khoản in-memory từ `omniai.admin.*`, SRS Q-01). Mọi đường khác `permitAll`: store, simulator, `/ws/chat`, actuator.
+- `/api/admin/**` và `/api/conversations/**` cần đăng nhập (role ADMIN, HTTP Basic, 1 tài khoản in-memory từ `omniai.admin.*`, SRS Q-01; hội thoại thêm ở US-11, decisions #30). Mọi đường khác `permitAll`: store, simulator, `/ws/chat`, webhook kênh, actuator.
 - Stateless, tắt CSRF/form login/logout. `ADMIN_PASSWORD` rỗng thì không khởi động; còn là `admin` (mặc định dev) thì log WARN.
-- Thêm endpoint cần khóa thì đặt dưới `/api/admin/`. US-13 (S3) thay tài khoản in-memory bằng tài khoản thật.
+- Thêm endpoint cần khóa thì đặt dưới `/api/admin/` (riêng `/api/conversations` giữ đúng tên trong backlog nên có rule riêng). US-13 (S3) thay tài khoản in-memory bằng tài khoản thật.
 
 ## Cấu hình (`application.yml`)
 `omniai.policy-dir`, `omniai.brain.url`, `omniai.brain.timeout` (10s), `omniai.web.allowed-origins`, `omniai.admin.username/password` (env `ADMIN_USERNAME`/`ADMIN_PASSWORD`, mặc định `admin`/`admin`). Datasource đọc từ env `DB_*`. `omniai.tiktok.*` (`TiktokProperties`): `app-key/app-secret` (env `TIKTOK_APP_KEY/SECRET`, mặc định khóa test giống simulator), `base-url` (`TIKTOK_SIM_URL`), `redirect-uri`, `webhook-url`, `webhook-max-skew` 5m, `max-concurrent` 40, `timeout` 10s.
@@ -87,6 +87,7 @@ Quy ước: thay đổi trên hub đi qua hàng đợi đồng bộ, mỗi kênh
 - Simulator `simulators/tiktok-shop` (`mvn test`, không cần Docker): `AuthFlowTest`, `GatewayTest`, `CustomerServiceTest` (phân trang, invalid_params `45101002`, lỗi nghiệp vụ, khớp fixture), `RateLimitTest` (60 request đồng thời → 429), `WebhookTest` (chữ ký, retry khi 500/quá giờ, gửi trùng, Event API), `TiktokSignerTest`. Cả hai module có awaitility ở test scope.
 - `channel/MessageRouterTest`: cùng câu trả lời nhưng mỗi kênh lọc khác nhau, trùng messageId chỉ trả lời 1 lần, phân biệt key theo kênh, làm mềm claim y khoa trên WEB, brain lỗi thì handoff; lưu IN trước Brain và OUT sau, lưu lỗi không chặn trả lời, Brain ném exception thành handoff. Dùng mock BrainClient và recorder giả.
 - `conversation/ConversationStoreIT` (Spring + Testcontainers, mock BrainClient): IN/OUT đủ rawText, finalText, blocked, vi phạm; cùng hội thoại dùng 1 dòng `conversation`, gửi trùng không nhân dòng; cùng user khác kênh thành 2 hội thoại.
+- `conversation/ConversationApiTest` (MockMvc, `@Transactional` rollback, seed qua repository): 401 khi thiếu/sai Basic; lọc kênh không phân biệt hoa thường; phân trang mới nhất trước; kênh lạ/size/page sai 400; `/messages` trả rawText, finalText, vi phạm theo thứ tự thời gian; id lạ 404.
 - `policy/PolicyEngineTest`: link, SĐT, chặn tên kênh khác (Shopee/TikTok), WEB giữ link, làm mềm claim y khoa, giá tiền không bị tưởng là SĐT, "giá trị" không bị tưởng là "trị".
 - `OmniAiApplicationTests`: Flyway + pgvector trên Testcontainers.
 

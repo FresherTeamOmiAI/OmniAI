@@ -16,8 +16,8 @@ import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 
 /**
- * Chỉ khóa /api/admin/** bằng HTTP Basic với 1 tài khoản admin từ biến môi trường (SRS Q-01).
- * Mọi đường khác (store, simulator, /ws/chat, actuator) vẫn mở như trước. US-13 (S3) thay bằng tài khoản thật.
+ * Khóa /api/admin/** và /api/conversations/** bằng HTTP Basic với 1 tài khoản admin từ biến môi trường (SRS Q-01).
+ * Mọi đường khác (store, simulator, /ws/chat, actuator, webhook kênh) vẫn mở như trước. US-13 (S3) thay bằng tài khoản thật.
  */
 @Slf4j
 @Configuration
@@ -33,6 +33,8 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        // Hội thoại là dữ liệu cá nhân của khách (US-11, decisions #30).
+                        .requestMatchers("/api/conversations", "/api/conversations/**").hasRole("ADMIN")
                         .anyRequest().permitAll())
                 .httpBasic(Customizer.withDefaults())
                 .formLogin(AbstractHttpConfigurer::disable)

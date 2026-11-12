@@ -13,6 +13,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
 import lombok.Getter;
+import org.hibernate.annotations.BatchSize;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
@@ -66,6 +67,7 @@ public class ConversationMessage {
     private Instant createdAt;
 
     @ElementCollection
+    @BatchSize(size = 100)
     @CollectionTable(name = "message_violation", joinColumns = @JoinColumn(name = "message_id"))
     @OrderColumn(name = "position")
     private List<StoredViolation> violations = new ArrayList<>();

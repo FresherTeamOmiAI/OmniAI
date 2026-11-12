@@ -14,7 +14,7 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | Script chạy Windows `tools/systembat` | Done | setup / run-all / stop-all / test-all / bench | US-02 |
 | CanonicalMessage + ChannelAdapter | Done | | |
 | MessageRouter + idempotency | Khung | Idempotency in-memory (US-29). Đã lưu hội thoại | US-06, US-11, US-29 |
-| Lưu hội thoại mọi kênh | Done | `conversation/*`, bảng V9 (decisions #30). `MessageRouter` lưu tin khách trước khi gọi Brain, lưu câu bot kèm rawText/finalText/vi phạm/blocked/handoff. Brain lỗi hay ném exception thì vẫn lưu, `handoff=true`. Test `ConversationStoreIT` | US-11 |
+| Lưu hội thoại mọi kênh | Done | `conversation/*`, bảng V9 (decisions #30). `MessageRouter` lưu tin khách trước khi gọi Brain, lưu câu bot kèm rawText/finalText/vi phạm/blocked/handoff. Brain lỗi hay ném exception thì vẫn lưu, `handoff=true`. API `GET /api/conversations` (lọc kênh, phân trang) và `/{id}/messages`, cần Basic ADMIN. Test `ConversationStoreIT`, `ConversationApiTest`. Chưa có màn admin (US-14, S3) | US-11 |
 | Kênh WEB (WebSocket) | Done | T-06.1 FE widget auto-reconnect + T-06.2 BE adapter + T-06.8: server trả `invalid_message` cho tin JSON lỗi/rỗng, widget timeout 12 s, test WS thật `WebChatSocketIT` | US-06 |
 | Simulator API | Done | Dùng cho bench và `/admin/policy` | US-07 |
 | Kênh Telegram / Messenger | Đã bỏ | Bỏ khỏi dự án ngày 11/11 (decisions #22): xóa enum, YAML; hủy US-17, US-18 | |
