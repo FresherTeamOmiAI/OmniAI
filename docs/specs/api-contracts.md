@@ -1,6 +1,6 @@
 # Hợp đồng API
 
-> Cập nhật: 2026-11-13 · T-09.2 bộ lọc `GET /api/products`; T-04.1 `prices` theo kênh, `GET /api/admin/sales-channels` (decisions #32); trước đó US-11 (T-11.2), US-25, T-47.1
+> Cập nhật: 2026-11-13 · T-09.3 `/api/orders`; T-09.2 bộ lọc `GET /api/products`; T-04.1 `prices` theo kênh, `GET /api/admin/sales-channels` (decisions #32); trước đó US-11 (T-11.2), US-25, T-47.1
 > Nguồn: `backend/.../channel/simulator/*`, `channel/web/*`, `channel/tiktok/*`, `catalog/ProductController.java`, `catalog/AdminProductController.java`, `catalog/ProductRequest.java`, `conversation/ConversationController.java`, `brain/*`, `common/*`, `ai-brain/app/main.py`, `ai-brain/app/schemas.py`, `shared/schemas/canonical-message.schema.json`, `web/src/shared/types.ts`
 
 JSON phía backend dùng **camelCase**. Riêng hợp đồng backend → ai-brain dùng **snake_case**.
@@ -33,6 +33,17 @@ Cần header `Authorization: Basic` với `ADMIN_USERNAME`/`ADMIN_PASSWORD` (SRS
 - Server chuẩn hóa trước khi kiểm: trim, Unicode NFC, `sku` viết hoa, `category`/`skinTypes`/`skinConcerns`/`usageTime` viết thường và bỏ trùng, INCI nối bằng `", "`, chuỗi rỗng thành `null`.
 - Luật kiểm giống `tools/catalog/validate_catalog.py` (`catalog/CatalogVocabulary.java`): dạng SKU, bộ từ vựng ở [data-model.md](data-model.md), INCI ≥ 2 thành phần, giá/tồn kho ≥ 0, dung tích/PAO > 0, độ dài cột, tên/mô tả không có claim y khoa ("trị mụn", "đặc trị", "chữa"...).
 - Lỗi dạng ProblemDetail (RFC 9457, `application/problem+json`): `{type, title, status, detail, instance, errors?}`. `400` sai dữ liệu có `errors: [{field, message}]`; `400` JSON hỏng hoặc sai kiểu; `404`; `409` trùng SKU.
+
+## Đơn hàng (`/api/orders`, T-09.3, SRS UC-06)
+Mở công khai như store (đơn S2 không gắn khách, không có dữ liệu cá nhân, decisions #34). Từ S3 đơn gắn khách đăng nhập thì phải khoá theo chủ đơn.
+
+| Method | Path | Body | Trả về | Ghi chú |
+|---|---|---|---|---|
+| POST | `/api/orders` | `{items: [{productId*, quantity*}]}` | `201` + `Location`, `OrderView` | Tạo đơn **DEMO** trên kênh WEB: không thanh toán, không giao, **không trừ tồn kho** (G-04). 1–20 dòng, `quantity` 1–10; dòng trùng `productId` được gộp (tổng vẫn <= 10). Sản phẩm không có / đang ẩn → `400` ở `items[i].productId`; hết hàng / không đủ hàng / tổng > 10 → `400` ở `items[i].quantity` |
+| GET | `/api/orders/{id}` | | `OrderView` | Không có thì `404` |
+
+- `OrderView`: `id, status ("DEMO"), channel ("WEB"), items[{productId, sku, name, unitPrice, quantity, lineTotal}], total, createdAt, notice` (`notice` = "Đơn thử nghiệm: không thanh toán, không giao hàng."). `unitPrice`, `name`, `sku` là bản chụp lúc đặt.
+- Lỗi theo ProblemDetail như API sản phẩm: `400` có `errors[{field, message}]` (field dạng `items[0].quantity`), JSON hỏng `400`, `404`.
 
 ## Hội thoại (`/api/conversations`, US-11, T-11.2)
 

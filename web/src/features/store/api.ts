@@ -1,5 +1,5 @@
-import { getJson } from '../../shared/lib/http'
-import type { Page } from '../../shared/types'
+import { getJson, postJson } from '../../shared/lib/http'
+import type { OrderView, Page } from '../../shared/types'
 import type { Product } from './types'
 
 export const STORE_PAGE_SIZE = 20
@@ -25,4 +25,9 @@ export function fetchProducts(query: StoreQuery, page: number): Promise<Page<Pro
 /** Chi tiết 1 sản phẩm đang bán. Sản phẩm ẩn hoặc không tồn tại: backend trả 404 (SRS G-06). */
 export function fetchProduct(id: string): Promise<Product> {
   return getJson(`/api/products/${encodeURIComponent(id)}`)
+}
+
+/** Đặt hàng ảo (T-09.3, SRS UC-06): đơn DEMO, không thanh toán, không giao, không trừ tồn kho. */
+export function createDemoOrder(items: { productId: number; quantity: number }[]): Promise<OrderView> {
+  return postJson('/api/orders', { items })
 }

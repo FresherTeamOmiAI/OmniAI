@@ -1,6 +1,6 @@
 # Backend (Spring Boot)
 
-> Cập nhật: 2026-11-13 · T-09.2 `StoreFilterApiTest`; T-04.1 bước thêm kênh có bán hàng (V13); trước đó 2026-11-12 · commit 67e63cc · T-11.1–T-11.3; trước đó T-25.1, T-25.2, T-47.1
+> Cập nhật: 2026-11-13 · T-09.3 `DemoOrderApiTest`; T-09.2 `StoreFilterApiTest`; T-04.1 bước thêm kênh có bán hàng (V13); trước đó 2026-11-12 · commit 67e63cc · T-11.1–T-11.3; trước đó T-25.1, T-25.2, T-47.1
 > Nguồn: `backend/pom.xml`, `backend/src/main/java/com/omniai/**` (gồm `conversation/*`), `backend/src/test/**`, `simulators/tiktok-shop/**`
 
 Spring Boot 4.1.2, Java 21, Maven (chưa có `mvnw`). Starter đang dùng: webmvc, websocket, validation, data-jpa, flyway (+postgresql), actuator, security, lombok. Test dùng spring-boot-starter-test, webmvc-test (MockMvc), security-test + Testcontainers (postgresql). Kiến trúc modular monolith: mỗi package là một module.
@@ -80,6 +80,7 @@ Quy ước: thay đổi trên hub đi qua hàng đợi đồng bộ, mỗi kênh
 - `OmniAiApplicationTests`: Flyway + pgvector + catalog thật trên Testcontainers. Số SKU/active/hết hàng/hãng mong đợi đọc từ `shared/catalog/products.csv` qua `TestCatalog` (test không hardcode, catalog lớn lên không phải sửa); kiểm V9 đã xoá 5 hãng hư cấu, mọi SKU có barcode/nguồn/`image_key`/giấy phép.
 - `catalog/AdminProductApiTest` (MockMvc): 401 khi thiếu/sai Basic; store, simulator, actuator vẫn mở; list admin gồm SKU ẩn; tạo (chuẩn hóa, 201), trùng SKU 409, validate 400 theo field, sửa và ẩn/hiện phản ánh ngay ở `/api/products`, không đổi SKU, sửa không làm mất cột ảnh/nguồn, `imageUrl` ghép đúng từ `omniai.images.base-url` (`@TestPropertySource`, không gọi mạng). Dùng SKU thật `CERA-CLE-01`. Mỗi test rollback (`@Transactional`).
 - `catalog/StoreFilterApiTest` (MockMvc, T-09.2): 6 tổ hợp lọc của `GET /api/products` (loại da, danh mục, khoảng giá, loại da + danh mục, cả 3, không khớp), đủ 5 loại da, không phân biệt hoa thường, sản phẩm ẩn không hiện, tham số sai 400 theo field, lọc giá + phân trang không trùng SKU. Số mong đợi tính từ CSV (`TestCatalog`).
+- `order/DemoOrderApiTest` (MockMvc, T-09.3): đơn DEMO kênh WEB, giá web chụp lại lúc đặt (đổi giá/tên sau không ảnh hưởng), **tồn kho không đổi**, gộp dòng trùng, hết hàng / không đủ hàng / sản phẩm ẩn / id không có / quantity 0, 11 / items rỗng → `400` đúng field, `GET` đơn không có `404`; ràng buộc DB của V14 (status, kênh, quantity, `line_total`).
 - Container Postgres dùng chung qua `TestcontainersConfig` (`@Import`); test `@SpringBootTest` mới cũng import class này.
 - Test tay API admin: Postman collection `backend/http/OmniAI-admin-products.postman_collection.json` (chạy được bằng newman) và `backend/http/admin-products.http` (REST Client). Hướng dẫn và bảng TC: `docs/testcases/US-08.md`.
 - `channel/web/WebChatAdapterTest`: toCanonical tạo UUID khi messageId rỗng/blank, giữ nguyên id nếu có; định tuyến đúng CanonicalMessage; gửi BotReply qua WebSocket; tin rỗng/JSON hỏng thì trả `invalid_message` mà không đóng session; đóng session khi lỗi transport.

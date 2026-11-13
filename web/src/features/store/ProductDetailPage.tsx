@@ -6,6 +6,7 @@ import { WEB_CHANNEL } from '../../shared/types'
 import { CATEGORIES, labelOf, SKIN_CONCERNS, SKIN_TYPES, USAGE_TIMES } from '../../shared/vocabulary'
 import { fetchProduct } from './api'
 import { Attribution } from './Attribution'
+import { DemoOrderBox } from './DemoOrderBox'
 import type { Product } from './types'
 
 const csv = (value: string | null) => (value ? value.split(',').map((s) => s.trim()).filter(Boolean) : [])
@@ -65,6 +66,7 @@ function Detail({ product: p }: { product: Product }) {
         <h2>{p.name}</h2>
         <p className="product-price detail-price">{price != null ? formatVnd(price) : 'Liên hệ'}</p>
         <p className="product-stock">{p.stock > 0 ? `Còn ${p.stock} sản phẩm` : 'Hết hàng'}</p>
+        <DemoOrderBox key={p.id} product={p} />
         {p.description && <p>{p.description}</p>}
 
         <dl className="detail-facts">

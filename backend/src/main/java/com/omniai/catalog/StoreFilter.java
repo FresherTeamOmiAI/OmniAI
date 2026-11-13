@@ -15,7 +15,7 @@ import java.util.Locale;
 public record StoreFilter(String skinType, String category, Long minPrice, Long maxPrice) {
 
     /** Kênh có giá dùng cho store. */
-    static final String STORE_CHANNEL = "WEB";
+    public static final String STORE_CHANNEL = "WEB";
 
     /** Trim, viết thường, chuỗi rỗng thành null (query string `?skinType=` coi như không lọc). */
     StoreFilter normalized() {
