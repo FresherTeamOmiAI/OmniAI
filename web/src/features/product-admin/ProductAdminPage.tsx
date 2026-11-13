@@ -6,7 +6,7 @@ import { listProducts, listSalesChannels, setProductActive, type ListQuery } fro
 import { loadToken, saveToken } from './auth'
 import { LoginForm } from './LoginForm'
 import { ProductForm } from './ProductForm'
-import { CATEGORIES, labelOf } from './vocabulary'
+import { CATEGORIES, labelOf } from '../../shared/vocabulary'
 
 const PAGE_SIZE = 20
 
