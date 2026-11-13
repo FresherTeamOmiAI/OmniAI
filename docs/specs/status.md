@@ -1,6 +1,6 @@
 # Trạng thái hiện tại
 
-> Cập nhật: 2026-11-13 · T-47.3 profile `supabase` cho Postgres trên Supabase (decisions #33); 2026-11-12 · T-09.1 store phân trang 20 SKU/trang (chưa có trang chi tiết); US-11 lưu hội thoại mọi kênh (T-11.1–T-11.3); T-47.1 catalog thật 366 SKU trong DB, 366 ảnh đã lên Supabase (decisions #27, #30); US-25 kênh TikTok Shop qua simulator (T-25.1–T-25.3), chạy thử với Gemini + Postman; trước đó: T-06.8 timeout widget, lập lại kế hoạch (decisions #22–#24) · Sprint hiện tại: **S2 (10–16/11/2026)**
+> Cập nhật: 2026-11-13 · T-09.2 API lọc store; T-04.1 tách giá theo kênh khỏi `product` (V13, decisions #32); T-47.3 profile `supabase` cho Postgres trên Supabase (decisions #33); 2026-11-12 · T-09.1 store phân trang 20 SKU/trang (chưa có trang chi tiết); US-11 lưu hội thoại mọi kênh (T-11.1–T-11.3); T-47.1 catalog thật 366 SKU trong DB, 366 ảnh đã lên Supabase (decisions #27, #30); US-25 kênh TikTok Shop qua simulator (T-25.1–T-25.3), chạy thử với Gemini + Postman; trước đó: T-06.8 timeout widget, lập lại kế hoạch (decisions #22–#24) · Sprint hiện tại: **S2 (10–16/11/2026)**
 
 Bảng này cho biết cái gì đã chạy được, cái gì mới là khung, cái gì chưa có. Agent đọc file này **trước khi** đi tìm code để khỏi tìm thứ chưa tồn tại. Kế hoạch chi tiết: `tools/tracking/backlog.py` và GitHub Issues (milestone Sprint 0–12).
 
@@ -37,7 +37,7 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | Customer / ChannelIdentity entity | Khung | Chưa có API | |
 | Identity (OTP, OMNI-code) | Chưa | Mới có package-info | US-13, 22 |
 | Order, Promotion | Chưa | Mới có package-info | US-09, 33 |
-| Web store (list phân trang + lọc loại da) | Khung | Chưa có trang chi tiết, chưa đặt hàng ảo | US-09 |
+| Web store (list phân trang + lọc loại da) | Khung | API lọc loại da / danh mục / khoảng giá web xong (T-09.2, `StoreFilterApiTest`); web mới dùng lọc loại da. Chưa có trang chi tiết, bộ lọc danh mục/giá trên web (T-09.1), chưa đặt hàng ảo (T-09.3) | US-09 |
 | Trang thử luật kênh `/admin/policy` | Done | | UC-24 |
 | Bench runner + policy_check | Done | 11 ca mẫu qua simulator + 6 ca luồng web qua WebSocket (`transport: ws`). Luôn chạy trên Gemini + Postgres thật; kỳ vọng không còn phụ thuộc câu của FakeProvider (T-12.4) | US-06, US-12 |
 | CI | Chưa | | US-16 |

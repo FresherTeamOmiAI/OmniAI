@@ -1,6 +1,6 @@
 # Mô hình dữ liệu
 
-> Cập nhật: 2026-11-13 · T-04.1 tách giá theo kênh (V13, decisions #32) · Owner: LucVT (catalog, customer, identity, order, promotion); TuTM (channel_credential, conversation)
+> Cập nhật: 2026-11-13 · T-09.2 store lọc qua Specification; T-04.1 tách giá theo kênh (V13, decisions #32) · Owner: LucVT (catalog, customer, identity, order, promotion); TuTM (channel_credential, conversation)
 > Nguồn: `backend/src/main/resources/db/migration/*.sql`, `backend/.../catalog/*`, `backend/.../customer/*`, `backend/.../channel/credential/*`, `backend/.../conversation/*`
 
 DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flyway** quản lý, JPA để `ddl-auto: validate`. Vì vậy mọi thay đổi bảng đều phải viết migration mới `V<n>__<mo_ta>.sql`. **Không sửa migration đã merge.**
@@ -92,7 +92,7 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 
 ## Repository
 - `SalesChannelRepository`: `findAllByOrderByOwnedDescCodeAsc` (kênh sở hữu trước).
-- `ProductRepository` (+ `JpaSpecificationExecutor` cho tìm kiếm admin): `findByActiveTrue`, `findByActiveTrueAndSkinTypesContainingIgnoreCase`, `findByIdAndActiveTrue` (store, G-06), `existsBySku`.
+- `ProductRepository` (+ `JpaSpecificationExecutor` cho tìm kiếm admin): `findByIdAndActiveTrue` (store, G-06); danh sách store dùng Specification `ProductService.storeSpec` (active + loại da + danh mục + khoảng giá web qua join `product_channel`, T-09.2), `existsBySku`.
 - Ràng buộc unique của `sku` tên là `product_sku_key` (Postgres tự đặt ở V1). `ProductService` dựa vào tên này để trả 409 khi 2 request tạo cùng SKU một lúc.
 - `CustomerRepository`: `findByEmail`, `findByPhone`.
 - `ChannelIdentityRepository`: `findByChannelAndExternalId`, `findByCustomerId`.

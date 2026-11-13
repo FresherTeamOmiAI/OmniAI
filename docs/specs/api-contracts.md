@@ -1,6 +1,6 @@
 # Hợp đồng API
 
-> Cập nhật: 2026-11-13 · T-04.1 `prices` theo kênh, `GET /api/admin/sales-channels` (decisions #32); trước đó US-11 (T-11.2), US-25, T-47.1
+> Cập nhật: 2026-11-13 · T-09.2 bộ lọc `GET /api/products`; T-04.1 `prices` theo kênh, `GET /api/admin/sales-channels` (decisions #32); trước đó US-11 (T-11.2), US-25, T-47.1
 > Nguồn: `backend/.../channel/simulator/*`, `channel/web/*`, `channel/tiktok/*`, `catalog/ProductController.java`, `catalog/AdminProductController.java`, `catalog/ProductRequest.java`, `conversation/ConversationController.java`, `brain/*`, `common/*`, `ai-brain/app/main.py`, `ai-brain/app/schemas.py`, `shared/schemas/canonical-message.schema.json`, `web/src/shared/types.ts`
 
 JSON phía backend dùng **camelCase**. Riêng hợp đồng backend → ai-brain dùng **snake_case**.
@@ -10,7 +10,7 @@ JSON phía backend dùng **camelCase**. Riêng hợp đồng backend → ai-brai
 | Method | Path | Request | Response | Ghi chú |
 |---|---|---|---|---|
 | POST | `/api/simulator/{channel}/messages` | `{messageId?, userId*, text*}` | `BotReply` | `channel` viết thường: web, shopee, tiktok. Bỏ trống `messageId` thì server tự sinh UUID; gửi trùng `messageId` thì nhận lại kết quả cũ. Dùng cho bench và trang `/admin/policy`. |
-| GET | `/api/products?skinType=&page=&size=` | | `PageResponse<Product>` = `{items, page, size, total}` | Chỉ trả sản phẩm `active=true`. `skinType` lọc kiểu "contains, không phân biệt hoa thường". Mặc định size 20. |
+| GET | `/api/products?skinType=&category=&minPrice=&maxPrice=&page=&size=&sort=` | | `PageResponse<Product>` = `{items, page, size, total}` | Chỉ trả sản phẩm `active=true`. Lọc tuỳ chọn, kết hợp AND (T-09.2): `skinType` 1 loại da (`oily, dry, combination, sensitive, normal`, khớp nguyên giá trị trong `skinTypes`); `category` 1 danh mục; `minPrice`/`maxPrice` theo **giá web** (`prices.WEB`, VND, gồm cả mốc). Không phân biệt hoa thường, bỏ trống = không lọc. Giá trị ngoài từ vựng, giá âm, `minPrice > maxPrice` thì `400` ProblemDetail có `errors[{field, message}]`; sai kiểu số thì `400`. Mặc định size 20. |
 | GET | `/api/products/{id}` | | `Product` hoặc 404 | Sản phẩm `active=false` cũng trả 404 (SRS G-06). |
 | WS | `/ws/chat` | text frame `{messageId, text}` | text frame `BotReply`, hoặc `{error:"invalid_message", messageId}` | Kênh WEB. Origin cho phép: `WEB_ALLOWED_ORIGINS`. JSON hỏng hoặc text rỗng/null thì server trả frame lỗi, không im lặng; `messageId` lấy từ tin gửi lên, là `null` nếu JSON hỏng. Session vẫn mở. Widget có timeout 12 s (lớn hơn `omniai.brain.timeout` 10 s): hết giờ thì báo "Shop đang bận". |
 | GET | `/actuator/health`, `/actuator/info` | | | |

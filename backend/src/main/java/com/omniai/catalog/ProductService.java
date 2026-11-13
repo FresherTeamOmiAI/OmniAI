@@ -4,6 +4,7 @@ import com.omniai.catalog.ProductErrors.DuplicateSku;
 import com.omniai.catalog.ProductErrors.FieldViolation;
 import com.omniai.catalog.ProductErrors.Invalid;
 import com.omniai.catalog.ProductErrors.NotFound;
+import jakarta.persistence.criteria.MapJoin;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -58,6 +59,16 @@ public class ProductService {
     /** Danh sách cho admin, gồm cả sản phẩm ẩn. {@code q} tìm trong sku và tên; {@code active} null = tất cả. */
     public Page<Product> search(String q, Boolean active, Pageable pageable) {
         return repository.findAll(filter(q, active), pageable);
+    }
+
+    /**
+     * Danh sách cho web store (T-09.2): chỉ sản phẩm active (G-06), lọc theo loại da, danh mục, khoảng giá web.
+     * Tham số sai (loại da / danh mục ngoài từ vựng, giá âm, min > max) thì 400 kèm field.
+     */
+    public Page<Product> storeSearch(StoreFilter filter, Pageable pageable) {
+        StoreFilter f = filter.normalized();
+        checkStoreFilter(f);
+        return repository.findAll(storeSpec(f), pageable);
     }
 
     public Product get(Long id) {
@@ -196,6 +207,54 @@ public class ProductService {
 
     private static List<String> sorted(Set<String> values) {
         return values.stream().sorted().toList();
+    }
+
+    private static void checkStoreFilter(StoreFilter f) {
+        List<FieldViolation> errors = new ArrayList<>();
+        if (f.skinType() != null && !SKIN_TYPES.contains(f.skinType())) {
+            errors.add(new FieldViolation("skinType", "không hợp lệ, chọn một trong " + sorted(SKIN_TYPES)));
+        }
+        if (f.category() != null && !CATEGORIES.contains(f.category())) {
+            errors.add(new FieldViolation("category", "không hợp lệ, chọn một trong " + sorted(CATEGORIES)));
+        }
+        if (f.minPrice() != null && f.minPrice() < 0) {
+            errors.add(new FieldViolation("minPrice", "phải >= 0"));
+        }
+        if (f.maxPrice() != null && f.maxPrice() < 0) {
+            errors.add(new FieldViolation("maxPrice", "phải >= 0"));
+        }
+        if (f.minPrice() != null && f.maxPrice() != null && f.minPrice() > f.maxPrice()) {
+            errors.add(new FieldViolation("minPrice", "phải <= maxPrice"));
+        }
+        if (!errors.isEmpty()) {
+            throw new Invalid(errors);
+        }
+    }
+
+    /** AND các điều kiện có mặt. Loại da khớp nguyên giá trị trong CSV (",oily,") để "dry" không khớp nhầm chuỗi khác. */
+    private static Specification<Product> storeSpec(StoreFilter f) {
+        return (root, query, cb) -> {
+            List<Predicate> where = new ArrayList<>();
+            where.add(cb.isTrue(root.get("active")));
+            if (f.skinType() != null) {
+                where.add(cb.like(cb.concat(cb.concat(",", root.<String>get("skinTypes")), ","), "%," + f.skinType() + ",%"));
+            }
+            if (f.category() != null) {
+                where.add(cb.equal(root.get("category"), f.category()));
+            }
+            if (f.minPrice() != null || f.maxPrice() != null) {
+                // Giá nằm ở product_channel (V13): join đúng dòng của kênh web, mỗi sản phẩm tối đa 1 dòng.
+                MapJoin<Product, String, Long> price = root.joinMap("prices");
+                where.add(cb.equal(price.key(), StoreFilter.STORE_CHANNEL));
+                if (f.minPrice() != null) {
+                    where.add(cb.greaterThanOrEqualTo(price.value(), f.minPrice()));
+                }
+                if (f.maxPrice() != null) {
+                    where.add(cb.lessThanOrEqualTo(price.value(), f.maxPrice()));
+                }
+            }
+            return cb.and(where.toArray(new Predicate[0]));
+        };
     }
 
     private static Specification<Product> filter(String q, Boolean active) {

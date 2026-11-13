@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Đọc shared/catalog/products.csv (nguồn của migration catalog, T-47.1) để test tính số SKU mong đợi thay vì ghi cứng.
@@ -20,7 +21,7 @@ public final class TestCatalog {
 
     /** {@code prices}: mã kênh -> giá, từ 3 cột price_web/price_shopee/price_tiktok của CSV (DB lưu ở product_channel, V13). */
     public record Row(String sku, String brand, String category, int stock, boolean active, String barcode,
-                      Map<String, Long> prices) {
+                      Map<String, Long> prices, Set<String> skinTypes) {
     }
 
     /** Cột giá trong CSV ứng với mã kênh trong sales_channel. */
@@ -75,7 +76,8 @@ public final class TestCatalog {
                 List<String> f = parse(line);
                 result.add(new Row(f.get(col.get("sku")), f.get(col.get("brand")), f.get(col.get("category")),
                         Integer.parseInt(f.get(col.get("stock"))), Boolean.parseBoolean(f.get(col.get("active"))),
-                        col.containsKey("barcode") ? f.get(col.get("barcode")) : "", prices(f, col)));
+                        col.containsKey("barcode") ? f.get(col.get("barcode")) : "", prices(f, col),
+                        Set.of(f.get(col.get("skin_types")).split(","))));
             }
             return result;
         } catch (IOException e) {
