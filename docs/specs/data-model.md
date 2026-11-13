@@ -1,6 +1,6 @@
 # Mô hình dữ liệu
 
-> Cập nhật: 2026-11-12 · commit 67e63cc · Owner: LucVT (catalog, customer, identity, order, promotion); TuTM (channel_credential, conversation)
+> Cập nhật: 2026-11-13 · T-04.1 tách giá theo kênh (V13, decisions #32) · Owner: LucVT (catalog, customer, identity, order, promotion); TuTM (channel_credential, conversation)
 > Nguồn: `backend/src/main/resources/db/migration/*.sql`, `backend/.../catalog/*`, `backend/.../customer/*`, `backend/.../channel/credential/*`, `backend/.../conversation/*`
 
 DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flyway** quản lý, JPA để `ddl-auto: validate`. Vì vậy mọi thay đổi bảng đều phải viết migration mới `V<n>__<mo_ta>.sql`. **Không sửa migration đã merge.**
@@ -12,7 +12,6 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 | `V1__init.sql` | Bảng `product`, `customer`, `channel_identity` |
 | `V2__seed_products.sql` | 8 SKU mẫu (Lumi Lab, Sen Việt, Hydra Mint, đều hư cấu). V5 cập nhật lại 8 SKU này |
 | `V3__enable_pgvector.sql` | `CREATE EXTENSION vector` |
-| `V8__product_embedding.sql` | Cột `product.embedding vector(768)` và view `chatbot_catalog_search` (US-10). Chỉ sản phẩm `active` |
 | `V4__catalog_schema_v1.sql` | Schema catalog đợt 1 (T-04.1): thêm `description`, `skin_concerns`, `usage_time`, `updated_at`; NOT NULL cho các trường AC US-04 bắt buộc; CHECK giá/tồn kho ≥ 0, dung tích/PAO > 0; index `category` |
 | `V5__import_catalog_80.sql` | Nạp 80 SKU từ `shared/catalog/products.csv` (T-08.2). **Sinh tự động** bằng `tools/catalog/csv_to_sql.py`, không sửa tay. Upsert theo `sku`: 8 SKU của V2 giữ mã/giá và có thêm mô tả, vấn đề da, buổi dùng |
 | `V6__chatbot_catalog.sql` | View `chatbot_catalog` và role `chatbot_reader` NOLOGIN. Chỉ tên, thương hiệu, loại da. Không có giá, tồn kho, email |
@@ -21,6 +20,8 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 | `V9__product_source_image.sql` | T-47.1: thêm `barcode` (unique), `source_url`, `image_key`, `image_source_url`, `image_license_note` (đều cho phép NULL); **xoá cứng 80 SKU của 5 thương hiệu hư cấu** của V2/V5 (decisions #30) |
 | `V10__import_catalog_real.sql` | Nạp 366 SKU thật từ `shared/catalog/products.csv` (T-47.1). **Sinh tự động** bằng `csv_to_sql.py`, upsert theo `sku`, gồm cả cột nguồn/ảnh |
 | `V11__conversation.sql` | Bảng `conversation`, `conversation_message`, `message_violation`: lưu hội thoại mọi kênh (US-11, decisions #31). Owner: TuTM |
+| `V12__product_embedding.sql` | Cột `product.embedding vector(768)` và view `chatbot_catalog_search` (US-10). Chỉ sản phẩm `active`. Owner: ChienPX |
+| `V13__product_channel_price.sql` | T-04.1 sửa theo review: **tách giá theo kênh khỏi `product`**. Thêm `sales_channel` (WEB, SHOPEE, TIKTOK) và `product_channel` (1 dòng / sản phẩm / kênh), chép giá 366 SKU × 3 kênh, xoá 3 cột `price_*` và CHECK `ck_product_prices`. Tạo lại 2 view chatbot với đúng tên cột cũ (decisions #32) |
 
 ## Bảng
 
@@ -33,11 +34,21 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 - `description`: mô tả tiếng Việt ≤ 2000 ký tự (công dụng, kết cấu, cách dùng), cho trang chi tiết và embedding RAG. **Không** ghi giá hay claim y khoa ("trị", "chữa").
 - `ingredients_inci`: CSV INCI, tối đa 4000 ký tự. Luật thành phần (`ai-brain/app/rules/ingredients.py`) đọc từ đây.
 - `size_ml` > 0, `pao_months` > 0 (dùng được bao lâu sau khi mở).
-- Giá theo kênh, đơn vị VND (BIGINT, ≥ 0): `price_web`, `price_shopee`, `price_tiktok`. Kênh sở hữu (WEB) dùng `price_web` (SRS G-15). Đây là giá niêm yết; khuyến mãi để ở bảng riêng (US-33).
+- **Giá không nằm trong `product`** (từ V13, decisions #32): xem `product_channel` bên dưới. Entity map thành `Map<String, Long> prices` (`@ElementCollection`, EAGER, batch 50).
 - Đơn DEMO trên web không trừ `stock` (SRS G-04). Đơn từ sàn về sẽ trừ (US-51, S5). Admin không bao giờ xoá cứng sản phẩm, chỉ đặt `active=false` (G-07). Ngoại lệ duy nhất: V9 xoá dữ liệu seed hư cấu (decisions #30).
 - `stock` ≥ 0, `active` (false = ẩn khỏi store và AI không được gợi ý). `updated_at` tự cập nhật khi sửa qua JPA (`@PreUpdate`).
 - Nguồn và ảnh (V9): `barcode` (mã trên Open Beauty Facts, unique), `source_url`, `image_key` (`<SKU>.webp` trong bucket Supabase, decisions #26), `image_source_url` (ảnh gốc), `image_license_note`. Sản phẩm admin tạo qua API để NULL; admin sửa không làm mất (không có trong `ProductRequest`). `imageUrl` không phải cột: `catalog/ProductImages.java` (entity listener) ghép từ `omniai.images.base-url` + `bucket` + `image_key`.
 - `embedding vector(768)` (V12, US-10), để trống đến khi chạy `python -m app.rag.index_catalog`. JPA không map cột này. View `chatbot_catalog_search` đọc embedding và `description` cho RAG.
+
+**sales_channel** (`catalog/SalesChannel.java`, V13): danh sách kênh bán.
+- `code` PK (`WEB | SHOPEE | TIKTOK`, khớp enum `ChannelType`; CHECK chữ hoa/số/`_`), `name`, `owned` (kênh shop sở hữu, chỉ `WEB`; SRS G-15), `active` (false = tạm ngừng bán trên kênh, giữ dữ liệu giá).
+- **Thêm sàn = INSERT 1 dòng** + giá cho các sản phẩm, không ALTER bảng nào. Code kênh (adapter) và cột trong 2 view chatbot thì vẫn phải thêm.
+
+**product_channel** (`@ElementCollection` `prices` của `Product`, V13): giá niêm yết của 1 sản phẩm trên 1 kênh.
+- PK (`product_id`, `channel_code`). `product_id` FK `product` ON DELETE CASCADE, `channel_code` FK `sales_channel`, `price` BIGINT VND, CHECK ≥ 0. Index `channel_code`.
+- AC US-04 "có giá cho mọi kênh" **không ép bằng ràng buộc DB được** nữa: `ProductService` bắt buộc đủ giá cho mọi kênh `active` (400 ở field `prices[<mã>]`), từ chối mã kênh lạ. Kênh không active thì không bắt buộc, admin sửa không làm mất giá cũ của kênh đó.
+- Bảng sẽ có thêm cột theo kênh khi cần: mã sản phẩm phía sàn, trạng thái đồng bộ (US-49). Khuyến mãi vẫn để bảng riêng (US-33).
+- View `product_price_pivot` (nội bộ, không cấp cho `chatbot_reader`) xoay giá thành `price_web, price_shopee, price_tiktok` cho `chatbot_catalog` và `chatbot_catalog_search`, nên ai-brain đọc như cũ.
 
 **customer** (`customer/Customer.java`): khách hợp nhất. `display_name`, `email` unique, `phone` unique, `created_at`.
 
@@ -80,6 +91,7 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 - Backend test đọc số SKU mong đợi từ CSV này (`backend/src/test/.../TestCatalog.java`).
 
 ## Repository
+- `SalesChannelRepository`: `findAllByOrderByOwnedDescCodeAsc` (kênh sở hữu trước).
 - `ProductRepository` (+ `JpaSpecificationExecutor` cho tìm kiếm admin): `findByActiveTrue`, `findByActiveTrueAndSkinTypesContainingIgnoreCase`, `findByIdAndActiveTrue` (store, G-06), `existsBySku`.
 - Ràng buộc unique của `sku` tên là `product_sku_key` (Postgres tự đặt ở V1). `ProductService` dựa vào tên này để trả 409 khi 2 request tạo cùng SKU một lúc.
 - `CustomerRepository`: `findByEmail`, `findByPhone`.
@@ -92,4 +104,4 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 OTP/JWT (US-13, S3, chỉ email), mã liên kết `OMNI-XXXXXX` 6 ký tự kèm đếm số lần sai theo danh tính kênh (US-22, S4, SRS G-01), order (US-09/23), promotion/voucher/lịch sử giá (US-33, S5, mốc giờ theo `Asia/Ho_Chi_Minh`), consent log (US-30, S7). Cho trụ E (decisions #23): trạng thái đồng bộ theo kênh (US-49, S3), đơn từ sàn (US-51, S5), trạng thái duyệt sản phẩm (US-54, S7), đánh giá sản phẩm (US-55, S8).
 
 ## Test
-`OmniAiApplicationTests` chạy Flyway trên Postgres thật (Testcontainers) và kiểm tra catalog đủ 80 SKU (78 active, 4 hết hàng), SKU của V2 được upsert, extension vector, cùng các ràng buộc V4 (giá âm, `usage_time` sai, thiếu giá kênh đều bị DB từ chối). Vì vậy cần Docker. `channel/tiktok/TiktokWebhookIT` lưu và đọc lại `channel_credential` (V8). `conversation/ConversationStoreIT` kiểm V11 qua `MessageRouter` thật: IN/OUT, vi phạm, chống trùng, mỗi kênh 1 hội thoại.
+`OmniAiApplicationTests` chạy Flyway trên Postgres thật (Testcontainers) và kiểm tra: số SKU / active / hết hàng / hãng đọc từ CSV (`TestCatalog`), V9 đã xoá SKU hư cấu, extension vector, ràng buộc V4 (`usage_time` sai), và V13: không còn cột `price_*` trong `product`, `product_channel` có đúng giá CSV cho mọi SKU × 3 kênh, giá âm / kênh lạ / trùng kênh bị DB từ chối, view chatbot vẫn có `price_web/shopee/tiktok`, thêm kênh `LAZADA` chỉ bằng INSERT. Vì vậy cần Docker. `channel/tiktok/TiktokWebhookIT` lưu và đọc lại `channel_credential` (V8). `conversation/ConversationStoreIT` kiểm V11 qua `MessageRouter` thật: IN/OUT, vi phạm, chống trùng, mỗi kênh 1 hội thoại.

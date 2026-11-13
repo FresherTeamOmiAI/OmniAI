@@ -12,10 +12,13 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 
@@ -40,9 +43,16 @@ public class ProductService {
     private static final String SKU_UNIQUE_CONSTRAINT = "product_sku_key";
 
     private final ProductRepository repository;
+    private final SalesChannelRepository channels;
 
-    public ProductService(ProductRepository repository) {
+    public ProductService(ProductRepository repository, SalesChannelRepository channels) {
         this.repository = repository;
+        this.channels = channels;
+    }
+
+    /** Danh sách kênh bán, kênh sở hữu trước. Form admin sinh ô giá theo danh sách này. */
+    public List<SalesChannel> channels() {
+        return channels.findAllByOrderByOwnedDescCodeAsc();
     }
 
     /** Danh sách cho admin, gồm cả sản phẩm ẩn. {@code q} tìm trong sku và tên; {@code active} null = tất cả. */
@@ -57,7 +67,7 @@ public class ProductService {
     @Transactional
     public Product create(ProductRequest request) {
         ProductRequest r = request.normalized();
-        check(r);
+        check(r, channels());
         if (repository.existsBySku(r.sku())) {
             throw new DuplicateSku(r.sku());
         }
@@ -73,7 +83,7 @@ public class ProductService {
     public Product update(Long id, ProductRequest request) {
         Product product = get(id);
         ProductRequest r = request.normalized();
-        check(r);
+        check(r, channels());
         if (!product.getSku().equals(r.sku())) {
             throw new Invalid(List.of(new FieldViolation("sku", "không được đổi SKU (đang là " + product.getSku() + ")")));
         }
@@ -115,15 +125,20 @@ public class ProductService {
         p.setIngredientsInci(r.ingredientsInci());
         p.setSizeMl(r.sizeMl());
         p.setPaoMonths(r.paoMonths());
-        p.setPriceWeb(r.priceWeb());
-        p.setPriceShopee(r.priceShopee());
-        p.setPriceTiktok(r.priceTiktok());
         p.setStock(r.stock());
+        // Chỉ ghi đè kênh có trong request: giá ở kênh đang tạm ngừng (active=false) không bị mất khi admin sửa.
+        Map<String, Long> prices = new LinkedHashMap<>(p.getPrices());
+        prices.putAll(r.prices());
+        if (!prices.equals(p.getPrices())) {
+            p.getPrices().putAll(r.prices()); // Hibernate chỉ UPDATE/INSERT đúng dòng product_channel đổi
+            p.setUpdatedAt(Instant.now()); // chỉ đổi giá thì @PreUpdate không chạy (product không đổi cột nào)
+        }
     }
 
     /** Luật giống tools/catalog/validate_catalog.py, chạy trên dữ liệu đã chuẩn hóa. */
-    static void check(ProductRequest r) {
+    static void check(ProductRequest r, List<SalesChannel> channels) {
         List<FieldViolation> errors = new ArrayList<>();
+        checkPrices(errors, r.prices(), channels);
         if (!SKU.matcher(r.sku()).matches()) {
             errors.add(new FieldViolation("sku", "phải có dạng BRAND-LOAI-NN, vd. CERA-CLE-01"));
         }
@@ -142,6 +157,22 @@ public class ProductService {
         claim(errors, "description", r.description());
         if (!errors.isEmpty()) {
             throw new Invalid(errors);
+        }
+    }
+
+    /** AC US-04: có giá cho mọi kênh đang active. Kênh lạ bị từ chối. DB không tự ép được điều này (V13). */
+    private static void checkPrices(List<FieldViolation> errors, Map<String, Long> prices, List<SalesChannel> channels) {
+        Set<String> known = new HashSet<>();
+        for (SalesChannel channel : channels) {
+            known.add(channel.getCode());
+            if (channel.isActive() && !prices.containsKey(channel.getCode())) {
+                errors.add(new FieldViolation("prices[" + channel.getCode() + "]", "bắt buộc (kênh " + channel.getName() + ")"));
+            }
+        }
+        for (String code : prices.keySet()) {
+            if (!known.contains(code)) {
+                errors.add(new FieldViolation("prices[" + code + "]", "kênh không tồn tại, chọn trong " + known.stream().sorted().toList()));
+            }
         }
     }
 

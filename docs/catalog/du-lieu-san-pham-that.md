@@ -1,6 +1,6 @@
 # Catalog sản phẩm thật kèm ảnh (T-47.1)
 
-> Cập nhật: 2026-11-12 · commit ee28494 · Owner: LucVT
+> Cập nhật: 2026-11-13 · T-04.1 giá theo kênh ở product_channel (V13) · Owner: LucVT
 > Nguồn: `shared/catalog/products.csv`, `shared/catalog/real/selection.csv`, `tools/catalog/obf_fetch.py`, `tools/catalog/obf_annotate.py`, `tools/catalog/upload_images.py`, `backend/.../db/migration/V9__product_source_image.sql`, `V10__import_catalog_real.sql`
 > Liên quan: US-47, [luu-anh-san-pham.md](luu-anh-san-pham.md) (T-47.2), [decisions #26, #27, #30](../specs/decisions.md)
 
@@ -74,7 +74,7 @@ Lệnh `search <từ khóa>` vẫn còn để tra nhanh qua API (đọc sản ph
 | `barcode`, `source_url`, `image_*` | OBF. Dòng mới tải ảnh bản 400 px; 80 dòng đầu tải bản đầy đủ rồi resize |
 | `category`, `skin_types`, `skin_concerns`, `usage_time`, `description` | Dòng `manual`: người soạn. Dòng `auto`: **quy tắc** trong `annotate()`. Loại da theo từ khoá trong tên (oil control → da dầu, sensitive/cica → nhạy cảm…). Vấn đề da theo hoạt chất (salicylic → mụn, lỗ chân lông; niacinamide; hyaluronic → cấp ẩm; retinoid → lão hoá…). Buổi dùng: SPF → sáng; retinoid/AHA/BHA → tối. Mô tả tiếng Việt theo mẫu, không có claim y khoa (validator kiểm) |
 | `price_web`, `stock`, `active` | **Shop tự đặt**, không phải giá thật. Dòng `auto`: giá gốc theo danh mục × hạng hãng × dung tích, làm tròn nghìn; tồn kho 20–200 sinh từ hash barcode |
-| `price_shopee`, `price_tiktok` | Web + 4% và web − 3%, làm tròn nghìn |
+| `price_shopee`, `price_tiktok` | Web + 4% và web − 3%, làm tròn nghìn. Trong DB, 3 cột giá của CSV thành 3 dòng ở bảng `product_channel` (V13, decisions #32) |
 
 **Sửa dữ liệu:**
 - Sửa thẳng dòng tương ứng trong `selection.csv`, đổi `annotated_by` thành `manual` nếu đã duyệt.

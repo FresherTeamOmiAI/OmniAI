@@ -1,5 +1,5 @@
 import { requestJson, type RequestOptions } from '../../shared/lib/http'
-import type { Page, Product } from '../../shared/types'
+import type { Page, Product, SalesChannel } from '../../shared/types'
 
 // API admin sản phẩm (docs/specs/api-contracts.md, mục "Admin sản phẩm").
 const BASE = '/api/admin/products'
@@ -17,9 +17,8 @@ export interface ProductInput {
   ingredientsInci: string
   sizeMl: number | null
   paoMonths: number | null
-  priceWeb: number | null
-  priceShopee: number | null
-  priceTiktok: number | null
+  /** Giá theo mã kênh. Phải có đủ mọi kênh đang active, thiếu thì backend báo lỗi ở field `prices[<mã>]`. */
+  prices: Record<string, number | null>
   stock: number | null
   active?: boolean | null
 }
@@ -41,6 +40,11 @@ export function listProducts(token: string, query: ListQuery): Promise<Page<Prod
   if (query.q.trim()) params.set('q', query.q.trim())
   if (query.active) params.set('active', query.active)
   return call(token, `${BASE}?${params}`)
+}
+
+/** Kênh bán, kênh của shop trước. Form và bảng sinh cột giá theo danh sách này (thêm sàn không phải sửa web). */
+export function listSalesChannels(token: string): Promise<SalesChannel[]> {
+  return call(token, '/api/admin/sales-channels')
 }
 
 export function createProduct(token: string, input: ProductInput): Promise<Product> {

@@ -266,7 +266,7 @@
                   "pm.test(\"Chỉ toàn SKU ẩn, có 2 SKU ẩn của catalog\", () => {",
                   "    const skus = pm.response.json().items.map(p => p.sku);",
                   "    pm.response.json().items.forEach(p => pm.expect(p.active).to.eql(false));",
-                  "    pm.expect(skus).to.include.members([\"MOC-SER-40\", \"LUMI-MSK-72\"]);",
+                  "    pm.expect(skus).to.include.members([\"NEUT-SUN-02\", \"NIVE-MSK-01\"]);",
                   "});"
                 ]
               }
@@ -303,8 +303,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"Tìm thấy LUMI-SUN-01\", () => {",
-                  "    pm.expect(pm.response.json().items.map(p => p.sku)).to.include(\"LUMI-SUN-01\");",
+                  "pm.test(\"Tìm thấy CERA-CLE-01\", () => {",
+                  "    pm.expect(pm.response.json().items.map(p => p.sku)).to.include(\"CERA-CLE-01\");",
                   "});"
                 ]
               }
@@ -314,7 +314,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/admin/products?q=lumi-sun",
+              "raw": "{{base_url}}/api/admin/products?q=cera-cle",
               "host": [
                 "{{base_url}}"
               ],
@@ -326,7 +326,7 @@
               "query": [
                 {
                   "key": "q",
-                  "value": "lumi-sun"
+                  "value": "cera-cle"
                 }
               ]
             },
@@ -434,7 +434,7 @@
             "description": "Gửi SKU viết thường có khoảng trắng, skinTypes lộn xộn để kiểm tra server chuẩn hóa. Nếu báo 409 thì SKU ngẫu nhiên trùng, bấm Send lại.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"sku\": \"  {{test_sku_lower}}  \",\n  \"name\": \"Serum thử nghiệm Niacinamide 5% (Postman)\",\n  \"brand\": \"Lumi Lab\",\n  \"category\": \"serum\",\n  \"skinTypes\": \"Oily, oily ,DRY\",\n  \"skinConcerns\": \"pores,oil-control\",\n  \"usageTime\": \"am,pm\",\n  \"description\": \"Sản phẩm tạo bởi Postman để test API admin. Tự ẩn ở bước cuối.\",\n  \"ingredientsInci\": \"Aqua,Niacinamide , Glycerin\",\n  \"sizeMl\": 30,\n  \"paoMonths\": 12,\n  \"priceWeb\": 250000,\n  \"priceShopee\": 260000,\n  \"priceTiktok\": 243000,\n  \"stock\": 10\n}",
+              "raw": "{\n  \"sku\": \"  {{test_sku_lower}}  \",\n  \"name\": \"Serum thử nghiệm Niacinamide 5% (Postman)\",\n  \"brand\": \"Lumi Lab\",\n  \"category\": \"serum\",\n  \"skinTypes\": \"Oily, oily ,DRY\",\n  \"skinConcerns\": \"pores,oil-control\",\n  \"usageTime\": \"am,pm\",\n  \"description\": \"Sản phẩm tạo bởi Postman để test API admin. Tự ẩn ở bước cuối.\",\n  \"ingredientsInci\": \"Aqua,Niacinamide , Glycerin\",\n  \"sizeMl\": 30,\n  \"paoMonths\": 12,\n  \"prices\": {\"WEB\": 250000, \"SHOPEE\": 260000, \"TIKTOK\": 243000},\n  \"stock\": 10\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -514,7 +514,7 @@
             "description": "",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"sku\": \"{{test_sku}}\",\n  \"name\": \"Serum thử nghiệm Niacinamide 5% (Postman)\",\n  \"brand\": \"Lumi Lab\",\n  \"category\": \"serum\",\n  \"skinTypes\": \"oily,combination\",\n  \"skinConcerns\": \"pores,oil-control\",\n  \"usageTime\": \"am,pm\",\n  \"description\": \"Sản phẩm tạo bởi Postman để test API admin. Tự ẩn ở bước cuối.\",\n  \"ingredientsInci\": \"Aqua, Niacinamide, Glycerin\",\n  \"sizeMl\": 30,\n  \"paoMonths\": 12,\n  \"priceWeb\": 250000,\n  \"priceShopee\": 260000,\n  \"priceTiktok\": 243000,\n  \"stock\": 10\n}",
+              "raw": "{\n  \"sku\": \"{{test_sku}}\",\n  \"name\": \"Serum thử nghiệm Niacinamide 5% (Postman)\",\n  \"brand\": \"Lumi Lab\",\n  \"category\": \"serum\",\n  \"skinTypes\": \"oily,combination\",\n  \"skinConcerns\": \"pores,oil-control\",\n  \"usageTime\": \"am,pm\",\n  \"description\": \"Sản phẩm tạo bởi Postman để test API admin. Tự ẩn ở bước cuối.\",\n  \"ingredientsInci\": \"Aqua, Niacinamide, Glycerin\",\n  \"sizeMl\": 30,\n  \"paoMonths\": 12,\n  \"prices\": {\"WEB\": 250000, \"SHOPEE\": 260000, \"TIKTOK\": 243000},\n  \"stock\": 10\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -538,9 +538,9 @@
                 "exec": [
                   "const fields = (pm.response.json().errors || []).map(e => e.field);",
                   "",
-                  "pm.test(\"400 kèm lỗi priceWeb, sizeMl, ingredientsInci\", () => {",
+                  "pm.test(\"400 kèm lỗi prices[WEB], sizeMl, ingredientsInci\", () => {",
                   "    pm.response.to.have.status(400);",
-                  "    pm.expect(fields).to.have.members([\"priceWeb\", \"sizeMl\", \"ingredientsInci\"]);",
+                  "    pm.expect(fields).to.have.members([\"prices[WEB]\", \"sizeMl\", \"ingredientsInci\"]);",
                   "});"
                 ]
               }
@@ -568,7 +568,7 @@
             "description": "",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"sku\": \"QAZZ-SER-01\",\n  \"name\": \"Serum thử nghiệm Niacinamide 5% (Postman)\",\n  \"brand\": \"Lumi Lab\",\n  \"category\": \"serum\",\n  \"skinTypes\": \"oily,combination\",\n  \"skinConcerns\": \"pores,oil-control\",\n  \"usageTime\": \"am,pm\",\n  \"description\": \"Sản phẩm tạo bởi Postman để test API admin. Tự ẩn ở bước cuối.\",\n  \"sizeMl\": 0,\n  \"paoMonths\": 12,\n  \"priceWeb\": -1,\n  \"priceShopee\": 260000,\n  \"priceTiktok\": 243000,\n  \"stock\": 10\n}",
+              "raw": "{\n  \"sku\": \"QAZZ-SER-01\",\n  \"name\": \"Serum thử nghiệm Niacinamide 5% (Postman)\",\n  \"brand\": \"Lumi Lab\",\n  \"category\": \"serum\",\n  \"skinTypes\": \"oily,combination\",\n  \"skinConcerns\": \"pores,oil-control\",\n  \"usageTime\": \"am,pm\",\n  \"description\": \"Sản phẩm tạo bởi Postman để test API admin. Tự ẩn ở bước cuối.\",\n  \"sizeMl\": 0,\n  \"paoMonths\": 12,\n  \"prices\": {\"WEB\": -1, \"SHOPEE\": 260000, \"TIKTOK\": 243000},\n  \"stock\": 10\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -617,7 +617,7 @@
             "description": "",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"sku\": \"SERUM1\",\n  \"name\": \"Serum đặc trị mụn\",\n  \"brand\": \"Lumi Lab\",\n  \"category\": \"shampoo\",\n  \"skinTypes\": \"oily,alien\",\n  \"skinConcerns\": \"pores,oil-control\",\n  \"usageTime\": \"noon\",\n  \"description\": \"Sản phẩm tạo bởi Postman để test API admin. Tự ẩn ở bước cuối.\",\n  \"ingredientsInci\": \"Aqua\",\n  \"sizeMl\": 30,\n  \"paoMonths\": 12,\n  \"priceWeb\": 250000,\n  \"priceShopee\": 260000,\n  \"priceTiktok\": 243000,\n  \"stock\": 10\n}",
+              "raw": "{\n  \"sku\": \"SERUM1\",\n  \"name\": \"Serum đặc trị mụn\",\n  \"brand\": \"Lumi Lab\",\n  \"category\": \"shampoo\",\n  \"skinTypes\": \"oily,alien\",\n  \"skinConcerns\": \"pores,oil-control\",\n  \"usageTime\": \"noon\",\n  \"description\": \"Sản phẩm tạo bởi Postman để test API admin. Tự ẩn ở bước cuối.\",\n  \"ingredientsInci\": \"Aqua\",\n  \"sizeMl\": 30,\n  \"paoMonths\": 12,\n  \"prices\": {\"WEB\": 250000, \"SHOPEE\": 260000, \"TIKTOK\": 243000},\n  \"stock\": 10\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -661,7 +661,7 @@
             "description": "",
             "body": {
               "mode": "raw",
-              "raw": "{\"sku\": \"X\", \"priceWeb\": \"rẻ\"}",
+              "raw": "{\"sku\": \"X\", \"prices\": {\"WEB\": \"rẻ\"}}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -685,7 +685,7 @@
                 "exec": [
                   "pm.test(\"200, giá mới\", () => {",
                   "    pm.response.to.have.status(200);",
-                  "    pm.expect(pm.response.json().priceWeb).to.eql(199000);",
+                  "    pm.expect(pm.response.json().prices.WEB).to.eql(199000);",
                   "});"
                 ]
               }
@@ -714,7 +714,7 @@
             "description": "",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"sku\": \"{{test_sku}}\",\n  \"name\": \"Serum thử nghiệm Niacinamide 5% (Postman)\",\n  \"brand\": \"Lumi Lab\",\n  \"category\": \"serum\",\n  \"skinTypes\": \"oily,combination\",\n  \"skinConcerns\": \"pores,oil-control\",\n  \"usageTime\": \"am,pm\",\n  \"description\": \"Sản phẩm tạo bởi Postman để test API admin. Tự ẩn ở bước cuối.\",\n  \"ingredientsInci\": \"Aqua, Niacinamide, Glycerin\",\n  \"sizeMl\": 30,\n  \"paoMonths\": 12,\n  \"priceWeb\": 199000,\n  \"priceShopee\": 260000,\n  \"priceTiktok\": 243000,\n  \"stock\": 10\n}",
+              "raw": "{\n  \"sku\": \"{{test_sku}}\",\n  \"name\": \"Serum thử nghiệm Niacinamide 5% (Postman)\",\n  \"brand\": \"Lumi Lab\",\n  \"category\": \"serum\",\n  \"skinTypes\": \"oily,combination\",\n  \"skinConcerns\": \"pores,oil-control\",\n  \"usageTime\": \"am,pm\",\n  \"description\": \"Sản phẩm tạo bởi Postman để test API admin. Tự ẩn ở bước cuối.\",\n  \"ingredientsInci\": \"Aqua, Niacinamide, Glycerin\",\n  \"sizeMl\": 30,\n  \"paoMonths\": 12,\n  \"prices\": {\"WEB\": 199000, \"SHOPEE\": 260000, \"TIKTOK\": 243000},\n  \"stock\": 10\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -731,7 +731,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"priceWeb = 199000 ở API store\", () => pm.expect(pm.response.json().priceWeb).to.eql(199000));"
+                  "pm.test(\"prices.WEB = 199000 ở API store\", () => pm.expect(pm.response.json().prices.WEB).to.eql(199000));"
                 ]
               }
             }
@@ -795,7 +795,7 @@
             "description": "",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"sku\": \"QAZZ-SER-99\",\n  \"name\": \"Serum thử nghiệm Niacinamide 5% (Postman)\",\n  \"brand\": \"Lumi Lab\",\n  \"category\": \"serum\",\n  \"skinTypes\": \"oily,combination\",\n  \"skinConcerns\": \"pores,oil-control\",\n  \"usageTime\": \"am,pm\",\n  \"description\": \"Sản phẩm tạo bởi Postman để test API admin. Tự ẩn ở bước cuối.\",\n  \"ingredientsInci\": \"Aqua, Niacinamide, Glycerin\",\n  \"sizeMl\": 30,\n  \"paoMonths\": 12,\n  \"priceWeb\": 250000,\n  \"priceShopee\": 260000,\n  \"priceTiktok\": 243000,\n  \"stock\": 10\n}",
+              "raw": "{\n  \"sku\": \"QAZZ-SER-99\",\n  \"name\": \"Serum thử nghiệm Niacinamide 5% (Postman)\",\n  \"brand\": \"Lumi Lab\",\n  \"category\": \"serum\",\n  \"skinTypes\": \"oily,combination\",\n  \"skinConcerns\": \"pores,oil-control\",\n  \"usageTime\": \"am,pm\",\n  \"description\": \"Sản phẩm tạo bởi Postman để test API admin. Tự ẩn ở bước cuối.\",\n  \"ingredientsInci\": \"Aqua, Niacinamide, Glycerin\",\n  \"sizeMl\": 30,\n  \"paoMonths\": 12,\n  \"prices\": {\"WEB\": 250000, \"SHOPEE\": 260000, \"TIKTOK\": 243000},\n  \"stock\": 10\n}",
               "options": {
                 "raw": {
                   "language": "json"
