@@ -1,6 +1,6 @@
 # Trạng thái hiện tại
 
-> Cập nhật: 2026-11-12 · T-09.1 store phân trang 20 SKU/trang (chưa có trang chi tiết); US-11 lưu hội thoại mọi kênh (T-11.1–T-11.3); T-47.1 catalog thật 366 SKU trong DB, 366 ảnh đã lên Supabase (decisions #27, #30); US-25 kênh TikTok Shop qua simulator (T-25.1–T-25.3), chạy thử với Gemini + Postman; trước đó: T-06.8 timeout widget, lập lại kế hoạch (decisions #22–#24) · Sprint hiện tại: **S2 (10–16/11/2026)**
+> Cập nhật: 2026-11-13 · T-47.3 profile `supabase` cho Postgres trên Supabase (decisions #33); 2026-11-12 · T-09.1 store phân trang 20 SKU/trang (chưa có trang chi tiết); US-11 lưu hội thoại mọi kênh (T-11.1–T-11.3); T-47.1 catalog thật 366 SKU trong DB, 366 ảnh đã lên Supabase (decisions #27, #30); US-25 kênh TikTok Shop qua simulator (T-25.1–T-25.3), chạy thử với Gemini + Postman; trước đó: T-06.8 timeout widget, lập lại kế hoạch (decisions #22–#24) · Sprint hiện tại: **S2 (10–16/11/2026)**
 
 Bảng này cho biết cái gì đã chạy được, cái gì mới là khung, cái gì chưa có. Agent đọc file này **trước khi** đi tìm code để khỏi tìm thứ chưa tồn tại. Kế hoạch chi tiết: `tools/tracking/backlog.py` và GitHub Issues (milestone Sprint 0–12).
 
@@ -11,6 +11,7 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | Phần | Trạng thái | Ghi chú | US |
 |---|---|---|---|
 | Docker (Postgres+pgvector, Redis, RabbitMQ) | Done | Redis và RabbitMQ chưa được dùng | |
+| Postgres trên Supabase (profile `supabase`) | Khung | `application-supabase.yml` + callback thu quyền `anon`/`authenticated` (decisions #33). Đã chạy trên project Supabase của LucVT (13/11): Flyway V1–V12 trên Postgres 17, 366 SKU, quyền `anon`/`authenticated` = 0, `chatbot_reader` đăng nhập qua pooler (`chatbot_reader.<project-ref>`) chỉ đọc được view. ai-brain trỏ `CHATBOT_DB_URL` sang được. Thành viên khác vẫn dùng DB local | |
 | Script chạy Windows `tools/systembat` | Done | setup / run-all / stop-all / test-all / bench | US-02 |
 | CanonicalMessage + ChannelAdapter | Done | | |
 | MessageRouter + idempotency | Khung | Idempotency in-memory (US-29). Đã lưu hội thoại | US-06, US-11, US-29 |
