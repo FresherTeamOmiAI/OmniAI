@@ -28,8 +28,8 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | AI Brain: chặn số tự bịa (`rules/grounding.py`) | Done | Giữ giá khi khớp `chatbot_catalog`. Vẫn bỏ tồn kho, khuyến mãi và giá model tự bịa | US-06 (T-06.6), US-15 |
 | Luật thành phần | Khung | Bản mẫu, cần chuyên gia review | US-27 |
 | RAG / tool / agent loop | Đang làm | search_product + embedding pgvector (US-10). Chưa có agent loop | US-10, US-15 |
-| Catalog: GET list/detail | Done | 80 SKU trong DB (78 active) | |
-| Catalog: schema đợt 1 (V4) | Done | Thêm mô tả, vấn đề da, buổi dùng; NOT NULL + CHECK. Cột embedding ở V12 (US-10) | US-04 |
+| Catalog: GET list/detail | Done | 366 SKU thật trong DB (364 active), giá trả dạng `prices: {WEB, SHOPEE, TIKTOK}` | |
+| Catalog: schema đợt 1 (V4) | Done | Thêm mô tả, vấn đề da, buổi dùng; NOT NULL + CHECK. Cột embedding ở V12 (US-10). **Giá theo kênh tách ra `sales_channel` + `product_channel` (V13, sửa theo review, decisions #32)**: thêm sàn không phải sửa bảng `product`. Chưa tách: brand, category, loại da, INCI (task sau) | US-04 |
 | Catalog: file 80 SKU (`shared/catalog/products.csv`) | Done | Có validator `tools/catalog/validate_catalog.py`. Đã nạp vào DB qua migration V5, sinh bằng `tools/catalog/csv_to_sql.py` (T-08.2) | US-04, US-08 |
 | Catalog: API admin `/api/admin/products` | Done | List (gồm SKU ẩn), tạo, sửa, ẩn/hiện, validate giống validator CSV, lỗi ProblemDetail (T-08.1) | US-08 |
 | Màn admin sản phẩm `/admin/products` | Done | Đăng nhập Basic, bảng gồm SKU ẩn + tìm/lọc/phân trang, thêm/sửa trong dialog, ẩn/hiện (T-08.3). Chưa có test tự động phía web, TC trình duyệt ở `docs/testcases/US-08.md` mục D | US-08 |

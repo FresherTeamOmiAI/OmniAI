@@ -1,21 +1,29 @@
 package com.omniai.catalog;
 
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.MapKeyColumn;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.BatchSize;
 
 import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
-/** Sản phẩm mỹ phẩm. Giá lưu theo từng kênh (VND). Owner: LucVT. Schema: V1 + V4 + V9. */
+/** Sản phẩm mỹ phẩm. Giá theo kênh ở bảng product_channel. Owner: LucVT. Schema: V1 + V4 + V9 + V13. */
 @Entity
 @Table(name = "product")
 @EntityListeners(ProductImages.class)
@@ -68,14 +76,17 @@ public class Product {
     @Column(name = "pao_months", nullable = false)
     private Integer paoMonths;
 
-    @Column(name = "price_web", nullable = false)
-    private Long priceWeb;
-
-    @Column(name = "price_shopee", nullable = false)
-    private Long priceShopee;
-
-    @Column(name = "price_tiktok", nullable = false)
-    private Long priceTiktok;
+    /**
+     * Giá niêm yết theo kênh (VND), khoá = sales_channel.code (WEB, SHOPEE, TIKTOK...). Bảng product_channel (V13).
+     * Không còn 1 cột / kênh, nên thêm sàn không phải sửa bảng này (decisions #32).
+     * EAGER vì open-in-view tắt và API trả thẳng entity; BatchSize tránh 1 query / sản phẩm khi phân trang.
+     */
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "product_channel", joinColumns = @JoinColumn(name = "product_id"))
+    @MapKeyColumn(name = "channel_code", length = 20)
+    @Column(name = "price", nullable = false)
+    @BatchSize(size = 50)
+    private Map<String, Long> prices = new LinkedHashMap<>();
 
     private int stock;
 

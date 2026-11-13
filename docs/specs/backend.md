@@ -1,6 +1,6 @@
 # Backend (Spring Boot)
 
-> Cập nhật: 2026-11-12 · commit 67e63cc · T-11.1–T-11.3; trước đó T-25.1, T-25.2, T-47.1
+> Cập nhật: 2026-11-13 · T-04.1 bước thêm kênh có bán hàng (V13); trước đó 2026-11-12 · commit 67e63cc · T-11.1–T-11.3; trước đó T-25.1, T-25.2, T-47.1
 > Nguồn: `backend/pom.xml`, `backend/src/main/java/com/omniai/**` (gồm `conversation/*`), `backend/src/test/**`, `simulators/tiktok-shop/**`
 
 Spring Boot 4.1.2, Java 21, Maven (chưa có `mvnw`). Starter đang dùng: webmvc, websocket, validation, data-jpa, flyway (+postgresql), actuator, security, lombok. Test dùng spring-boot-starter-test, webmvc-test (MockMvc), security-test + Testcontainers (postgresql). Kiến trúc modular monolith: mỗi package là một module.
@@ -33,6 +33,7 @@ Spring Boot 4.1.2, Java 21, Maven (chưa có `mvnw`). Starter đang dùng: webmv
 2. Tạo `shared/policies/<kenh>.yaml`. Thiếu file thì backend không khởi động: `PolicyEngine` báo kênh nào còn thiếu.
 3. Viết class implement `ChannelAdapter<P>`: chuyển payload của kênh thành `CanonicalMessage`, gọi `MessageRouter.handle`, rồi gửi `finalText` ra kênh.
 4. Thêm kênh vào `web/src/shared/types.ts`, schema JSON và [api-contracts.md](api-contracts.md).
+5. Nếu kênh có bán hàng: viết migration `INSERT INTO sales_channel` và giá cho các sản phẩm (`product_channel`), thêm cột giá vào 2 view chatbot (`CREATE OR REPLACE VIEW`), thêm cột `price_<kênh>` vào CSV catalog + `PRICE_COLUMNS` của `csv_to_sql.py`. **Không** sửa bảng `product`, entity, API hay form admin: chúng đọc danh sách kênh từ `sales_channel` (V13, decisions #32).
 
 ## Kênh sàn (decisions #12, #22)
 Shopee và TikTok Shop chạy **100% bằng simulator theo schema thật**; dự án không nối API thật của sàn (chốt 11/11). Simulator vẫn phải đủ 3 điều kiện sau, để hợp đồng giữa hub và sàn đúng như tài liệu của sàn:
