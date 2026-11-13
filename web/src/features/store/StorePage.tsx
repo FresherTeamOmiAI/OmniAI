@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { formatVnd } from '../../shared/lib/format'
+import { WEB_CHANNEL } from '../../shared/types'
 import { fetchProducts, STORE_PAGE_SIZE } from './api'
 import type { Product } from './types'
 
@@ -66,7 +67,7 @@ export function StorePage() {
             <span className="product-brand">{p.brand}</span>
             <h3>{p.name}</h3>
             <p className="product-inci">{p.ingredientsInci}</p>
-            <p className="product-price">{formatVnd(p.priceWeb)}</p>
+            <p className="product-price">{p.prices[WEB_CHANNEL] != null ? formatVnd(p.prices[WEB_CHANNEL]) : 'Liên hệ'}</p>
             <p className="product-stock">{p.stock > 0 ? `Còn ${p.stock}` : 'Hết hàng'}</p>
           </li>
         ))}

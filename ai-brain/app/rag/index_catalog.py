@@ -21,9 +21,10 @@ def index_catalog(url: str) -> int:
                 """
                 SELECT sku, brand, name, category, skin_types, skin_concerns, usage_time,
                        price_web, price_shopee, price_tiktok, description
-                FROM product
-                WHERE active = true
+                FROM chatbot_catalog_search
                 """
+                # Giá theo kênh không còn là cột của product từ V13 (decisions #32); view đã lọc active
+                # và ghép giá từ product_channel với đúng tên cột cũ.
             )
             rows = cursor.fetchall()
             for sku, brand, name, category, skin_types, concerns, usage_time, web, shopee, tiktok, description in rows:

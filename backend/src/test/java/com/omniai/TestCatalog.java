@@ -18,8 +18,14 @@ public final class TestCatalog {
 
     public static final Path CSV = Path.of("..", "shared", "catalog", "products.csv");
 
-    public record Row(String sku, String brand, String category, int stock, boolean active, String barcode) {
+    /** {@code prices}: mã kênh -> giá, từ 3 cột price_web/price_shopee/price_tiktok của CSV (DB lưu ở product_channel, V13). */
+    public record Row(String sku, String brand, String category, int stock, boolean active, String barcode,
+                      Map<String, Long> prices) {
     }
+
+    /** Cột giá trong CSV ứng với mã kênh trong sales_channel. */
+    public static final Map<String, String> PRICE_COLUMNS = Map.of(
+            "WEB", "price_web", "SHOPEE", "price_shopee", "TIKTOK", "price_tiktok");
 
     private static List<Row> rows;
 
@@ -69,12 +75,18 @@ public final class TestCatalog {
                 List<String> f = parse(line);
                 result.add(new Row(f.get(col.get("sku")), f.get(col.get("brand")), f.get(col.get("category")),
                         Integer.parseInt(f.get(col.get("stock"))), Boolean.parseBoolean(f.get(col.get("active"))),
-                        col.containsKey("barcode") ? f.get(col.get("barcode")) : ""));
+                        col.containsKey("barcode") ? f.get(col.get("barcode")) : "", prices(f, col)));
             }
             return result;
         } catch (IOException e) {
             throw new UncheckedIOException("Không đọc được " + CSV.toAbsolutePath(), e);
         }
+    }
+
+    private static Map<String, Long> prices(List<String> f, Map<String, Integer> col) {
+        Map<String, Long> prices = new HashMap<>();
+        PRICE_COLUMNS.forEach((channel, column) -> prices.put(channel, Long.parseLong(f.get(col.get(column)))));
+        return Map.copyOf(prices);
     }
 
     /** Một dòng CSV (RFC 4180, không có xuống dòng trong ô): ô có dấu phẩy nằm trong "...", "" là dấu nháy. */

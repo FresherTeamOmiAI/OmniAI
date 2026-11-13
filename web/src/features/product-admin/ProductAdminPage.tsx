@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { formatVnd } from '../../shared/lib/format'
 import { ApiError } from '../../shared/lib/http'
-import type { Page, Product } from '../../shared/types'
-import { listProducts, setProductActive, type ListQuery } from './api'
+import type { Page, Product, SalesChannel } from '../../shared/types'
+import { listProducts, listSalesChannels, setProductActive, type ListQuery } from './api'
 import { loadToken, saveToken } from './auth'
 import { LoginForm } from './LoginForm'
 import { ProductForm } from './ProductForm'
@@ -59,6 +59,8 @@ function ProductTable({ token, onLogout, onUnauthorized }: TableProps) {
   const [status, setStatus] = useState<string | null>(null)
   const [editing, setEditing] = useState<Editing>(null)
   const [toggling, setToggling] = useState<number | null>(null)
+  // Cột giá và ô giá trong form sinh theo kênh bán (V13), không viết cứng 3 kênh.
+  const [channels, setChannels] = useState<SalesChannel[]>([])
 
   const key = `${JSON.stringify(query)}#${reload}`
   const loading = result?.key !== key
@@ -86,6 +88,16 @@ function ProductTable({ token, onLogout, onUnauthorized }: TableProps) {
       current = false
     }
   }, [token, query, key, fail])
+
+  useEffect(() => {
+    let current = true
+    listSalesChannels(token)
+      .then((list) => current && setChannels(list))
+      .catch((e) => current && fail(e))
+    return () => {
+      current = false
+    }
+  }, [token, fail])
 
   const setData = (update: (page: Page<Product>) => Page<Product>) =>
     setResult((r) => (r?.page ? { ...r, page: update(r.page) } : r))
@@ -149,9 +161,7 @@ function ProductTable({ token, onLogout, onUnauthorized }: TableProps) {
               <th>SKU</th>
               <th>Sản phẩm</th>
               <th>Loại</th>
-              <th className="num">Giá web</th>
-              <th className="num">Shopee</th>
-              <th className="num">TikTok</th>
+              {channels.map((c) => <th key={c.code} className="num">{c.owned ? 'Giá web' : c.name}</th>)}
               <th className="num">Tồn</th>
               <th>Trạng thái</th>
               <th><span className="sr-only">Thao tác</span></th>
@@ -159,7 +169,7 @@ function ProductTable({ token, onLogout, onUnauthorized }: TableProps) {
           </thead>
           <tbody>
             {data?.items.length === 0 && (
-              <tr><td colSpan={9} className="muted">Không có sản phẩm nào khớp.</td></tr>
+              <tr><td colSpan={6 + channels.length} className="muted">Không có sản phẩm nào khớp.</td></tr>
             )}
             {data?.items.map((p) => (
               <tr key={p.id} className={p.active ? undefined : 'row-hidden'}>
@@ -169,9 +179,9 @@ function ProductTable({ token, onLogout, onUnauthorized }: TableProps) {
                   <span className="cell-sub">{p.brand}</span>
                 </td>
                 <td>{labelOf(CATEGORIES, p.category)}</td>
-                <td className="num">{formatVnd(p.priceWeb)}</td>
-                <td className="num">{formatVnd(p.priceShopee)}</td>
-                <td className="num">{formatVnd(p.priceTiktok)}</td>
+                {channels.map((c) => (
+                  <td key={c.code} className="num">{p.prices[c.code] != null ? formatVnd(p.prices[c.code]) : <span className="muted">—</span>}</td>
+                ))}
                 <td className="num">{p.stock === 0 ? <span className="badge badge-warn">Hết</span> : p.stock}</td>
                 <td>{p.active ? <span className="badge badge-on">Đang bán</span> : <span className="badge badge-off">Đã ẩn</span>}</td>
                 <td className="row-actions">
@@ -199,6 +209,7 @@ function ProductTable({ token, onLogout, onUnauthorized }: TableProps) {
           key={editing.mode === 'edit' ? editing.product.id : 'new'}
           token={token}
           product={editing.mode === 'edit' ? editing.product : null}
+          channels={channels}
           onSaved={onSaved}
           onClose={() => setEditing(null)}
           onUnauthorized={onUnauthorized}
