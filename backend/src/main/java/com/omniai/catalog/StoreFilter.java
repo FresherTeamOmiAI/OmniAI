@@ -7,8 +7,8 @@ import java.util.Locale;
  * Mọi tham số tuỳ chọn, kết hợp bằng AND. Giá lọc theo giá niêm yết của kênh web (product_channel, V13),
  * vì store là kênh WEB của shop (SRS G-15).
  *
- * @param skinType 1 loại da trong {@link CatalogVocabulary#SKIN_TYPES}; khớp nguyên giá trị trong cột CSV skin_types.
- * @param category 1 danh mục trong {@link CatalogVocabulary#CATEGORIES}.
+ * @param skinType 1 mã loại da trong bảng skin_type (V15); lọc qua bảng nối product_skin_type.
+ * @param category 1 mã trong bảng category (V15).
  * @param minPrice giá web tối thiểu (VND, gồm cả mốc).
  * @param maxPrice giá web tối đa (VND, gồm cả mốc).
  */

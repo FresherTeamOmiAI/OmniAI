@@ -49,7 +49,7 @@ class OmniAiApplicationTests {
                 .isEqualTo(TestCatalog.activeCount());
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM product WHERE stock = 0", Long.class))
                 .isEqualTo(TestCatalog.outOfStockCount());
-        assertThat(jdbc.queryForObject("SELECT COUNT(DISTINCT brand) FROM product", Long.class))
+        assertThat(jdbc.queryForObject("SELECT COUNT(DISTINCT brand_id) FROM product", Long.class))
                 .isEqualTo(TestCatalog.brandCount());
         assertThat(jdbc.queryForObject("SELECT COUNT(DISTINCT category) FROM product", Integer.class)).isEqualTo(10);
         assertThat(TestCatalog.size()).isGreaterThanOrEqualTo(80);
@@ -59,15 +59,19 @@ class OmniAiApplicationTests {
     @Test
     void fictionalCatalogIsDeleted() {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM product WHERE split_part(sku, '-', 1)"
-                + " IN ('LUMI', 'SEN', 'HYD', 'MOC', 'VAN') OR brand IN ('Lumi Lab', 'Hydra Mint')", Integer.class)).isZero();
+                + " IN ('LUMI', 'SEN', 'HYD', 'MOC', 'VAN')", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM brand WHERE name IN ('Lumi Lab', 'Hydra Mint', 'Sen Việt')",
+                Integer.class)).isZero();
     }
 
     /** Mỗi SKU của catalog thật có barcode, nguồn, khoá ảnh <SKU>.webp và ghi chú giấy phép (US-47 AC). */
     @Test
     void realCatalogHasSourceAndImageForEverySku() {
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM product WHERE barcode IS NULL OR source_url IS NULL"
-                + " OR image_key <> sku || '.webp' OR image_license_note IS NULL", Integer.class)).isZero();
-        var row = jdbc.queryForMap("SELECT barcode, image_key, source_url FROM product WHERE sku = 'CERA-CLE-01'");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM product p LEFT JOIN product_image i ON i.product_id = p.id AND i.is_primary"
+                + " WHERE p.barcode IS NULL OR p.source_url IS NULL OR i.storage_key IS DISTINCT FROM p.sku || '.webp'"
+                + " OR i.license_note IS NULL", Integer.class)).isZero();
+        var row = jdbc.queryForMap("SELECT p.barcode, i.storage_key AS image_key, p.source_url FROM product p"
+                + " JOIN product_image i ON i.product_id = p.id AND i.is_primary WHERE p.sku = 'CERA-CLE-01'");
         assertThat(row.get("barcode")).isEqualTo("3337875597197");
         assertThat(row.get("image_key")).isEqualTo("CERA-CLE-01.webp");
         assertThat((String) row.get("source_url")).endsWith("/product/3337875597197");
@@ -133,12 +137,13 @@ class OmniAiApplicationTests {
 
     /** Không @Transactional: mỗi câu bị DB từ chối sẽ huỷ cả transaction. Tự xoá sản phẩm thử ở cuối (CASCADE giá). */
     @Test
-    void productRejectsNegativePriceUnknownChannelAndUnknownUsageTime() {
-        String insert = "INSERT INTO product (sku, name, brand, category, skin_types, ingredients_inci, size_ml, pao_months,"
-                + " usage_time) VALUES (?, 'x', 'x', 'serum', 'oily', 'Aqua', 30, 6, ?)";
-        assertThatThrownBy(() -> jdbc.update(insert, "T-USE", "noon")).isInstanceOf(DataIntegrityViolationException.class);
+    void productRejectsNegativePriceUnknownChannelAndUnknownCategory() {
+        String insert = "INSERT INTO product (sku, name, brand_id, category, size_ml, pao_months)"
+                + " VALUES (?, 'x', (SELECT min(id) FROM brand), ?, 30, 6)";
+        // V15: danh mục là FK tới bảng category.
+        assertThatThrownBy(() -> jdbc.update(insert, "T-CAT", "shampoo")).isInstanceOf(DataIntegrityViolationException.class);
 
-        jdbc.update(insert, "T-PRICE", "am");
+        jdbc.update(insert, "T-PRICE", "serum");
         try {
             Long id = jdbc.queryForObject("SELECT id FROM product WHERE sku = 'T-PRICE'", Long.class);
             String price = "INSERT INTO product_channel (product_id, channel_code, price) VALUES (?, ?, ?)";

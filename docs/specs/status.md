@@ -1,6 +1,6 @@
 # Trạng thái hiện tại
 
-> Cập nhật: 2026-11-13 · T-09.3 đặt hàng ảo, US-09 đủ 3 task; T-09.1 trang chi tiết + bộ lọc web; T-09.2 API lọc store; T-04.1 tách giá theo kênh khỏi `product` (V13, decisions #32); T-47.3 profile `supabase` cho Postgres trên Supabase (decisions #33); 2026-11-12 · T-09.1 store phân trang 20 SKU/trang (chưa có trang chi tiết); US-11 lưu hội thoại mọi kênh (T-11.1–T-11.3); T-47.1 catalog thật 366 SKU trong DB, 366 ảnh đã lên Supabase (decisions #27, #30); US-25 kênh TikTok Shop qua simulator (T-25.1–T-25.3), chạy thử với Gemini + Postman; trước đó: T-06.8 timeout widget, lập lại kế hoạch (decisions #22–#24) · Sprint hiện tại: **S2 (10–16/11/2026)**
+> Cập nhật: 2026-11-13 · T-04.1 V15 chuẩn hoá bảng product; T-09.3 đặt hàng ảo, US-09 đủ 3 task; T-09.1 trang chi tiết + bộ lọc web; T-09.2 API lọc store; T-04.1 tách giá theo kênh khỏi `product` (V13, decisions #32); T-47.3 profile `supabase` cho Postgres trên Supabase (decisions #33); 2026-11-12 · T-09.1 store phân trang 20 SKU/trang (chưa có trang chi tiết); US-11 lưu hội thoại mọi kênh (T-11.1–T-11.3); T-47.1 catalog thật 366 SKU trong DB, 366 ảnh đã lên Supabase (decisions #27, #30); US-25 kênh TikTok Shop qua simulator (T-25.1–T-25.3), chạy thử với Gemini + Postman; trước đó: T-06.8 timeout widget, lập lại kế hoạch (decisions #22–#24) · Sprint hiện tại: **S2 (10–16/11/2026)**
 
 Bảng này cho biết cái gì đã chạy được, cái gì mới là khung, cái gì chưa có. Agent đọc file này **trước khi** đi tìm code để khỏi tìm thứ chưa tồn tại. Kế hoạch chi tiết: `tools/tracking/backlog.py` và GitHub Issues (milestone Sprint 0–12).
 
@@ -29,7 +29,7 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | Luật thành phần | Khung | Bản mẫu, cần chuyên gia review | US-27 |
 | RAG / tool / agent loop | Đang làm | search_product + embedding pgvector (US-10). Chưa có agent loop | US-10, US-15 |
 | Catalog: GET list/detail | Done | 366 SKU thật trong DB (364 active), giá trả dạng `prices: {WEB, SHOPEE, TIKTOK}` | |
-| Catalog: schema đợt 1 (V4) | Done | Thêm mô tả, vấn đề da, buổi dùng; NOT NULL + CHECK. Cột embedding ở V12 (US-10). **Giá theo kênh tách ra `sales_channel` + `product_channel` (V13, sửa theo review, decisions #32)**: thêm sàn không phải sửa bảng `product`. Chưa tách: brand, category, loại da, INCI (task sau) | US-04 |
+| Catalog: schema (V4, V13, V15) | Done | V4 schema đợt 1; V13 tách giá theo kênh (`sales_channel` + `product_channel`, decisions #32); **V15 chuẩn hoá** (decisions #35): bảng tra cứu hãng / danh mục / loại da / vấn đề da / thành phần INCI, bảng nối, `product_image`, `use_am`/`use_pm`. API và view chatbot giữ nguyên hình dạng. Test `CatalogNormalizationTest` | US-04 |
 | Catalog: file 80 SKU (`shared/catalog/products.csv`) | Done | Có validator `tools/catalog/validate_catalog.py`. Đã nạp vào DB qua migration V5, sinh bằng `tools/catalog/csv_to_sql.py` (T-08.2) | US-04, US-08 |
 | Catalog: API admin `/api/admin/products` | Done | List (gồm SKU ẩn), tạo, sửa, ẩn/hiện, validate giống validator CSV, lỗi ProblemDetail (T-08.1) | US-08 |
 | Màn admin sản phẩm `/admin/products` | Done | Đăng nhập Basic, bảng gồm SKU ẩn + tìm/lọc/phân trang, thêm/sửa trong dialog, ẩn/hiện (T-08.3). Chưa có test tự động phía web, TC trình duyệt ở `docs/testcases/US-08.md` mục D | US-08 |

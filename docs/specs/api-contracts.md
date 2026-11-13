@@ -1,6 +1,6 @@
 # Hợp đồng API
 
-> Cập nhật: 2026-11-13 · T-09.3 `/api/orders`; T-09.2 bộ lọc `GET /api/products`; T-04.1 `prices` theo kênh, `GET /api/admin/sales-channels` (decisions #32); trước đó US-11 (T-11.2), US-25, T-47.1
+> Cập nhật: 2026-11-13 · T-04.1 ghi chú JSON sau V15; T-09.3 `/api/orders`; T-09.2 bộ lọc `GET /api/products`; T-04.1 `prices` theo kênh, `GET /api/admin/sales-channels` (decisions #32); trước đó US-11 (T-11.2), US-25, T-47.1
 > Nguồn: `backend/.../channel/simulator/*`, `channel/web/*`, `channel/tiktok/*`, `catalog/ProductController.java`, `catalog/AdminProductController.java`, `catalog/ProductRequest.java`, `conversation/ConversationController.java`, `brain/*`, `common/*`, `ai-brain/app/main.py`, `ai-brain/app/schemas.py`, `shared/schemas/canonical-message.schema.json`, `web/src/shared/types.ts`
 
 JSON phía backend dùng **camelCase**. Riêng hợp đồng backend → ai-brain dùng **snake_case**.
@@ -81,7 +81,7 @@ Chưa có: API của simulator Shopee theo schema thật (US-21, S2), tài kho�
   - `rawText`: câu AI nói. `finalText`: câu khách nhận sau policy.
   - `violations[]`: `PolicyViolation(ruleId, action: BLOCK|REDACT|REPLACE, matched)`.
   - `blocked`: cả câu bị thay bằng `fallback_message`. `handoff`: cần nhân viên.
-- `Product`: `id, sku, name, brand, category, skinTypes (csv), skinConcerns (csv)?, usageTime ("am"|"pm"|"am,pm")?, description?, ingredientsInci (csv), sizeMl, paoMonths, prices ({<mã kênh>: VND}), stock, active, barcode?, sourceUrl?, imageKey?, imageSourceUrl?, imageLicenseNote?, imageUrl?, updatedAt` (V9, T-47.1). `imageUrl` không lưu DB: backend ghép `<SUPABASE_URL>/storage/v1/object/public/<SUPABASE_BUCKET>/<imageKey>` (`catalog/ProductImages.java`), `null` khi chưa có ảnh hoặc chưa cấu hình `SUPABASE_URL`. `ProductRequest` **không** có các trường nguồn/ảnh: admin tạo thì để trống, sửa thì giữ nguyên. Nơi hiển thị ảnh phải ghi nguồn Open Beauty Facts (ODbL, CC BY-SA 3.0). Dấu `?` = có thể null. Bộ giá trị hợp lệ xem [data-model.md](data-model.md). Kiểu TS: `web/src/shared/types.ts` (dùng chung cho store và admin).
+- `Product`: `id, sku, name, brand, category, skinTypes (csv), skinConcerns (csv)?, usageTime ("am"|"pm"|"am,pm")?, description?, ingredientsInci (csv), sizeMl, paoMonths, prices ({<mã kênh>: VND}), stock, active, barcode?, sourceUrl?, imageKey?, imageSourceUrl?, imageLicenseNote?, imageUrl?, updatedAt` (V9, T-47.1). `imageUrl` không lưu DB: backend ghép `<SUPABASE_URL>/storage/v1/object/public/<SUPABASE_BUCKET>/<imageKey>` (`catalog/ProductImages.java`), `null` khi chưa có ảnh hoặc chưa cấu hình `SUPABASE_URL`. `ProductRequest` **không** có các trường nguồn/ảnh: admin tạo thì để trống, sửa thì giữ nguyên. Nơi hiển thị ảnh phải ghi nguồn Open Beauty Facts (ODbL, CC BY-SA 3.0). Dấu `?` = có thể null. Bộ giá trị hợp lệ xem [data-model.md](data-model.md). Kiểu TS: `web/src/shared/types.ts` (dùng chung cho store và admin). Từ V15 (decisions #35) các field giữ nguyên tên và kiểu nhưng đọc từ bảng chuẩn hoá: `skinTypes`/`skinConcerns` trả theo `sort_order` của bảng tra cứu (vd. `oily,combination,normal`), `ingredientsInci` theo thứ tự trên nhãn và đã bỏ trùng, `imageKey`/`imageSourceUrl`/`imageLicenseNote` là của ảnh chính. Hãng và thành phần mới gửi qua `ProductRequest` được tự thêm vào bảng tra cứu.
 
 ## AI Brain (cổng 8000)
 

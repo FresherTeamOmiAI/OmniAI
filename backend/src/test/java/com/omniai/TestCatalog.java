@@ -20,8 +20,13 @@ public final class TestCatalog {
     public static final Path CSV = Path.of("..", "shared", "catalog", "products.csv");
 
     /** {@code prices}: mã kênh -> giá, từ 3 cột price_web/price_shopee/price_tiktok của CSV (DB lưu ở product_channel, V13). */
+    /**
+     * {@code inci}: thành phần theo thứ tự trên nhãn, đã bỏ trùng không phân biệt hoa thường (giữ lần đầu, như V15).
+     * {@code usageTime}: am | pm | am,pm | "" ; {@code imageKey}: "" nếu không có cột ảnh.
+     */
     public record Row(String sku, String brand, String category, int stock, boolean active, String barcode,
-                      Map<String, Long> prices, Set<String> skinTypes) {
+                      Map<String, Long> prices, Set<String> skinTypes, Set<String> skinConcerns, String usageTime,
+                      List<String> inci, String imageKey) {
     }
 
     /** Cột giá trong CSV ứng với mã kênh trong sales_channel. */
@@ -77,12 +82,35 @@ public final class TestCatalog {
                 result.add(new Row(f.get(col.get("sku")), f.get(col.get("brand")), f.get(col.get("category")),
                         Integer.parseInt(f.get(col.get("stock"))), Boolean.parseBoolean(f.get(col.get("active"))),
                         col.containsKey("barcode") ? f.get(col.get("barcode")) : "", prices(f, col),
-                        Set.of(f.get(col.get("skin_types")).split(","))));
+                        codes(f.get(col.get("skin_types"))), codes(f.get(col.get("skin_concerns"))),
+                        f.get(col.get("usage_time")), inci(f.get(col.get("ingredients_inci"))),
+                        col.containsKey("image_key") ? f.get(col.get("image_key")) : ""));
             }
             return result;
         } catch (IOException e) {
             throw new UncheckedIOException("Không đọc được " + CSV.toAbsolutePath(), e);
         }
+    }
+
+    private static Set<String> codes(String csv) {
+        Set<String> codes = new java.util.HashSet<>();
+        for (String code : csv.split(",")) {
+            if (!code.isBlank()) {
+                codes.add(code.trim());
+            }
+        }
+        return Set.copyOf(codes);
+    }
+
+    private static List<String> inci(String csv) {
+        Map<String, String> seen = new java.util.LinkedHashMap<>();
+        for (String name : csv.split(",")) {
+            String trimmed = name.trim();
+            if (!trimmed.isEmpty()) {
+                seen.putIfAbsent(trimmed.toLowerCase(java.util.Locale.ROOT), trimmed);
+            }
+        }
+        return List.copyOf(seen.values());
     }
 
     private static Map<String, Long> prices(List<String> f, Map<String, Integer> col) {

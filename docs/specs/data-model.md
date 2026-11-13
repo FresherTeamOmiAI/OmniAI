@@ -1,6 +1,6 @@
 # Mô hình dữ liệu
 
-> Cập nhật: 2026-11-13 · T-09.3 V14 `customer_order`; T-09.2 store lọc qua Specification; T-04.1 tách giá theo kênh (V13, decisions #32) · Owner: LucVT (catalog, customer, identity, order, promotion); TuTM (channel_credential, conversation)
+> Cập nhật: 2026-11-13 · T-04.1 V15 chuẩn hoá product (decisions #35); T-09.3 V14 `customer_order`; T-09.2 store lọc qua Specification; T-04.1 tách giá theo kênh (V13, decisions #32) · Owner: LucVT (catalog, customer, identity, order, promotion); TuTM (channel_credential, conversation)
 > Nguồn: `backend/src/main/resources/db/migration/*.sql`, `backend/.../catalog/*`, `backend/.../customer/*`, `backend/.../channel/credential/*`, `backend/.../conversation/*`
 
 DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flyway** quản lý, JPA để `ddl-auto: validate`. Vì vậy mọi thay đổi bảng đều phải viết migration mới `V<n>__<mo_ta>.sql`. **Không sửa migration đã merge.**
@@ -23,23 +23,31 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 | `V12__product_embedding.sql` | Cột `product.embedding vector(768)` và view `chatbot_catalog_search` (US-10). Chỉ sản phẩm `active`. Owner: ChienPX |
 | `V13__product_channel_price.sql` | T-04.1 sửa theo review: **tách giá theo kênh khỏi `product`**. Thêm `sales_channel` (WEB, SHOPEE, TIKTOK) và `product_channel` (1 dòng / sản phẩm / kênh), chép giá 366 SKU × 3 kênh, xoá 3 cột `price_*` và CHECK `ck_product_prices`. Tạo lại 2 view chatbot với đúng tên cột cũ (decisions #32) |
 | `V14__demo_order.sql` | T-09.3: bảng `customer_order` + `customer_order_item` (đơn mọi kênh; S2 chỉ có đơn `DEMO` trên web, không trừ tồn kho, decisions #34) |
+| `V15__normalize_product.sql` | T-04.1 sửa theo review (phần A+B, decisions #35): **chuẩn hoá bảng `product`**. Bảng tra cứu `brand`, `category`, `skin_type`, `skin_concern`, `ingredient`; bảng nối `product_skin_type`, `product_skin_concern`, `product_ingredient` (giữ thứ tự INCI); `product_image`; `use_am`/`use_pm` thay `usage_time`; `created_at`. Xoá 8 cột `brand, skin_types, skin_concerns, usage_time, ingredients_inci, image_key, image_source_url, image_license_note`. Tạo lại 2 view chatbot **giữ nguyên cột** qua view nội bộ `product_text_pivot` |
 
 ## Bảng
 
-**product** (entity `catalog/Product.java`). Bắt buộc (NOT NULL) = mọi cột trừ `description`, `skin_concerns`, `usage_time` và 5 cột nguồn/ảnh.
-- `sku` unique, dạng `<HÃNG>-<LOAI>-<NN>` (vd. `CERA-CLE-01`; tiền tố hãng ở `BRAND_LIST` trong `tools/catalog/obf_annotate.py`). `name`, `brand` (sản phẩm **thật**, decisions #27, #30).
-- `category`: `cleanser, toner, serum, moisturizer, sunscreen, exfoliant, spot-treatment, mask, eye-cream, lip-care`.
-- `skin_types`: CSV các giá trị `oily,dry,combination,sensitive,normal`.
-- `skin_concerns`: CSV vấn đề da, dùng để lọc/RAG: `acne, oil-control, pores, hydration, dullness, dark-spots, aging, sensitivity, barrier, sun-protection`.
-- `usage_time`: `am | pm | am,pm` (CHECK trong DB). Dùng cho routine sáng/tối (US-31).
-- `description`: mô tả tiếng Việt ≤ 2000 ký tự (công dụng, kết cấu, cách dùng), cho trang chi tiết và embedding RAG. **Không** ghi giá hay claim y khoa ("trị", "chữa").
-- `ingredients_inci`: CSV INCI, tối đa 4000 ký tự. Luật thành phần (`ai-brain/app/rules/ingredients.py`) đọc từ đây.
-- `size_ml` > 0, `pao_months` > 0 (dùng được bao lâu sau khi mở).
-- **Giá không nằm trong `product`** (từ V13, decisions #32): xem `product_channel` bên dưới. Entity map thành `Map<String, Long> prices` (`@ElementCollection`, EAGER, batch 50).
+**product** (entity `catalog/Product.java`). Sau V15 bảng chỉ còn giá trị đơn, mọi giá trị nhiều phần tử ở bảng riêng (decisions #35).
+- Cột: `id`, `sku` unique (dạng `<HÃNG>-<LOAI>-<NN>`, vd. `CERA-CLE-01`), `name`, `brand_id` FK `brand`, `category` FK `category(code)`, `description` (tiếng Việt ≤ 2000 ký tự, **không** ghi giá hay claim y khoa), `size_ml` > 0, `pao_months` > 0, `stock` ≥ 0, `active`, `use_am`, `use_pm` (buổi dùng, cả 2 false = chưa ghi), `barcode` unique (Open Beauty Facts), `source_url`, `embedding vector(768)` (V12, JPA không map), `created_at`, `updated_at`.
+- **Giá** ở `product_channel` (V13, decisions #32). **Loại da / vấn đề da** ở `product_skin_type` / `product_skin_concern`. **INCI** ở `product_ingredient`. **Ảnh** ở `product_image`.
+- **JSON API giữ hình dạng cũ** qua getter `@JsonProperty` của entity: `brand` (tên hãng), `skinTypes`/`skinConcerns` (mã nối dấu phẩy, **theo `sort_order`** của bảng tra cứu), `usageTime` (`am | pm | am,pm | null` từ 2 cờ), `ingredientsInci` (tên nối `", "` theo `position`), `imageKey`/`imageSourceUrl`/`imageLicenseNote` (ảnh chính). Web, Postman, ai-brain không phải đổi.
+- Collection của entity: `@ManyToOne brandRef`, `@ManyToMany skinTypeRefs`/`skinConcernRefs` (`@OrderBy sortOrder`), `@ManyToMany ingredients` (`@OrderColumn position`, bắt đầu 1), `@ElementCollection images` (`@OrderColumn sort_order`), `prices`. Tất cả EAGER + `@Fetch(SELECT)` + `@BatchSize(50)`: không nhân bản dòng, không 1 query / sản phẩm.
+- Ghi (admin, `ProductService`): hãng tìm theo tên không phân biệt hoa thường, chưa có thì thêm (`code` = tiền tố SKU nếu còn trống). INCI bỏ trùng không phân biệt hoa thường, thành phần chưa có thì thêm vào `ingredient`. Bảng nối được gán set/list **mới** khi đổi (Hibernate xoá rồi chèn lại, không vướng UNIQUE tạm thời). Chỉ đổi bảng con thì vẫn cập nhật `updated_at`.
+- Từ vựng (danh mục, loại da, vấn đề da) **đọc từ bảng tra cứu**, DB là nguồn chuẩn; `CatalogVocabulary.java` chỉ còn luật SKU, claim y khoa, buổi dùng, `MIN_INCI`. `tools/catalog/validate_catalog.py` (offline) giữ bản riêng, phải khớp bảng.
 - Đơn DEMO trên web không trừ `stock` (SRS G-04). Đơn từ sàn về sẽ trừ (US-51, S5). Admin không bao giờ xoá cứng sản phẩm, chỉ đặt `active=false` (G-07). Ngoại lệ duy nhất: V9 xoá dữ liệu seed hư cấu (decisions #30).
-- `stock` ≥ 0, `active` (false = ẩn khỏi store và AI không được gợi ý). `updated_at` tự cập nhật khi sửa qua JPA (`@PreUpdate`).
-- Nguồn và ảnh (V9): `barcode` (mã trên Open Beauty Facts, unique), `source_url`, `image_key` (`<SKU>.webp` trong bucket Supabase, decisions #26), `image_source_url` (ảnh gốc), `image_license_note`. Sản phẩm admin tạo qua API để NULL; admin sửa không làm mất (không có trong `ProductRequest`). `imageUrl` không phải cột: `catalog/ProductImages.java` (entity listener) ghép từ `omniai.images.base-url` + `bucket` + `image_key`.
-- `embedding vector(768)` (V12, US-10), để trống đến khi chạy `python -m app.rag.index_catalog`. JPA không map cột này. View `chatbot_catalog_search` đọc embedding và `description` cho RAG.
+- `imageUrl` không phải cột: `catalog/ProductImages.java` (entity listener) ghép từ `omniai.images.base-url` + `bucket` + khoá ảnh chính.
+
+**brand** (`catalog/Brand.java`, V15): `id`, `code` unique (tiền tố SKU, vd. `CERA`; NULL khi không xác định được duy nhất), `name` (unique index `lower(name)`). Catalog thật: 50 hãng, đều có `code`.
+
+**category / skin_type / skin_concern** (`Category`, `SkinType`, `SkinConcern`, V15): bảng tra cứu `code` PK, `name_vi`, `sort_order`. 10 danh mục, 5 loại da (`oily, dry, combination, sensitive, normal`), 10 vấn đề da (`acne, oil-control, pores, hydration, dullness, dark-spots, aging, sensitivity, barrier, sun-protection`). Nhãn tiếng Việt khớp `web/src/shared/vocabulary.ts`.
+
+**product_skin_type / product_skin_concern** (V15): PK (`product_id`, `skin_type_code` / `skin_concern_code`), FK CASCADE theo sản phẩm, FK tới bảng tra cứu (mã lạ bị DB chặn), index theo mã để lọc store.
+
+**ingredient** (`catalog/Ingredient.java`, V15): `id`, `inci_name` ≤ 200 ký tự (unique index `lower(inci_name)`, lưu cách viết gặp đầu tiên), `active_group` CHECK `retinoid | aha | bha | bpo | vitamin_c | azelaic` (nhóm của luật thành phần `ai-brain/app/rules/ingredients.py`). Catalog thật: 1.932 thành phần; retinoid 9, AHA 19, BHA 41, vitamin C 6, azelaic 2 SKU (gán theo đúng tên INCI, chưa tính dẫn xuất).
+
+**product_ingredient** (V15): PK (`product_id`, `position` ≥ 1), unique (`product_id`, `ingredient_id`), FK CASCADE. Giữ **thứ tự trên nhãn** (nồng độ giảm dần). 5 SKU có thành phần trùng trong CSV (NEUT-SUN-02, CETA-CLE-03, CETA-MOI-03, GARN-SUN-02, NUXE-MOI-02) được bỏ trùng, giữ lần đầu.
+
+**product_image** (`@ElementCollection` `ProductImage`, V15): PK (`product_id`, `sort_order` ≥ 0), `storage_key` unique (`<SKU>.webp` trong bucket Supabase, decisions #26), `source_url` (ảnh gốc), `license_note`, `is_primary` (unique index một phần: tối đa 1 ảnh chính / sản phẩm). Admin chưa sửa ảnh qua API.
 
 **sales_channel** (`catalog/SalesChannel.java`, V13): danh sách kênh bán.
 - `code` PK (`WEB | SHOPEE | TIKTOK`, khớp enum `ChannelType`; CHECK chữ hoa/số/`_`), `name`, `owned` (kênh shop sở hữu, chỉ `WEB`; SRS G-15), `active` (false = tạm ngừng bán trên kênh, giữ dữ liệu giá).
@@ -49,7 +57,7 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 - PK (`product_id`, `channel_code`). `product_id` FK `product` ON DELETE CASCADE, `channel_code` FK `sales_channel`, `price` BIGINT VND, CHECK ≥ 0. Index `channel_code`.
 - AC US-04 "có giá cho mọi kênh" **không ép bằng ràng buộc DB được** nữa: `ProductService` bắt buộc đủ giá cho mọi kênh `active` (400 ở field `prices[<mã>]`), từ chối mã kênh lạ. Kênh không active thì không bắt buộc, admin sửa không làm mất giá cũ của kênh đó.
 - Bảng sẽ có thêm cột theo kênh khi cần: mã sản phẩm phía sàn, trạng thái đồng bộ (US-49). Khuyến mãi vẫn để bảng riêng (US-33).
-- View `product_price_pivot` (nội bộ, không cấp cho `chatbot_reader`) xoay giá thành `price_web, price_shopee, price_tiktok` cho `chatbot_catalog` và `chatbot_catalog_search`, nên ai-brain đọc như cũ.
+- View nội bộ `product_text_pivot` (V15) ghép lại `brand`, `skin_types`, `skin_concerns`, `usage_time` thành chuỗi như cũ. View `product_price_pivot` (nội bộ, không cấp cho `chatbot_reader`) xoay giá thành `price_web, price_shopee, price_tiktok` cho `chatbot_catalog` và `chatbot_catalog_search`, nên ai-brain đọc như cũ.
 
 **customer_order** (`order/CustomerOrder.java`, V14, owner LucVT): 1 đơn hàng, dùng chung mọi kênh để US-23 (lịch sử đơn) và US-51 (đơn từ sàn) dùng tiếp.
 - `channel_code` FK `sales_channel`; `external_order_id` (mã đơn sàn, web = NULL), unique (`channel_code`, `external_order_id`); `customer_id` FK `customer`, NULL ở S2 vì đặt không cần đăng nhập (G-04).
@@ -101,7 +109,8 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 
 ## Repository
 - `SalesChannelRepository`: `findAllByOrderByOwnedDescCodeAsc` (kênh sở hữu trước).
-- `ProductRepository` (+ `JpaSpecificationExecutor` cho tìm kiếm admin): `findByIdAndActiveTrue` (store, G-06); danh sách store dùng Specification `ProductService.storeSpec` (active + loại da + danh mục + khoảng giá web qua join `product_channel`, T-09.2), `existsBySku`.
+- `BrandRepository` (`findByNameIgnoreCase`, `existsByCode`), `IngredientRepository` (`findByLowerNames`), `CategoryRepository` / `SkinTypeRepository` / `SkinConcernRepository` (`findAllByOrderBySortOrderAsc`), V15.
+- `ProductRepository` (+ `JpaSpecificationExecutor` cho tìm kiếm admin): `findByIdAndActiveTrue` (store, G-06); danh sách store dùng Specification `ProductService.storeSpec` (active + loại da qua join `product_skin_type` + danh mục + khoảng giá web qua join `product_channel`, T-09.2), `existsBySku`.
 - Ràng buộc unique của `sku` tên là `product_sku_key` (Postgres tự đặt ở V1). `ProductService` dựa vào tên này để trả 409 khi 2 request tạo cùng SKU một lúc.
 - `CustomerOrderRepository` (T-09.3): CRUD mặc định.
 - `CustomerRepository`: `findByEmail`, `findByPhone`.
@@ -114,4 +123,4 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 OTP/JWT (US-13, S3, chỉ email), mã liên kết `OMNI-XXXXXX` 6 ký tự kèm đếm số lần sai theo danh tính kênh (US-22, S4, SRS G-01), lịch sử đơn theo khách (US-23), promotion/voucher/lịch sử giá (US-33, S5, mốc giờ theo `Asia/Ho_Chi_Minh`), consent log (US-30, S7). Cho trụ E (decisions #23): trạng thái đồng bộ theo kênh (US-49, S3), đơn từ sàn (US-51, S5), trạng thái duyệt sản phẩm (US-54, S7), đánh giá sản phẩm (US-55, S8).
 
 ## Test
-`OmniAiApplicationTests` chạy Flyway trên Postgres thật (Testcontainers) và kiểm tra: số SKU / active / hết hàng / hãng đọc từ CSV (`TestCatalog`), V9 đã xoá SKU hư cấu, extension vector, ràng buộc V4 (`usage_time` sai), và V13: không còn cột `price_*` trong `product`, `product_channel` có đúng giá CSV cho mọi SKU × 3 kênh, giá âm / kênh lạ / trùng kênh bị DB từ chối, view chatbot vẫn có `price_web/shopee/tiktok`, thêm kênh `LAZADA` chỉ bằng INSERT. Vì vậy cần Docker. `channel/tiktok/TiktokWebhookIT` lưu và đọc lại `channel_credential` (V8). `conversation/ConversationStoreIT` kiểm V11 qua `MessageRouter` thật: IN/OUT, vi phạm, chống trùng, mỗi kênh 1 hội thoại.
+`OmniAiApplicationTests` chạy Flyway trên Postgres thật (Testcontainers) và kiểm tra: số SKU / active / hết hàng / hãng đọc từ CSV (`TestCatalog`), V9 đã xoá SKU hư cấu, extension vector, ràng buộc V4 (`usage_time` sai), và V13: không còn cột `price_*` trong `product`, `product_channel` có đúng giá CSV cho mọi SKU × 3 kênh, giá âm / kênh lạ / trùng kênh bị DB từ chối, view chatbot vẫn có `price_web/shopee/tiktok`, thêm kênh `LAZADA` chỉ bằng INSERT. Vì vậy cần Docker. `channel/tiktok/TiktokWebhookIT` lưu và đọc lại `channel_credential` (V8). `conversation/ConversationStoreIT` kiểm V11 qua `MessageRouter` thật: IN/OUT, vi phạm, chống trùng, mỗi kênh 1 hội thoại. `catalog/CatalogNormalizationTest` kiểm V15: không còn 8 cột cũ; bảng tra cứu đúng; **từng SKU** có hãng, tập loại da, tập vấn đề da, buổi dùng, INCI đúng thứ tự (bỏ trùng), ảnh chính khớp CSV; số SKU theo nhóm hoạt chất khớp CSV; view chatbot giữ cột và giá trị; DB chặn loại da lạ, thành phần trùng, 2 ảnh chính, nhóm hoạt chất lạ.
