@@ -340,6 +340,50 @@ class AdminProductApiTest {
         mvc.perform(get("/api/admin/sales-channels")).andExpect(status().isUnauthorized());
     }
 
+    // --- Bảng tra cứu V15 (decisions #35) ---
+
+    /** Hãng và thành phần chưa có thì được thêm vào bảng brand / ingredient; INCI bỏ trùng không phân biệt hoa thường. */
+    @Test
+    void newBrandAndIngredientAreAddedToLookupTables() throws Exception {
+        Map<String, Object> p = validProduct();
+        p.put("sku", "NEWB-SER-01");
+        p.put("brand", "Hãng Thử Nghiệm");
+        p.put("ingredientsInci", "Aqua, Niacinamide, Chiết xuất thử nghiệm XYZ, AQUA");
+        mvc.perform(admin(post("/api/admin/products"), p))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.brand").value("Hãng Thử Nghiệm"))
+                .andExpect(jsonPath("$.ingredientsInci", matchesPattern("(?i)aqua, niacinamide, Chiết xuất thử nghiệm XYZ")));
+        assertThat(jdbc.queryForObject("SELECT code FROM brand WHERE name = 'Hãng Thử Nghiệm'", String.class)).isEqualTo("NEWB");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM ingredient WHERE inci_name = 'Chiết xuất thử nghiệm XYZ'",
+                Integer.class)).isEqualTo(1);
+
+        // Cùng hãng viết khác hoa thường: dùng lại dòng brand cũ, không tạo thêm.
+        p.put("sku", "NEWB-SER-02");
+        p.put("brand", "hãng thử nghiệm");
+        mvc.perform(admin(post("/api/admin/products"), p)).andExpect(status().isCreated())
+                .andExpect(jsonPath("$.brand").value("Hãng Thử Nghiệm"));
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM brand WHERE lower(name) = 'hãng thử nghiệm'", Integer.class)).isEqualTo(1);
+    }
+
+    /** Sửa đổi thứ tự INCI và loại da: DB lưu đúng thứ tự mới, JSON trả loại da theo sort_order. */
+    @Test
+    void updateKeepsIngredientOrderAndSkinTypes() throws Exception {
+        Map<String, Object> p = validProduct();
+        p.put("sku", SKU);
+        p.put("ingredientsInci", "Glycerin, Aqua, Niacinamide");
+        p.put("skinTypes", "normal,oily");
+        p.put("usageTime", "pm");
+        mvc.perform(admin(put("/api/admin/products/" + skuId), p))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ingredientsInci", matchesPattern("(?i)glycerin, aqua, niacinamide")))
+                .andExpect(jsonPath("$.skinTypes").value("oily,normal"))
+                .andExpect(jsonPath("$.usageTime").value("pm"));
+        assertThat(jdbc.queryForList("SELECT lower(i.inci_name) FROM product_ingredient x JOIN ingredient i ON i.id = x.ingredient_id"
+                + " WHERE x.product_id = ? ORDER BY x.position", String.class, skuId)).containsExactly("glycerin", "aqua", "niacinamide");
+        assertThat(jdbc.queryForObject("SELECT use_am::text || ',' || use_pm::text FROM product WHERE id = ?", String.class, skuId))
+                .isEqualTo("false,true");
+    }
+
     @SuppressWarnings("unchecked")
     private static Map<String, Object> prices(Map<String, Object> product) {
         return (Map<String, Object>) product.get("prices");

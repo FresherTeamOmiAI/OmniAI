@@ -18,17 +18,24 @@ import java.util.List;
 public class ProductController {
 
     private final ProductRepository repository;
+    private final ProductService service;
 
-    public ProductController(ProductRepository repository) {
+    public ProductController(ProductRepository repository, ProductService service) {
         this.repository = repository;
+        this.service = service;
     }
 
+    /**
+     * Danh sách store (T-09.2): chỉ sản phẩm active. Lọc tuỳ chọn, kết hợp AND: {@code skinType} (1 loại da),
+     * {@code category}, {@code minPrice}/{@code maxPrice} (giá web, VND, gồm cả mốc). Sai thì 400 ProblemDetail.
+     */
     @GetMapping
     public PageResponse<Product> list(@RequestParam(required = false) String skinType,
+                                      @RequestParam(required = false) String category,
+                                      @RequestParam(required = false) Long minPrice,
+                                      @RequestParam(required = false) Long maxPrice,
                                       @PageableDefault(size = 20) Pageable pageable) {
-        Page<Product> page = skinType == null || skinType.isBlank()
-                ? repository.findByActiveTrue(pageable)
-                : repository.findByActiveTrueAndSkinTypesContainingIgnoreCase(skinType, pageable);
+        Page<Product> page = service.storeSearch(new StoreFilter(skinType, category, minPrice, maxPrice), pageable);
         return new PageResponse<>(page.getContent(), page.getNumber(), page.getSize(), page.getTotalElements());
     }
 

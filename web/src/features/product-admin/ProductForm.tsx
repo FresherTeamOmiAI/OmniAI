@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react'
 import { ApiError } from '../../shared/lib/http'
 import type { Product, SalesChannel } from '../../shared/types'
 import { createProduct, updateProduct, type ProductInput } from './api'
-import { CATEGORIES, SKIN_CONCERNS, SKIN_TYPES, USAGE_TIMES, type Option } from './vocabulary'
+import { CATEGORIES, SKIN_CONCERNS, SKIN_TYPES, USAGE_TIMES, type Option } from '../../shared/vocabulary'
 
 interface Props {
   token: string

@@ -1,7 +1,7 @@
 import { BrowserRouter, Route, Routes } from 'react-router'
 import { PolicyPlaygroundPage } from '../features/policy-playground'
 import { ProductAdminPage } from '../features/product-admin'
-import { StorePage } from '../features/store'
+import { ProductDetailPage, StorePage } from '../features/store'
 import { ShopLayout } from './ShopLayout'
 
 export default function App() {
@@ -10,6 +10,7 @@ export default function App() {
       <Routes>
         <Route element={<ShopLayout />}>
           <Route index element={<StorePage />} />
+          <Route path="products/:id" element={<ProductDetailPage />} />
           <Route path="admin/products" element={<ProductAdminPage />} />
           <Route path="admin/policy" element={<PolicyPlaygroundPage />} />
           <Route path="*" element={<p className="page-empty">Không tìm thấy trang.</p>} />

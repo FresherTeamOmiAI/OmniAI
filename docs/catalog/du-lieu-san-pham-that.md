@@ -1,6 +1,6 @@
 # Catalog sản phẩm thật kèm ảnh (T-47.1)
 
-> Cập nhật: 2026-11-13 · T-04.1 giá theo kênh ở product_channel (V13) · Owner: LucVT
+> Cập nhật: 2026-11-13 · V15: luồng CSV vào bảng đã chuẩn hoá; T-04.1 giá theo kênh ở product_channel (V13) · Owner: LucVT
 > Nguồn: `shared/catalog/products.csv`, `shared/catalog/real/selection.csv`, `tools/catalog/obf_fetch.py`, `tools/catalog/obf_annotate.py`, `tools/catalog/upload_images.py`, `backend/.../db/migration/V9__product_source_image.sql`, `V10__import_catalog_real.sql`
 > Liên quan: US-47, [luu-anh-san-pham.md](luu-anh-san-pham.md) (T-47.2), [decisions #26, #27, #30](../specs/decisions.md)
 
@@ -104,3 +104,6 @@ Lệnh `search <từ khóa>` vẫn còn để tra nhanh qua API (đọc sản ph
 - **Store:** trang chi tiết (T-09.1), bộ lọc theo danh mục và giá (T-09.2). Phân trang đã có.
 - **Admin:** upload và đổi ảnh từ màn admin (`ProductRequest` chưa có trường ảnh).
 - **Dữ liệu:** dịch tên sản phẩm `auto` sang tiếng Anh hoặc Việt; bổ sung hãng Hàn/Nhật (OBF gần như không có).
+
+## Từ CSV vào DB sau V15 (decisions #35)
+`shared/catalog/products.csv` vẫn là bảng ngang (1 dòng / SKU, loại da và INCI là chuỗi có dấu phẩy) cho dễ sửa tay. `python tools/catalog/csv_to_sql.py V<n>__<mo_ta>.sql` sinh SQL cho các bảng đã chuẩn hoá: thêm hãng mới vào `brand`, upsert `product` (`brand_id`, `use_am`/`use_pm`), upsert `product_channel`, ghi lại `product_skin_type`, `product_skin_concern`, `product_ingredient` (thứ tự trên nhãn, bỏ trùng không phân biệt hoa thường) cho các SKU trong file, thêm thành phần mới vào `ingredient` (gán `active_group`), upsert ảnh chính vào `product_image`. File sinh ra chỉ chạy được sau V15; V5, V10 là bản cũ, không chạy lại.

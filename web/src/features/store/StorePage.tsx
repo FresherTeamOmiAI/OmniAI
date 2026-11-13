@@ -1,28 +1,47 @@
 import { useEffect, useState } from 'react'
+import { Link, useSearchParams } from 'react-router'
 import { formatVnd } from '../../shared/lib/format'
 import { WEB_CHANNEL } from '../../shared/types'
-import { fetchProducts, STORE_PAGE_SIZE } from './api'
+import { CATEGORIES, SKIN_TYPES } from '../../shared/vocabulary'
+import { fetchProducts, STORE_PAGE_SIZE, type StoreQuery } from './api'
+import { Attribution } from './Attribution'
 import type { Product } from './types'
 
-const SKIN_TYPES = [
-  { value: '', label: 'Tất cả' },
-  { value: 'oily', label: 'Da dầu' },
-  { value: 'dry', label: 'Da khô' },
-  { value: 'combination', label: 'Da hỗn hợp' },
-  { value: 'sensitive', label: 'Da nhạy cảm' },
+// Khoảng giá web (VND) cho bộ lọc. Giá trị = "min-max", bỏ trống một đầu = không giới hạn.
+const PRICE_RANGES = [
+  { value: '', label: 'Mọi mức giá' },
+  { value: '-200000', label: 'Dưới 200.000đ' },
+  { value: '200000-400000', label: '200.000đ – 400.000đ' },
+  { value: '400000-700000', label: '400.000đ – 700.000đ' },
+  { value: '700000-', label: 'Trên 700.000đ' },
 ]
 
-// Trang store demo. Owner: LucVT (sprint 2: trang chi tiết, giỏ hàng, đơn ảo).
+function toQuery(params: URLSearchParams): StoreQuery {
+  const [min, max] = (params.get('price') ?? '').split('-')
+  return {
+    skinType: params.get('skin') ?? '',
+    category: params.get('cat') ?? '',
+    minPrice: min ? Number(min) : null,
+    maxPrice: max ? Number(max) : null,
+  }
+}
+
+// Trang store demo (US-09, T-09.1). Bộ lọc và trang hiện tại nằm trên URL (?skin=&cat=&price=&page=)
+// để mở chi tiết rồi bấm "Quay lại" vẫn giữ nguyên chỗ đang xem. Owner: LucVT.
 export function StorePage() {
-  const [skinType, setSkinType] = useState('')
-  const [page, setPage] = useState(0)
+  const [params, setParams] = useSearchParams()
+  const skin = params.get('skin') ?? ''
+  const cat = params.get('cat') ?? ''
+  const price = params.get('price') ?? ''
+  const page = Math.max(0, Number(params.get('page') ?? 0) || 0)
+
   const [products, setProducts] = useState<Product[]>([])
   const [total, setTotal] = useState(0)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let stale = false
-    fetchProducts(skinType, page)
+    fetchProducts(toQuery(new URLSearchParams({ skin, cat, price })), page)
       .then((result) => {
         if (stale) return
         setProducts(result.items)
@@ -33,39 +52,64 @@ export function StorePage() {
     return () => {
       stale = true
     }
-  }, [skinType, page])
+  }, [skin, cat, price, page])
 
   const totalPages = Math.max(1, Math.ceil(total / STORE_PAGE_SIZE))
 
-  function changeSkinType(value: string) {
-    setSkinType(value)
-    setPage(0)
+  /** Đổi 1 bộ lọc thì về trang 1; giá trị rỗng thì bỏ khỏi URL cho gọn. */
+  function setFilter(key: 'skin' | 'cat' | 'price', value: string) {
+    const next = new URLSearchParams(params)
+    if (value) next.set(key, value)
+    else next.delete(key)
+    next.delete('page')
+    setParams(next)
   }
 
-  function goTo(next: number) {
-    setPage(next)
+  function goTo(nextPage: number) {
+    const next = new URLSearchParams(params)
+    if (nextPage > 0) next.set('page', String(nextPage))
+    else next.delete('page')
+    setParams(next)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+
+  const filtered = skin !== '' || cat !== '' || price !== ''
 
   return (
     <main className="store">
       <div className="store-filters" role="group" aria-label="Lọc theo loại da">
-        {SKIN_TYPES.map((s) => (
-          <button key={s.value} type="button" className={s.value === skinType ? 'chip chip-active' : 'chip'} onClick={() => changeSkinType(s.value)}>
+        {[{ value: '', label: 'Mọi loại da' }, ...SKIN_TYPES].map((s) => (
+          <button key={s.value} type="button" className={s.value === skin ? 'chip chip-active' : 'chip'}
+            aria-pressed={s.value === skin} onClick={() => setFilter('skin', s.value)}>
             {s.label}
           </button>
         ))}
-        <span className="toolbar-count muted">{total} sản phẩm</span>
+      </div>
+      <div className="store-toolbar">
+        <label className="sr-only" htmlFor="store-cat">Loại sản phẩm</label>
+        <select id="store-cat" value={cat} onChange={(e) => setFilter('cat', e.target.value)}>
+          <option value="">Mọi loại sản phẩm</option>
+          {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+        </select>
+        <label className="sr-only" htmlFor="store-price">Khoảng giá</label>
+        <select id="store-price" value={price} onChange={(e) => setFilter('price', e.target.value)}>
+          {PRICE_RANGES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+        </select>
+        {filtered && <button type="button" className="btn btn-sm" onClick={() => setParams(new URLSearchParams())}>Bỏ lọc</button>}
+        <span className="toolbar-count muted" aria-live="polite">{total} sản phẩm</span>
       </div>
       {error && <p className="error">{error}</p>}
+      {!error && total === 0 && <p className="muted">Không có sản phẩm nào khớp bộ lọc.</p>}
       <ul className="product-grid">
         {products.map((p) => (
           <li key={p.id} className="product-card">
-            <div className="product-image">
-              {p.imageUrl ? <img src={p.imageUrl} alt={p.name} loading="lazy" /> : <span aria-hidden="true">Chưa có ảnh</span>}
-            </div>
-            <span className="product-brand">{p.brand}</span>
-            <h3>{p.name}</h3>
+            <Link to={`/products/${p.id}`} className="product-link">
+              <div className="product-image">
+                {p.imageUrl ? <img src={p.imageUrl} alt={p.name} loading="lazy" /> : <span aria-hidden="true">Chưa có ảnh</span>}
+              </div>
+              <span className="product-brand">{p.brand}</span>
+              <h3>{p.name}</h3>
+            </Link>
             <p className="product-inci">{p.ingredientsInci}</p>
             <p className="product-price">{p.prices[WEB_CHANNEL] != null ? formatVnd(p.prices[WEB_CHANNEL]) : 'Liên hệ'}</p>
             <p className="product-stock">{p.stock > 0 ? `Còn ${p.stock}` : 'Hết hàng'}</p>
@@ -79,12 +123,7 @@ export function StorePage() {
           <button type="button" className="btn btn-sm" disabled={page + 1 >= totalPages} onClick={() => goTo(page + 1)}>Sau ›</button>
         </nav>
       )}
-      {/* Bắt buộc theo giấy phép ODbL / CC BY-SA 3.0 của Open Beauty Facts (docs/catalog/du-lieu-san-pham-that.md) */}
-      <p className="store-attribution">
-        Dữ liệu và ảnh sản phẩm: <a href="https://world.openbeautyfacts.org" target="_blank" rel="noreferrer">Open Beauty Facts</a>{' '}
-        (<a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noreferrer">ODbL</a>,{' '}
-        <a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noreferrer">CC BY-SA 3.0</a>). Nhãn hiệu thuộc chủ sở hữu, chỉ dùng cho mục đích học tập.
-      </p>
+      <Attribution />
     </main>
   )
 }

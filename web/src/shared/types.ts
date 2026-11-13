@@ -72,6 +72,27 @@ export interface SalesChannel {
 /** Mã kênh của web store (kênh shop sở hữu). */
 export const WEB_CHANNEL = 'WEB'
 
+// Đơn hàng (POST/GET /api/orders, T-09.3). S2 chỉ có đơn DEMO: không thanh toán, không giao, không trừ tồn kho.
+export interface OrderLine {
+  productId: number
+  sku: string
+  name: string
+  unitPrice: number
+  quantity: number
+  lineTotal: number
+}
+
+export interface OrderView {
+  id: number
+  status: 'DEMO'
+  channel: string
+  items: OrderLine[]
+  total: number
+  createdAt: string
+  /** Câu nhắc "không thanh toán, không giao hàng" cho đơn DEMO. */
+  notice: string | null
+}
+
 // Lỗi API theo ProblemDetail (RFC 9457). `errors` chỉ có ở lỗi 400 sai dữ liệu.
 export interface FieldViolation {
   field: string
