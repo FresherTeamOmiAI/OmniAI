@@ -14,6 +14,8 @@ public class ShopeeChannelProperties {
     private String accessToken = "test-access-token";
     /** URL hub sẽ nhận push đơn. Dùng để ký, chưa gọi mạng nếu để trống. */
     private String pushCallbackUrl = "http://127.0.0.1:8080/api/channels/shopee/push";
+    /** Database `shopee`, tách khỏi database hub. */
+    private Datasource datasource = new Datasource();
 
     public long getPartnerId() {
         return partnerId;
@@ -53,5 +55,44 @@ public class ShopeeChannelProperties {
 
     public void setPushCallbackUrl(String pushCallbackUrl) {
         this.pushCallbackUrl = pushCallbackUrl;
+    }
+
+    public Datasource getDatasource() {
+        return datasource;
+    }
+
+    public void setDatasource(Datasource datasource) {
+        this.datasource = datasource;
+    }
+
+    /** JDBC của database simulator. Không dùng datasource của hub. */
+    public static class Datasource {
+        private String url = "jdbc:postgresql://localhost:5432/shopee";
+        private String username = "omniai";
+        private String password = "omniai";
+
+        public String getUrl() {
+            return url;
+        }
+
+        public void setUrl(String url) {
+            this.url = url;
+        }
+
+        public String getUsername() {
+            return username;
+        }
+
+        public void setUsername(String username) {
+            this.username = username;
+        }
+
+        public String getPassword() {
+            return password;
+        }
+
+        public void setPassword(String password) {
+            this.password = password;
+        }
     }
 }

@@ -42,7 +42,7 @@ Shopee và TikTok Shop chạy **100% bằng simulator theo schema thật**; dự
 
 Simulator chung `/api/simulator/{channel}/messages` vẫn giữ cho bench và `/admin/policy`. Simulator theo schema sàn làm ở S2: Shopee do ChienPX (US-21), TikTok Shop do TuTM (US-25). Bảng đối chiếu: `docs/channel-api/shopee.md` (T-50.3, T-51.1), `docs/channel-api/tiktok.md` (T-25.3).
 
-`channel.shopee` là simulator giá, tồn kho và đơn Shopee. Hub chưa tự đẩy khi admin sửa sản phẩm (task đồng bộ của TuTM). Webhook đơn được ký sẵn; đường nhận push trên hub là T-51.3, chưa làm.
+`channel.shopee` là simulator giá, tồn kho, đơn và chat Shopee. Số liệu nằm ở database riêng `shopee`, bảng `item_shopee`, `price_list_shopee`, `seller_stock_shopee`, `order_shopee`, `order_item_shopee`, `push_shopee`, `conversation_shopee`, `message_shopee`, `webchat_push_shopee`. Hub chưa tự đẩy khi admin sửa sản phẩm (task đồng bộ của TuTM). Webhook đơn và tin chat được ký sẵn; đường nhận push trên hub là T-51.3, chưa làm. Schema chat shop là bản giả lập: trang seller chat của Open Platform không cấp quyền đọc (2026-11-11).
 
 ### TikTok Shop (US-25, đã làm)
 - Simulator là **app riêng** `simulators/tiktok-shop` (Spring Boot, cổng 8090, không DB, decisions #28), package `com.omniai.sim.tiktok`: `gateway/GatewayFilter` (rate limit → app_key, timestamp ±5 phút, sign → token → scope → shop_cipher), `auth/`, `event/` (`WebhookDispatcher`: ký, timeout 3 s, gửi lại 3 lần), `cs/`, `control/` (`/sim/*`). API và DTO: [../channel-api/tiktok.md](../channel-api/tiktok.md).

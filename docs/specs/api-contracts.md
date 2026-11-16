@@ -12,9 +12,13 @@ JSON phía backend dùng **camelCase**. Riêng hợp đồng backend → ai-brai
 | POST | `/api/simulator/{channel}/messages` | `{messageId?, userId*, text*}` | `BotReply` | `channel` viết thường: web, shopee, tiktok. Bỏ trống `messageId` thì server tự sinh UUID; gửi trùng `messageId` thì nhận lại kết quả cũ. Dùng cho bench và trang `/admin/policy`. |
 | POST | `/api/v2/product/update_price` | body Shopee `price_list` + query chữ ký | `{error, message, request_id, response}` | Simulator Shopee nhận giá (T-50.3). Sai chữ ký thì `error=error_sign`, số cũ giữ nguyên. |
 | POST | `/api/v2/product/update_stock` | body Shopee `stock_list` + query chữ ký | như trên | Simulator Shopee nhận tồn kho (T-50.3). |
-| GET | `/api/simulator/shopee/items/{itemId}` | | `{itemId, originalPrice, stock}` | Số simulator đang giữ, để so với hub. |
+| GET | `/api/simulator/shopee/items/{itemId}` | | `{itemId, originalPrice, stock}` | Đọc `price_list_shopee` và `seller_stock_shopee` trong database `shopee`. |
 | POST | `/api/simulator/shopee/orders` | `{item_id, item_sku, item_name, quantity, price, status?}` | `{order_sn, callback_url, authorization, raw_body, body}` | Phát đơn: body là push code 3, `authorization` là chữ ký push (T-51.1). |
 | GET | `/api/v2/order/get_order_detail` | query `order_sn_list` + chữ ký | `{response.order_list[]}` | Chi tiết đơn simulator vừa phát. |
+| POST | `/api/simulator/shopee/webchat` | `{from_id, from_user_name, text?}` | `{message_id, conversation_id, callback_url, authorization, raw_body, body}` | Phát tin khách. `body` là webchat_push code 10. Không trùng path bench `/messages`. |
+| POST | `/api/v2/sellerchat/send_message` | `{to_id, message_type, content}` + chữ ký | `{response.message_id, conversation_id, content}` | Shop trả lời. Bản giả lập, xem [shopee.md](../channel-api/shopee.md). |
+| GET | `/api/v2/sellerchat/get_message` | query `conversation_id` + chữ ký | `{response.messages[]}` | Đọc tin trong một hội thoại. |
+| GET | `/api/v2/sellerchat/get_conversation_list` | query chữ ký | `{response.conversations[]}` | Danh sách hội thoại của shop. |
 | GET | `/api/products?skinType=&page=&size=` | | `PageResponse<Product>` = `{items, page, size, total}` | Chỉ trả sản phẩm `active=true`. `skinType` lọc kiểu "contains, không phân biệt hoa thường". Mặc định size 20. |
 | GET | `/api/products/{id}` | | `Product` hoặc 404 | Sản phẩm `active=false` cũng trả 404 (SRS G-06). |
 | WS | `/ws/chat` | text frame `{messageId, text}` | text frame `BotReply`, hoặc `{error:"invalid_message", messageId}` | Kênh WEB. Origin cho phép: `WEB_ALLOWED_ORIGINS`. JSON hỏng hoặc text rỗng/null thì server trả frame lỗi, không im lặng; `messageId` lấy từ tin gửi lên, là `null` nếu JSON hỏng. Session vẫn mở. Widget có timeout 12 s (lớn hơn `omniai.brain.timeout` 10 s): hết giờ thì báo "Shop đang bận". |
@@ -63,7 +67,7 @@ Hub nói chuyện với sàn theo **đúng hợp đồng TikTok Shop** (snake_ca
 
 Simulator (cổng 8090) có thêm API điều khiển `/sim/*` (không có trên sàn thật, JSON snake_case): `POST /sim/buyer/messages {buyer_user_id*, nickname?, text*, wait_ms?}` → `{conversation_id, message_id, tts_notification_id, new_conversation, reply?, reply_latency_ms?}`; `GET|POST /sim/faults` (`api_latency_ms, webhook_delay_ms, webhook_duplicate, sensitive_words[], revoked_scopes[], block_sending`); `POST /sim/tokens/expire?kind=access|refresh`; `GET /sim/deliveries`; `POST /sim/reset`.
 
-Simulator Shopee đã nhận giá, tồn kho và phát đơn: [shopee.md](../channel-api/shopee.md). Chưa có: webhook chat Shopee (US-21, S2), tài khoản thật (US-13, S3), API đồng bộ hub ↔ kênh (trụ E, từ S3, xem [backend.md](backend.md)).
+Simulator Shopee đã nhận giá, tồn kho, phát đơn và phát chat: [shopee.md](../channel-api/shopee.md). Hub nhận push tại `POST /api/channels/shopee/push` (chữ ký `callbackUrl|body`), áp luật Shopee rồi ghi tin trả lời vào simulator. Chat seller là bản giả lập vì trang Open Platform không cấp quyền đọc. Chưa có: tài khoản thật (US-13, S3), API đồng bộ hub ↔ kênh (trụ E, từ S3, xem [backend.md](backend.md)).
 
 ## Kiểu dữ liệu chung (`com.omniai.common`, `web/src/shared/types.ts`)
 

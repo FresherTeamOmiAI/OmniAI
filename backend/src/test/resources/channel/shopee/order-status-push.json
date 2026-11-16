@@ -1,10 +1,12 @@
 {
   "data": {
-    "ordersn": "260111ABCD1234",
+    "items": [],
+    "ordersn": "220810QSK8S7BX",
     "status": "READY_TO_SHIP",
-    "update_time": 1762800000
+    "completed_scenario": "",
+    "update_time": 1660123127
   },
   "shop_id": 10001,
   "code": 3,
-  "timestamp": 1762800000
+  "timestamp": 1660123127
 }

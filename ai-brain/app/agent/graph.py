@@ -33,7 +33,8 @@ def system_prompt_for(request: ChatRequest, catalog: list[str] | None = None) ->
         return base + " Đây là kênh của shop: được so sánh giá giữa các kênh và gửi link."
     return base + (
         f" Đây là kênh sàn {request.channel}: tuyệt đối không nhắc kênh khác, không gửi link, "
-        "không cho/xin số điện thoại."
+        "không cho/xin số điện thoại. Không viết http, www, Zalo, TikTok, Lazada, Tiki, "
+        "website hay trang web. Câu trả lời dưới 1000 ký tự."
     )
 
 
