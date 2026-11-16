@@ -5,16 +5,13 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * Bộ từ vựng và luật dữ liệu của catalog (docs/specs/data-model.md). Owner: LucVT.
- * Giữ khớp với tools/catalog/validate_catalog.py để CSV và API admin cùng một luật.
+ * Luật dữ liệu của catalog (docs/specs/data-model.md). Owner: LucVT.
+ * Từ V15 (decisions #35), bộ từ vựng danh mục / loại da / vấn đề da là các bảng tra cứu trong DB
+ * (category, skin_type, skin_concern) và ProductService đọc từ đó. Ở đây chỉ còn luật không nằm trong DB.
+ * tools/catalog/validate_catalog.py (công cụ offline) giữ bản từ vựng riêng, phải khớp các bảng tra cứu.
  */
 final class CatalogVocabulary {
 
-    static final Set<String> CATEGORIES = Set.of("cleanser", "toner", "serum", "moisturizer", "sunscreen",
-            "exfoliant", "spot-treatment", "mask", "eye-cream", "lip-care");
-    static final Set<String> SKIN_TYPES = Set.of("oily", "dry", "combination", "sensitive", "normal");
-    static final Set<String> SKIN_CONCERNS = Set.of("acne", "oil-control", "pores", "hydration", "dullness",
-            "dark-spots", "aging", "sensitivity", "barrier", "sun-protection");
     static final Set<String> USAGE_TIMES = Set.of("am", "pm", "am,pm");
 
     static final Pattern SKU = Pattern.compile("^[A-Z]{3,4}-[A-Z]{3}-\\d{2}$");

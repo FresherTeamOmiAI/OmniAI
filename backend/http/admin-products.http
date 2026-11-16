@@ -13,7 +13,7 @@ GET {{base}}/api/admin/products
 GET {{base}}/api/admin/products?q=lumi&active=true&page=0&size=5
 Authorization: {{auth}}
 
-### 3. Chỉ SKU ẩn -> MOC-SER-40, LUMI-MSK-72 (và sản phẩm test của các lần chạy trước)
+### 3. Chỉ SKU ẩn -> NEUT-SUN-02, NIVE-MSK-01 (và sản phẩm test của các lần chạy trước)
 GET {{base}}/api/admin/products?active=false
 Authorization: {{auth}}
 
@@ -35,9 +35,7 @@ Content-Type: application/json
   "ingredientsInci": "Aqua,Niacinamide , Glycerin",
   "sizeMl": 30,
   "paoMonths": 12,
-  "priceWeb": 250000,
-  "priceShopee": 260000,
-  "priceTiktok": 243000,
+  "prices": {"WEB": 250000, "SHOPEE": 260000, "TIKTOK": 243000},
   "stock": 10
 }
 
@@ -50,9 +48,9 @@ Authorization: {{auth}}
 Content-Type: application/json
 
 {
-  "sku": "LUMI-SUN-01", "name": "Trùng", "brand": "Lumi Lab", "category": "sunscreen", "skinTypes": "oily",
+  "sku": "CERA-CLE-01", "name": "Trùng", "brand": "Lumi Lab", "category": "sunscreen", "skinTypes": "oily",
   "ingredientsInci": "Aqua, Zinc Oxide", "sizeMl": 50, "paoMonths": 12,
-  "priceWeb": 1, "priceShopee": 1, "priceTiktok": 1, "stock": 0
+  "prices": {"WEB": 1, "SHOPEE": 1, "TIKTOK": 1}, "stock": 0
 }
 
 ### 7. Sai dữ liệu -> 400, errors[] liệt kê 6 field: sku, category, skinTypes, usageTime, ingredientsInci, name
@@ -63,10 +61,10 @@ Content-Type: application/json
 {
   "sku": "SERUM1", "name": "Serum đặc trị mụn", "brand": "Lumi Lab", "category": "shampoo",
   "skinTypes": "oily,alien", "usageTime": "noon", "ingredientsInci": "Aqua", "sizeMl": 30, "paoMonths": 12,
-  "priceWeb": 1, "priceShopee": 1, "priceTiktok": 1, "stock": 0
+  "prices": {"WEB": 1, "SHOPEE": 1, "TIKTOK": 1}, "stock": 0
 }
 
-### 8. Sửa giá (SKU phải giữ nguyên) -> 200, priceWeb = 199000
+### 8. Sửa giá (SKU phải giữ nguyên) -> 200, prices.WEB = 199000
 PUT {{base}}/api/admin/products/{{create.response.body.id}}
 Authorization: {{auth}}
 Content-Type: application/json
@@ -83,9 +81,7 @@ Content-Type: application/json
   "ingredientsInci": "Aqua, Niacinamide, Glycerin",
   "sizeMl": 30,
   "paoMonths": 12,
-  "priceWeb": 199000,
-  "priceShopee": 260000,
-  "priceTiktok": 243000,
+  "prices": {"WEB": 199000, "SHOPEE": 260000, "TIKTOK": 243000},
   "stock": 10
 }
 

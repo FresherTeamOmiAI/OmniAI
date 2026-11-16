@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.omniai.common.CanonicalMessage;
 import com.omniai.common.ChannelType;
@@ -18,6 +19,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -47,7 +49,7 @@ class OmniAiApplicationTests {
                 .isEqualTo(TestCatalog.activeCount());
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM product WHERE stock = 0", Long.class))
                 .isEqualTo(TestCatalog.outOfStockCount());
-        assertThat(jdbc.queryForObject("SELECT COUNT(DISTINCT brand) FROM product", Long.class))
+        assertThat(jdbc.queryForObject("SELECT COUNT(DISTINCT brand_id) FROM product", Long.class))
                 .isEqualTo(TestCatalog.brandCount());
         assertThat(jdbc.queryForObject("SELECT COUNT(DISTINCT category) FROM product", Integer.class)).isEqualTo(10);
         assertThat(TestCatalog.size()).isGreaterThanOrEqualTo(80);
@@ -57,15 +59,19 @@ class OmniAiApplicationTests {
     @Test
     void fictionalCatalogIsDeleted() {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM product WHERE split_part(sku, '-', 1)"
-                + " IN ('LUMI', 'SEN', 'HYD', 'MOC', 'VAN') OR brand IN ('Lumi Lab', 'Hydra Mint')", Integer.class)).isZero();
+                + " IN ('LUMI', 'SEN', 'HYD', 'MOC', 'VAN')", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM brand WHERE name IN ('Lumi Lab', 'Hydra Mint', 'Sen Việt')",
+                Integer.class)).isZero();
     }
 
     /** Mỗi SKU của catalog thật có barcode, nguồn, khoá ảnh <SKU>.webp và ghi chú giấy phép (US-47 AC). */
     @Test
     void realCatalogHasSourceAndImageForEverySku() {
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM product WHERE barcode IS NULL OR source_url IS NULL"
-                + " OR image_key <> sku || '.webp' OR image_license_note IS NULL", Integer.class)).isZero();
-        var row = jdbc.queryForMap("SELECT barcode, image_key, source_url FROM product WHERE sku = 'CERA-CLE-01'");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM product p LEFT JOIN product_image i ON i.product_id = p.id AND i.is_primary"
+                + " WHERE p.barcode IS NULL OR p.source_url IS NULL OR i.storage_key IS DISTINCT FROM p.sku || '.webp'"
+                + " OR i.license_note IS NULL", Integer.class)).isZero();
+        var row = jdbc.queryForMap("SELECT p.barcode, i.storage_key AS image_key, p.source_url FROM product p"
+                + " JOIN product_image i ON i.product_id = p.id AND i.is_primary WHERE p.sku = 'CERA-CLE-01'");
         assertThat(row.get("barcode")).isEqualTo("3337875597197");
         assertThat(row.get("image_key")).isEqualTo("CERA-CLE-01.webp");
         assertThat((String) row.get("source_url")).endsWith("/product/3337875597197");
@@ -129,20 +135,65 @@ class OmniAiApplicationTests {
         }
     }
 
+    /** Không @Transactional: mỗi câu bị DB từ chối sẽ huỷ cả transaction. Tự xoá sản phẩm thử ở cuối (CASCADE giá). */
     @Test
-    void productRejectsNegativePriceAndUnknownUsageTime() {
-        String insert = "INSERT INTO product (sku, name, brand, category, skin_types, ingredients_inci, size_ml, pao_months,"
-                + " price_web, price_shopee, price_tiktok, usage_time) VALUES (?, 'x', 'x', 'serum', 'oily', 'Aqua', 30, 6, ?, 1, 1, ?)";
+    void productRejectsNegativePriceUnknownChannelAndUnknownCategory() {
+        String insert = "INSERT INTO product (sku, name, brand_id, category, size_ml, pao_months)"
+                + " VALUES (?, 'x', (SELECT min(id) FROM brand), ?, 30, 6)";
+        // V15: danh mục là FK tới bảng category.
+        assertThatThrownBy(() -> jdbc.update(insert, "T-CAT", "shampoo")).isInstanceOf(DataIntegrityViolationException.class);
 
-        assertThatThrownBy(() -> jdbc.update(insert, "T-NEG", -1, "am")).isInstanceOf(DataIntegrityViolationException.class);
-        assertThatThrownBy(() -> jdbc.update(insert, "T-USE", 1, "noon")).isInstanceOf(DataIntegrityViolationException.class);
+        jdbc.update(insert, "T-PRICE", "serum");
+        try {
+            Long id = jdbc.queryForObject("SELECT id FROM product WHERE sku = 'T-PRICE'", Long.class);
+            String price = "INSERT INTO product_channel (product_id, channel_code, price) VALUES (?, ?, ?)";
+            assertThatThrownBy(() -> jdbc.update(price, id, "WEB", -1)).isInstanceOf(DataIntegrityViolationException.class);
+            assertThatThrownBy(() -> jdbc.update(price, id, "LAZADA", 1)).isInstanceOf(DataIntegrityViolationException.class);
+            jdbc.update(price, id, "WEB", 1);
+            assertThatThrownBy(() -> jdbc.update(price, id, "WEB", 2)).isInstanceOf(DataIntegrityViolationException.class);
+        } finally {
+            jdbc.update("DELETE FROM product WHERE sku = 'T-PRICE'");
+        }
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM product_channel", Long.class)).isEqualTo(TestCatalog.size() * 3L);
     }
 
+    /** V13 (decisions #32): giá không còn là cột của product; mỗi SKU có đúng giá của CSV trên cả 3 kênh. */
     @Test
-    void productRequiresPriceOnEveryChannel() {
-        assertThatThrownBy(() -> jdbc.update("INSERT INTO product (sku, name, brand, category, skin_types, ingredients_inci,"
-                + " size_ml, pao_months, price_web, price_shopee) VALUES ('T-NULL', 'x', 'x', 'serum', 'oily', 'Aqua', 30, 6, 1, 1)"))
-                .isInstanceOf(DataIntegrityViolationException.class);
+    void channelPricesLiveInProductChannelAndMatchCsv() {
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM information_schema.columns"
+                + " WHERE table_name = 'product' AND column_name LIKE 'price%'", Integer.class)).isZero();
+        assertThat(jdbc.queryForList("SELECT code FROM sales_channel WHERE owned", String.class)).containsExactly("WEB");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM sales_channel WHERE active", Integer.class)).isEqualTo(3);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM product_channel", Long.class)).isEqualTo(TestCatalog.size() * 3L);
+
+        Map<String, Map<String, Long>> db = new HashMap<>();
+        jdbc.query("SELECT p.sku, pc.channel_code, pc.price FROM product_channel pc JOIN product p ON p.id = pc.product_id",
+                (ResultSet row) -> {
+                    db.computeIfAbsent(row.getString(1), k -> new HashMap<>()).put(row.getString(2), row.getLong(3));
+                });
+        for (TestCatalog.Row row : TestCatalog.rows()) {
+            assertThat(db.get(row.sku())).as(row.sku()).isEqualTo(row.prices());
+        }
+
+        // 2 view chatbot giữ nguyên tên cột cũ để ai-brain không phải đổi.
+        TestCatalog.Row cerave = TestCatalog.rows().stream().filter(r -> r.sku().equals("CERA-CLE-01")).findFirst().orElseThrow();
+        var view = jdbc.queryForMap("SELECT price_web, price_shopee, price_tiktok FROM chatbot_catalog_search WHERE sku = 'CERA-CLE-01'");
+        assertThat(view).containsEntry("price_web", cerave.prices().get("WEB"))
+                .containsEntry("price_shopee", cerave.prices().get("SHOPEE"))
+                .containsEntry("price_tiktok", cerave.prices().get("TIKTOK"));
+    }
+
+    /** Lý do của V13: thêm 1 sàn chỉ là INSERT dữ liệu, không ALTER bảng nào. Rollback sau test. */
+    @Test
+    @Transactional
+    void addingChannelNeedsNoSchemaChange() {
+        jdbc.update("INSERT INTO sales_channel (code, name, owned, active) VALUES ('LAZADA', 'Lazada', false, true)");
+        jdbc.update("INSERT INTO product_channel (product_id, channel_code, price)"
+                + " SELECT product_id, 'LAZADA', price FROM product_channel WHERE channel_code = 'SHOPEE'");
+
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM product_channel WHERE channel_code = 'LAZADA'", Long.class))
+                .isEqualTo((long) TestCatalog.size());
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM chatbot_catalog", Long.class)).isEqualTo(TestCatalog.activeCount());
     }
 
     @Test

@@ -1,0 +1,17 @@
+# Profile "supabase": backend dùng Postgres trên Supabase thay cho Postgres Docker local (decisions #33). Owner: LucVT.
+# Bật: SPRING_PROFILES_ACTIVE=supabase (trong .env hoặc biến môi trường). Không bật thì vẫn dùng DB_URL như cũ.
+# Cần trong .env: SUPABASE_DB_HOST, SUPABASE_DB_PORT, SUPABASE_DB_NAME, SUPABASE_DB_USER, SUPABASE_DB_PASSWORD
+# (Supabase > Connect > Session pooler; mật khẩu là Database password, KHÔNG phải service key).
+spring:
+  datasource:
+    # Session pooler (cổng 5432) giữ 1 kết nối / client nên dùng được prepared statement như Postgres thường.
+    url: jdbc:postgresql://${SUPABASE_DB_HOST}:${SUPABASE_DB_PORT:5432}/${SUPABASE_DB_NAME:postgres}?sslmode=require
+    username: ${SUPABASE_DB_USER}
+    password: ${SUPABASE_DB_PASSWORD}
+    hikari:
+      # Gói Free giới hạn số kết nối của pooler; chừa chỗ cho ai-brain (chatbot_reader) và tools/catalog.
+      maximum-pool-size: 5
+  flyway:
+    # db/supabase/afterMigrate.sql chạy sau MỖI lần migrate: thu quyền của anon/authenticated trên schema public,
+    # để Data API (REST) của Supabase không đọc được bảng customer, hội thoại, token kênh.
+    locations: classpath:db/migration,classpath:db/supabase

@@ -45,9 +45,9 @@ export interface Product {
   ingredientsInci: string
   sizeMl: number
   paoMonths: number
-  priceWeb: number
-  priceShopee: number
-  priceTiktok: number
+  // Giá niêm yết theo kênh (VND), khoá = SalesChannel.code, vd. { WEB: 350000, SHOPEE: 364000, TIKTOK: 340000 }.
+  // Thay 3 field priceWeb/priceShopee/priceTiktok từ V13 (decisions #32): thêm kênh không đổi kiểu này.
+  prices: Record<string, number>
   stock: number
   active: boolean
   // Nguồn và ảnh (V9, T-47.1). null với sản phẩm admin tự tạo.
@@ -59,6 +59,38 @@ export interface Product {
   // URL public trên Supabase, backend ghép từ imageKey; null khi chưa có ảnh hoặc chưa cấu hình SUPABASE_URL.
   imageUrl: string | null
   updatedAt: string
+}
+
+// Kênh bán (bảng sales_channel, V13). owned = kênh của shop (WEB), active = false khi tạm ngừng bán.
+export interface SalesChannel {
+  code: string
+  name: string
+  owned: boolean
+  active: boolean
+}
+
+/** Mã kênh của web store (kênh shop sở hữu). */
+export const WEB_CHANNEL = 'WEB'
+
+// Đơn hàng (POST/GET /api/orders, T-09.3). S2 chỉ có đơn DEMO: không thanh toán, không giao, không trừ tồn kho.
+export interface OrderLine {
+  productId: number
+  sku: string
+  name: string
+  unitPrice: number
+  quantity: number
+  lineTotal: number
+}
+
+export interface OrderView {
+  id: number
+  status: 'DEMO'
+  channel: string
+  items: OrderLine[]
+  total: number
+  createdAt: string
+  /** Câu nhắc "không thanh toán, không giao hàng" cho đơn DEMO. */
+  notice: string | null
 }
 
 // Lỗi API theo ProblemDetail (RFC 9457). `errors` chỉ có ở lỗi 400 sai dữ liệu.

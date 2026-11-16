@@ -24,6 +24,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
@@ -151,12 +152,12 @@ class AdminProductApiTest {
     @Test
     void missingAndOutOfRangeFieldsAreBadRequest() throws Exception {
         Map<String, Object> p = validProduct();
-        p.put("priceWeb", -1);
+        prices(p).put("WEB", -1);
         p.put("sizeMl", 0);
         p.remove("ingredientsInci");
         mvc.perform(admin(post("/api/admin/products"), p))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.errors[*].field", containsInAnyOrder("priceWeb", "sizeMl", "ingredientsInci")));
+                .andExpect(jsonPath("$.errors[*].field", containsInAnyOrder("prices[WEB]", "sizeMl", "ingredientsInci")));
     }
 
     @Test
@@ -177,7 +178,7 @@ class AdminProductApiTest {
     @Test
     void malformedJsonIsBadRequest() throws Exception {
         mvc.perform(post("/api/admin/products").with(ADMIN).contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"sku\": \"X\", \"priceWeb\": \"rẻ\"}"))
+                        .content("{\"sku\": \"X\", \"prices\": {\"WEB\": \"rẻ\"}}"))
                 .andExpect(status().isBadRequest());
     }
 
@@ -187,11 +188,13 @@ class AdminProductApiTest {
     void updateShowsInStoreImmediately() throws Exception {
         Map<String, Object> p = validProduct();
         p.put("sku", SKU);
-        p.put("priceWeb", 300000);
+        prices(p).put("WEB", 300000);
         mvc.perform(admin(put("/api/admin/products/" + skuId), p))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.priceWeb").value(300000));
-        mvc.perform(get("/api/products/" + skuId)).andExpect(jsonPath("$.priceWeb").value(300000));
+                .andExpect(jsonPath("$.prices.WEB").value(300000));
+        mvc.perform(get("/api/products/" + skuId)).andExpect(jsonPath("$.prices.WEB").value(300000));
+        assertThat(jdbc.queryForObject("SELECT price FROM product_channel WHERE product_id = ? AND channel_code = 'WEB'",
+                Long.class, skuId)).isEqualTo(300000L);
     }
 
     /** ProductRequest không có cột ảnh/nguồn: admin sửa sản phẩm không được làm mất chúng (V9). */
@@ -276,6 +279,116 @@ class AdminProductApiTest {
         return json.writeValueAsString(value);
     }
 
+    // --- Giá theo kênh (V13, decisions #32) ---
+
+    @Test
+    void missingOrUnknownChannelPriceIsBadRequest() throws Exception {
+        Map<String, Object> p = validProduct();
+        prices(p).remove("SHOPEE");
+        prices(p).put("lazada", 1);
+        mvc.perform(admin(post("/api/admin/products"), p))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[*].field", containsInAnyOrder("prices[SHOPEE]", "prices[LAZADA]")));
+
+        p.remove("prices");
+        mvc.perform(admin(post("/api/admin/products"), p))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[*].field", containsInAnyOrder("prices")));
+    }
+
+    /** Thêm sàn mới chỉ là thêm dữ liệu: API nhận ngay giá của kênh mới, không đổi code hay bảng product. */
+    @Test
+    void newChannelIsAcceptedWithoutSchemaChange() throws Exception {
+        jdbc.update("INSERT INTO sales_channel (code, name, owned, active) VALUES ('LAZADA', 'Lazada', false, true)");
+        Map<String, Object> p = validProduct();
+        mvc.perform(admin(post("/api/admin/products"), p))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[*].field", containsInAnyOrder("prices[LAZADA]")));
+
+        prices(p).put("LAZADA", 255000);
+        mvc.perform(admin(post("/api/admin/products"), p))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.prices.LAZADA").value(255000))
+                .andExpect(jsonPath("$.prices.WEB").value(250000));
+        mvc.perform(get("/api/admin/sales-channels").with(ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].code").value("WEB"))
+                .andExpect(jsonPath("$[*].code", containsInAnyOrder("WEB", "SHOPEE", "TIKTOK", "LAZADA")));
+    }
+
+    /** Kênh tạm ngừng (active=false) không bắt buộc có giá, và admin sửa sản phẩm không làm mất giá cũ của kênh đó. */
+    @Test
+    void inactiveChannelIsOptionalAndItsPriceIsKept() throws Exception {
+        jdbc.update("UPDATE sales_channel SET active = false WHERE code = 'TIKTOK'");
+        Long tiktok = jdbc.queryForObject(
+                "SELECT price FROM product_channel WHERE product_id = ? AND channel_code = 'TIKTOK'", Long.class, skuId);
+        Map<String, Object> p = validProduct();
+        p.put("sku", SKU);
+        prices(p).remove("TIKTOK");
+        mvc.perform(admin(put("/api/admin/products/" + skuId), p))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.prices.TIKTOK").value(tiktok.intValue()));
+    }
+
+    @Test
+    void storeJsonHasPricesMapOnly() throws Exception {
+        mvc.perform(get("/api/products/" + skuId))
+                .andExpect(jsonPath("$.prices.WEB").isNumber())
+                .andExpect(jsonPath("$.prices.SHOPEE").isNumber())
+                .andExpect(jsonPath("$.prices.TIKTOK").isNumber())
+                .andExpect(jsonPath("$.priceWeb").doesNotExist());
+        mvc.perform(get("/api/admin/sales-channels")).andExpect(status().isUnauthorized());
+    }
+
+    // --- Bảng tra cứu V15 (decisions #35) ---
+
+    /** Hãng và thành phần chưa có thì được thêm vào bảng brand / ingredient; INCI bỏ trùng không phân biệt hoa thường. */
+    @Test
+    void newBrandAndIngredientAreAddedToLookupTables() throws Exception {
+        Map<String, Object> p = validProduct();
+        p.put("sku", "NEWB-SER-01");
+        p.put("brand", "Hãng Thử Nghiệm");
+        p.put("ingredientsInci", "Aqua, Niacinamide, Chiết xuất thử nghiệm XYZ, AQUA");
+        mvc.perform(admin(post("/api/admin/products"), p))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.brand").value("Hãng Thử Nghiệm"))
+                .andExpect(jsonPath("$.ingredientsInci", matchesPattern("(?i)aqua, niacinamide, Chiết xuất thử nghiệm XYZ")));
+        assertThat(jdbc.queryForObject("SELECT code FROM brand WHERE name = 'Hãng Thử Nghiệm'", String.class)).isEqualTo("NEWB");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM ingredient WHERE inci_name = 'Chiết xuất thử nghiệm XYZ'",
+                Integer.class)).isEqualTo(1);
+
+        // Cùng hãng viết khác hoa thường: dùng lại dòng brand cũ, không tạo thêm.
+        p.put("sku", "NEWB-SER-02");
+        p.put("brand", "hãng thử nghiệm");
+        mvc.perform(admin(post("/api/admin/products"), p)).andExpect(status().isCreated())
+                .andExpect(jsonPath("$.brand").value("Hãng Thử Nghiệm"));
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM brand WHERE lower(name) = 'hãng thử nghiệm'", Integer.class)).isEqualTo(1);
+    }
+
+    /** Sửa đổi thứ tự INCI và loại da: DB lưu đúng thứ tự mới, JSON trả loại da theo sort_order. */
+    @Test
+    void updateKeepsIngredientOrderAndSkinTypes() throws Exception {
+        Map<String, Object> p = validProduct();
+        p.put("sku", SKU);
+        p.put("ingredientsInci", "Glycerin, Aqua, Niacinamide");
+        p.put("skinTypes", "normal,oily");
+        p.put("usageTime", "pm");
+        mvc.perform(admin(put("/api/admin/products/" + skuId), p))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ingredientsInci", matchesPattern("(?i)glycerin, aqua, niacinamide")))
+                .andExpect(jsonPath("$.skinTypes").value("oily,normal"))
+                .andExpect(jsonPath("$.usageTime").value("pm"));
+        assertThat(jdbc.queryForList("SELECT lower(i.inci_name) FROM product_ingredient x JOIN ingredient i ON i.id = x.ingredient_id"
+                + " WHERE x.product_id = ? ORDER BY x.position", String.class, skuId)).containsExactly("glycerin", "aqua", "niacinamide");
+        assertThat(jdbc.queryForObject("SELECT use_am::text || ',' || use_pm::text FROM product WHERE id = ?", String.class, skuId))
+                .isEqualTo("false,true");
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> prices(Map<String, Object> product) {
+        return (Map<String, Object>) product.get("prices");
+    }
+
     private static Map<String, Object> validProduct() {
         Map<String, Object> p = new LinkedHashMap<>();
         p.put("sku", "TEST-SER-01");
@@ -289,9 +402,7 @@ class AdminProductApiTest {
         p.put("ingredientsInci", "Aqua, Niacinamide, Glycerin");
         p.put("sizeMl", 30);
         p.put("paoMonths", 12);
-        p.put("priceWeb", 250000);
-        p.put("priceShopee", 260000);
-        p.put("priceTiktok", 243000);
+        p.put("prices", new LinkedHashMap<>(Map.of("WEB", 250000, "SHOPEE", 260000, "TIKTOK", 243000)));
         p.put("stock", 10);
         return p;
     }

@@ -1,6 +1,6 @@
 # Trạng thái hiện tại
 
-> Cập nhật: 2026-11-12 · T-09.1 store phân trang 20 SKU/trang (chưa có trang chi tiết); US-11 lưu hội thoại mọi kênh (T-11.1–T-11.3); T-47.1 catalog thật 366 SKU trong DB, 366 ảnh đã lên Supabase (decisions #27, #30); US-25 kênh TikTok Shop qua simulator (T-25.1–T-25.3), chạy thử với Gemini + Postman; trước đó: T-06.8 timeout widget, lập lại kế hoạch (decisions #22–#24) · Sprint hiện tại: **S2 (10–16/11/2026)**
+> Cập nhật: 2026-11-13 · T-04.1 V15 chuẩn hoá bảng product; T-09.3 đặt hàng ảo, US-09 đủ 3 task; T-09.1 trang chi tiết + bộ lọc web; T-09.2 API lọc store; T-04.1 tách giá theo kênh khỏi `product` (V13, decisions #32); T-47.3 profile `supabase` cho Postgres trên Supabase (decisions #33); 2026-11-12 · T-09.1 store phân trang 20 SKU/trang (chưa có trang chi tiết); US-11 lưu hội thoại mọi kênh (T-11.1–T-11.3); T-47.1 catalog thật 366 SKU trong DB, 366 ảnh đã lên Supabase (decisions #27, #30); US-25 kênh TikTok Shop qua simulator (T-25.1–T-25.3), chạy thử với Gemini + Postman; trước đó: T-06.8 timeout widget, lập lại kế hoạch (decisions #22–#24) · Sprint hiện tại: **S2 (10–16/11/2026)**
 
 Bảng này cho biết cái gì đã chạy được, cái gì mới là khung, cái gì chưa có. Agent đọc file này **trước khi** đi tìm code để khỏi tìm thứ chưa tồn tại. Kế hoạch chi tiết: `tools/tracking/backlog.py` và GitHub Issues (milestone Sprint 0–12).
 
@@ -11,6 +11,7 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | Phần | Trạng thái | Ghi chú | US |
 |---|---|---|---|
 | Docker (Postgres+pgvector, Redis, RabbitMQ) | Done | Redis và RabbitMQ chưa được dùng | |
+| Postgres trên Supabase (profile `supabase`) | Khung | `application-supabase.yml` + callback thu quyền `anon`/`authenticated` (decisions #33). Đã chạy trên project Supabase của LucVT (13/11): Flyway V1–V12 trên Postgres 17, 366 SKU, quyền `anon`/`authenticated` = 0, `chatbot_reader` đăng nhập qua pooler (`chatbot_reader.<project-ref>`) chỉ đọc được view. ai-brain trỏ `CHATBOT_DB_URL` sang được. Thành viên khác vẫn dùng DB local | |
 | Script chạy Windows `tools/systembat` | Done | setup / run-all / stop-all / test-all / bench | US-02 |
 | CanonicalMessage + ChannelAdapter | Done | | |
 | MessageRouter + idempotency | Khung | Idempotency in-memory (US-29). Đã lưu hội thoại | US-06, US-11, US-29 |
@@ -27,8 +28,8 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | AI Brain: chặn số tự bịa (`rules/grounding.py`) | Done | Giữ giá khi khớp `chatbot_catalog`. Vẫn bỏ tồn kho, khuyến mãi và giá model tự bịa | US-06 (T-06.6), US-15 |
 | Luật thành phần | Khung | Bản mẫu, cần chuyên gia review | US-27 |
 | RAG / tool / agent loop | Đang làm | search_product đọc hết sản phẩm active (view theo trang 100) rồi xếp top 3 theo embedding (US-10). 10 ca ở `bench/datasets/rag.jsonl`. Chưa ghi vector vào DB nếu chưa chạy `index_catalog`. Chưa có agent loop | US-10, US-15 |
-| Catalog: GET list/detail | Done | 80 SKU trong DB (78 active) | |
-| Catalog: schema đợt 1 (V4) | Done | Thêm mô tả, vấn đề da, buổi dùng; NOT NULL + CHECK. Cột embedding ở V12 (US-10) | US-04 |
+| Catalog: GET list/detail | Done | 366 SKU thật trong DB (364 active), giá trả dạng `prices: {WEB, SHOPEE, TIKTOK}` | |
+| Catalog: schema (V4, V13, V15) | Done | V4 schema đợt 1; V13 tách giá theo kênh (`sales_channel` + `product_channel`, decisions #32); **V15 chuẩn hoá** (decisions #35): bảng tra cứu hãng / danh mục / loại da / vấn đề da / thành phần INCI, bảng nối, `product_image`, `use_am`/`use_pm`. API và view chatbot giữ nguyên hình dạng. Cột embedding ở V12 (US-10). Test `CatalogNormalizationTest` | US-04 |
 | Catalog: file 80 SKU (`shared/catalog/products.csv`) | Done | Có validator `tools/catalog/validate_catalog.py`. Đã nạp vào DB qua migration V5, sinh bằng `tools/catalog/csv_to_sql.py` (T-08.2) | US-04, US-08 |
 | Catalog: API admin `/api/admin/products` | Done | List (gồm SKU ẩn), tạo, sửa, ẩn/hiện, validate giống validator CSV, lỗi ProblemDetail (T-08.1) | US-08 |
 | Màn admin sản phẩm `/admin/products` | Done | Đăng nhập Basic, bảng gồm SKU ẩn + tìm/lọc/phân trang, thêm/sửa trong dialog, ẩn/hiện (T-08.3). Chưa có test tự động phía web, TC trình duyệt ở `docs/testcases/US-08.md` mục D | US-08 |
@@ -36,7 +37,7 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | Customer / ChannelIdentity entity | Khung | Chưa có API | |
 | Identity (OTP, OMNI-code) | Chưa | Mới có package-info | US-13, 22 |
 | Order, Promotion | Chưa | Mới có package-info | US-09, 33 |
-| Web store (list phân trang + lọc loại da) | Khung | Chưa có trang chi tiết, chưa đặt hàng ảo | US-09 |
+| Web store (list + lọc + chi tiết + đặt thử) | Done | Danh sách phân trang, lọc 5 loại da / danh mục / khoảng giá web (T-09.2 + T-09.1), trang chi tiết `/products/:id` có giá + INCI + nguồn, banner thử nghiệm, **đặt hàng ảo** (T-09.3: `POST /api/orders`, đơn DEMO, không trừ tồn kho, `DemoOrderApiTest`). Chưa có test tự động phía web, TC trình duyệt ở `docs/testcases/US-09.md` mục C, D. Chưa có giỏ nhiều sản phẩm | US-09 |
 | Trang thử luật kênh `/admin/policy` | Done | | UC-24 |
 | Bench runner + policy_check | Done | 11 ca mẫu qua simulator + 6 ca luồng web qua WebSocket (`transport: ws`). Luôn chạy trên Gemini + Postgres thật; kỳ vọng không còn phụ thuộc câu của FakeProvider (T-12.4) | US-06, US-12 |
 | CI | Chưa | | US-16 |

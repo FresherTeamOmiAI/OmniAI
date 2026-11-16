@@ -1,4 +1,4 @@
-// Bộ giá trị hợp lệ của catalog, nhãn tiếng Việt cho UI.
+// Bộ giá trị hợp lệ của catalog, nhãn tiếng Việt cho UI. Dùng chung cho store (lọc, trang chi tiết) và admin sản phẩm.
 // Phải khớp backend catalog/CatalogVocabulary.java và tools/catalog/validate_catalog.py (docs/specs/data-model.md).
 // UI chỉ dùng để hiện lựa chọn; kiểm tra dữ liệu là việc của backend.
 

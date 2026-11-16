@@ -1,6 +1,6 @@
 # Tổng quan hệ thống
 
-> Cập nhật: 2026-11-11 · commit 0f3d600
+> Cập nhật: 2026-11-13 · profile `supabase` cho Postgres trên Supabase (decisions #33); trước đó 2026-11-11 · commit 0f3d600
 > Nguồn: `README.md`, `docker-compose.yml`, `.env.example`, `simulators/tiktok-shop/src/main/resources/application.yml`, `backend/src/main/resources/application.yml`, `web/vite.config.ts`, `tools/systembat/`
 
 ## Mục tiêu
@@ -54,6 +54,7 @@ Dữ liệu 2 chiều hub <-> sàn (trụ E, chưa có code, bảng US ở backe
 - Docker: `POSTGRES_DB/USER/PASSWORD/PORT`, `REDIS_PORT`, `RABBITMQ_PORT`, `RABBITMQ_UI_PORT`.
 - Backend: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `BRAIN_URL`, `OMNIAI_POLICY_DIR` (mặc định `../shared/policies`, tính từ `backend/`), `WEB_ALLOWED_ORIGINS`, `PORT`, `ADMIN_USERNAME`/`ADMIN_PASSWORD` (tài khoản `/api/admin/**`, mặc định `admin`/`admin`, chỉ dùng khi dev), `SUPABASE_URL` + `SUPABASE_BUCKET` (mặc định `product-images`) để ghép URL ảnh sản phẩm (trống thì `imageUrl = null`).
 - Ảnh sản phẩm: `SUPABASE_SERVICE_KEY` (khoá service_role) **chỉ** dùng cho `tools/catalog/upload_images.py`, không commit, không đưa vào backend/web. Cách tạo project: `docs/catalog/du-lieu-san-pham-that.md`.
+- (Tuỳ chọn) Postgres trên Supabase thay Docker local: `SPRING_PROFILES_ACTIVE=supabase` + `SUPABASE_DB_HOST/PORT/NAME/USER/PASSWORD` (Session pooler, mật khẩu Database). File `backend/src/main/resources/application-supabase.yml` ghép JDBC URL `sslmode=require`, pool 5 kết nối; Flyway nạp thêm `db/supabase/afterMigrate.sql` để thu quyền `anon`/`authenticated` (Data API của Supabase không đọc được bảng). Không bật profile thì vẫn dùng `DB_URL`. ai-brain khi đó trỏ `CHATBOT_DB_URL`/`CATALOG_WRITE_URL` lên Supabase với user `chatbot_reader.<project-ref>` (decisions #33).
 - AI Brain: `LLM_PROVIDER` (`gemini` mặc định, hoặc `groq`; không còn `fake`), `LLM_MODEL`, `LLM_API_KEY` (**bắt buộc**), `CHATBOT_DB_URL` (**bắt buộc**, role `chatbot_reader` chỉ đọc view `chatbot_catalog`). Thiếu một trong hai biến bắt buộc thì brain không khởi động (decisions #25).
 - Backend còn đọc `CHATBOT_DB_PASSWORD` để bật đăng nhập cho role `chatbot_reader` lúc khởi động.
 - Kênh sàn (khóa test để simulator ký webhook và adapter kiểm chữ ký, US-21, US-25): `SHOPEE_PARTNER_ID/KEY`, `TIKTOK_APP_KEY/SECRET` (mặc định `omniai-test-app`/`omniai-test-secret`, simulator và backend phải trùng nhau).

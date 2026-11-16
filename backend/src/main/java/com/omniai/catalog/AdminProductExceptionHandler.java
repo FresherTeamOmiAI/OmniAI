@@ -16,10 +16,10 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import java.util.List;
 
 /**
- * Lỗi của API admin sản phẩm theo ProblemDetail (RFC 9457):
+ * Lỗi của API sản phẩm (admin, và bộ lọc store T-09.2) theo ProblemDetail (RFC 9457):
  * {@code {type, title, status, detail, instance, errors?: [{field, message}]}}.
  */
-@RestControllerAdvice(assignableTypes = AdminProductController.class)
+@RestControllerAdvice(assignableTypes = {AdminProductController.class, ProductController.class})
 class AdminProductExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

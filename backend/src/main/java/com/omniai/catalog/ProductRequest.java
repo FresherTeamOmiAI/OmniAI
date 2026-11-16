@@ -7,14 +7,18 @@ import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
 import java.text.Normalizer;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Body của POST/PUT /api/admin/products. Bean Validation kiểm có mặt, độ dài, khoảng số;
  * bộ từ vựng, dạng SKU, claim y khoa do ProductService kiểm sau khi chuẩn hóa.
  *
+ * @param prices giá niêm yết theo kênh (VND), khoá = mã kênh trong sales_channel, vd. {"WEB": 350000, "SHOPEE": 364000}.
+ *               Phải có đủ mọi kênh đang active (ProductService kiểm). Không còn 3 field priceWeb/Shopee/Tiktok (decisions #32).
  * @param active bỏ trống khi tạo = true; khi sửa = giữ nguyên.
  */
 public record ProductRequest(
@@ -29,9 +33,8 @@ public record ProductRequest(
         @NotBlank(message = "bắt buộc") @Size(max = 4000, message = "tối đa 4000 ký tự") String ingredientsInci,
         @NotNull(message = "bắt buộc") @Positive(message = "phải > 0") Integer sizeMl,
         @NotNull(message = "bắt buộc") @Positive(message = "phải > 0") Integer paoMonths,
-        @NotNull(message = "bắt buộc") @PositiveOrZero(message = "phải >= 0") Long priceWeb,
-        @NotNull(message = "bắt buộc") @PositiveOrZero(message = "phải >= 0") Long priceShopee,
-        @NotNull(message = "bắt buộc") @PositiveOrZero(message = "phải >= 0") Long priceTiktok,
+        @NotNull(message = "bắt buộc")
+        Map<String, @NotNull(message = "bắt buộc") @PositiveOrZero(message = "phải >= 0") Long> prices,
         @NotNull(message = "bắt buộc") @PositiveOrZero(message = "phải >= 0") Integer stock,
         Boolean active) {
 
@@ -47,7 +50,7 @@ public record ProductRequest(
                 blankToNull(csv(usageTime, true, ",")),
                 blankToNull(text(description)),
                 csv(ingredientsInci, false, ", "),
-                sizeMl, paoMonths, priceWeb, priceShopee, priceTiktok, stock, active);
+                sizeMl, paoMonths, channelPrices(prices), stock, active);
     }
 
     private static String text(String value) {
@@ -59,6 +62,15 @@ public record ProductRequest(
         return String.join(separator, new LinkedHashSet<>(lowerCase
                 ? parts.stream().map(p -> p.toLowerCase(Locale.ROOT)).toList()
                 : parts));
+    }
+
+    /** Mã kênh viết hoa, bỏ khoảng trắng; giữ thứ tự gửi lên. */
+    private static Map<String, Long> channelPrices(Map<String, Long> prices) {
+        Map<String, Long> result = new LinkedHashMap<>();
+        if (prices != null) {
+            prices.forEach((channel, price) -> result.put(text(channel).toUpperCase(Locale.ROOT), price));
+        }
+        return result;
     }
 
     private static String blankToNull(String value) {

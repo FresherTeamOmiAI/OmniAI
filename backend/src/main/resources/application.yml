@@ -1,6 +1,8 @@
 spring:
   application:
     name: omniai-backend
+  # Mặc định: Postgres Docker local. Dùng Postgres trên Supabase: SPRING_PROFILES_ACTIVE=supabase
+  # (application-supabase.yml đọc SUPABASE_DB_*, decisions #33).
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/omniai}
     username: ${DB_USERNAME:omniai}
