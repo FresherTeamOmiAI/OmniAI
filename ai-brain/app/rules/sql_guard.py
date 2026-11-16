@@ -33,6 +33,8 @@ SEARCH_SQL = (
     "price_web, price_shopee, price_tiktok, description, CAST(embedding AS TEXT) AS embedding "
     "FROM chatbot_catalog_search ORDER BY sku LIMIT 100"
 )
+# View có hơn 100 sản phẩm active. sql_guard chặn một SELECT quá 100 dòng, nên RAG đọc lần lượt.
+SEARCH_PAGE_SIZE = 100
 
 
 class SqlRejected(ValueError):

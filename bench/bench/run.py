@@ -10,9 +10,8 @@ Mỗi dòng dataset (JSONL):
 
 transport: "simulator" (mặc định) gọi POST /api/simulator/{channel}/messages;
            "ws" gửi qua WebSocket /ws/chat giống chat widget (chỉ dùng cho kênh WEB);
-           "tiktok" đóng vai buyer trên simulator TikTok Shop (POST {tiktok-sim-url}/sim/buyer/messages), hub nhận
-           webhook đã ký rồi trả lời bằng Send Message; bench lấy câu khách nhận được (chỉ dùng cho kênh TIKTOK,
-           cần simulator + backend + brain đang chạy và shop đã ủy quyền).
+           "tiktok" đóng vai buyer trên simulator TikTok Shop, hub nhận webhook đã ký;
+           "shopee" phát webchat_push rồi POST push đã ký vào /api/channels/shopee/push.
 must_not_match: finalText không được khớp regex này (không phân biệt hoa thường), vd. số giá tự bịa.
 """
 
@@ -85,6 +84,33 @@ def send_tiktok(sim_url: str, case: dict, message_id: str, fallbacks: dict[str, 
     return {"finalText": final_text, "blocked": blocked, "violations": []}, latency_ms
 
 
+def send_shopee(client: httpx.Client, case: dict, fallbacks: dict[str, str]) -> tuple[dict, int]:
+    """Khách nhắn trên simulator Shopee, hub nhận push đã ký rồi trả câu đã qua luật.
+
+    Chỉ thấy finalText. blocked khi câu đó trùng fallback của kênh Shopee.
+    """
+    started = time.perf_counter()
+    emitted = client.post("/api/simulator/shopee/webchat", json={
+        "from_id": int(time.time_ns() % 1_000_000_000) + 20,
+        "from_user_name": f"bench {case['id']}",
+        "text": case["text"],
+    })
+    emitted.raise_for_status()
+    emitted_body = emitted.json()
+    pushed = client.post(
+        "/api/channels/shopee/push",
+        content=emitted_body["raw_body"].encode("utf-8"),
+        headers={"Authorization": emitted_body["authorization"], "Content-Type": "application/json"},
+    )
+    pushed.raise_for_status()
+    final_text = (pushed.json().get("final_text") or "").strip()
+    if not final_text:
+        raise RuntimeError(f"{case['id']}: hub không trả lời tin Shopee")
+    latency_ms = round((time.perf_counter() - started) * 1000)
+    blocked = final_text == fallbacks.get("SHOPEE", "").strip()
+    return {"finalText": final_text, "blocked": blocked, "violations": []}, latency_ms
+
+
 def grade(policies, case: dict, reply: dict, latency_ms: int) -> dict:
     """So BotReply với expect của ca, và chấm lại finalText bằng chính bộ YAML luật."""
     expect = {"no_violation": True, **case.get("expect", {})}
@@ -129,10 +155,14 @@ def run_case(client: httpx.Client, policies, case: dict, tiktok_sim_url: str = "
         if case["channel"] != "TIKTOK":
             raise ValueError(f"{case['id']}: transport 'tiktok' chỉ dùng cho kênh TIKTOK")
         reply, latency_ms = send_tiktok(tiktok_sim_url, case, message_id, fallbacks or load_fallbacks())
+    elif transport == "shopee":
+        if case["channel"] != "SHOPEE":
+            raise ValueError(f"{case['id']}: transport 'shopee' chỉ dùng cho kênh SHOPEE")
+        reply, latency_ms = send_shopee(client, case, fallbacks or load_fallbacks())
     elif transport == "simulator":
         reply, latency_ms = send_simulator(client, case, message_id)
     else:
-        raise ValueError(f"{case['id']}: transport '{transport}' không hỗ trợ (simulator | ws | tiktok)")
+        raise ValueError(f"{case['id']}: transport '{transport}' không hỗ trợ (simulator | ws | tiktok | shopee)")
     return grade(policies, case, reply, latency_ms)
 
 

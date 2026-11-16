@@ -8,7 +8,7 @@ import psycopg
 
 from app.catalog_access import run_select
 from app.rag.embed import cosine, embed
-from app.rules.sql_guard import SEARCH_SQL, SqlRejected
+from app.rules.sql_guard import SEARCH_PAGE_SIZE, SEARCH_SQL, SqlRejected
 
 log = logging.getLogger(__name__)
 
@@ -139,32 +139,49 @@ def suggestion_lines(hits: list[ProductRow], channel: str, owned: bool) -> list[
     return lines
 
 
+def search_page_sql(offset: int) -> str:
+    """Một trang 100 SKU, thứ tự sku cố định để ghép đủ catalog."""
+    if offset < 0 or offset % SEARCH_PAGE_SIZE != 0:
+        raise ValueError("offset trang search phải là bội số của 100")
+    if offset == 0:
+        return SEARCH_SQL
+    return f"{SEARCH_SQL} OFFSET {offset}"
+
+
 def load_search_rows() -> list[ProductRow] | None:
-    """Đọc view search. None khi không nối được database, để chat vẫn dùng catalog đầy đủ."""
-    try:
-        rows = run_select(SEARCH_SQL)
-    except (SqlRejected, psycopg.Error, OSError) as error:
-        log.warning("Không đọc được chatbot_catalog_search: %s", error.__class__.__name__)
-        return None
-    loaded = []
-    for sku, brand, name, category, skin_types, concerns, usage_time, web, shopee, tiktok, description, raw_vector in rows:
-        loaded.append(
-            ProductRow(
-                sku=sku,
-                brand=brand,
-                name=name,
-                category=category,
-                skin_types=skin_types or "",
-                skin_concerns=concerns or "",
-                usage_time=usage_time or "",
-                price_web=int(web),
-                price_shopee=int(shopee),
-                price_tiktok=int(tiktok),
-                description=description or "",
-                embedding=_parse_vector(raw_vector),
-            )
-        )
-    return loaded
+    """Đọc hết view search. None khi không nối được database, để chat vẫn dùng catalog đầy đủ."""
+    loaded: list[ProductRow] = []
+    offset = 0
+    while offset <= SEARCH_PAGE_SIZE * 20:
+        try:
+            rows = run_select(search_page_sql(offset))
+        except (SqlRejected, psycopg.Error, OSError) as error:
+            log.warning("Không đọc được chatbot_catalog_search: %s", error.__class__.__name__)
+            return None
+        loaded.extend(_row_from_record(record) for record in rows)
+        if len(rows) < SEARCH_PAGE_SIZE:
+            return loaded
+        offset += SEARCH_PAGE_SIZE
+    log.warning("chatbot_catalog_search dài hơn số trang cho phép")
+    return None
+
+
+def _row_from_record(record: tuple) -> ProductRow:
+    sku, brand, name, category, skin_types, concerns, usage_time, web, shopee, tiktok, description, raw_vector = record
+    return ProductRow(
+        sku=sku,
+        brand=brand,
+        name=name,
+        category=category,
+        skin_types=skin_types or "",
+        skin_concerns=concerns or "",
+        usage_time=usage_time or "",
+        price_web=int(web),
+        price_shopee=int(shopee),
+        price_tiktok=int(tiktok),
+        description=description or "",
+        embedding=_parse_vector(raw_vector),
+    )
 
 
 def _parse_vector(raw: str | None) -> tuple[float, ...] | None:

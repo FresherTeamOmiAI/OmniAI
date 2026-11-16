@@ -98,3 +98,31 @@ def test_price_question_parses_k_and_dotted_vnd():
 
 def test_search_rows_fail_closed_when_database_is_down():
     assert load_search_rows() is None
+
+
+def test_sample_question_reads_past_the_first_hundred_skus(monkeypatch):
+    """Câu mẫu US-10. Sản phẩm đúng nằm sau SKU thứ 100, nên phải đọc trang tiếp."""
+
+    def page(sql: str):
+        if "OFFSET" not in sql:
+            return [_record(f"AAA-{index:03d}", "Khác", "Toner khô", "toner", "dry", 500_000) for index in range(100)]
+        return [
+            _record(
+                "NIVE-SUN-02",
+                "Nivea",
+                "Nivea Derma Skin Clear UV Fluid SPF50",
+                "sunscreen",
+                "oily",
+                201_000,
+            )
+        ]
+
+    monkeypatch.setattr("app.rag.search.run_select", page)
+    rows = load_search_rows()
+    hits = search_product("kem chống nắng cho da dầu dưới 300k", rows or [], channel="WEB", owned=True)
+    assert rows is not None and len(rows) == 101
+    assert [hit.sku for hit in hits] == ["NIVE-SUN-02"]
+
+
+def _record(sku: str, brand: str, name: str, category: str, skin: str, price: int) -> tuple:
+    return (sku, brand, name, category, skin, "", "am", price, price, price, "", None)

@@ -41,7 +41,9 @@ Shopee và TikTok Shop chạy **100% bằng simulator theo schema thật**; dự
 2. Adapter sàn gồm `toCanonical()` đọc đúng webhook thật, và một interface client gửi dữ liệu ra sàn. Hiện chỉ có bản simulated (gọi simulator, simulator lưu lại và trả response mẫu); không làm bản live.
 3. Webhook có chữ ký thì simulator ký bằng khóa test và adapter luôn kiểm chữ ký, kể cả khi đang giả lập.
 
-Simulator chung `/api/simulator/{channel}/messages` vẫn giữ cho bench và `/admin/policy`. Simulator theo schema sàn làm ở S2: Shopee do ChienPX (US-21), TikTok Shop do TuTM (US-25). Cả hai đọc tài liệu API của cả 2 sàn và ghi bảng đối chiếu vào `docs/channel-api/shopee.md`, `docs/channel-api/tiktok.md` (T-21.4, T-25.3).
+Simulator chung `/api/simulator/{channel}/messages` vẫn giữ cho bench và `/admin/policy`. Simulator theo schema sàn làm ở S2: Shopee do ChienPX (US-21), TikTok Shop do TuTM (US-25). Bảng đối chiếu: `docs/channel-api/shopee.md` (T-50.3, T-51.1), `docs/channel-api/tiktok.md` (T-25.3).
+
+`channel.shopee` là simulator giá, tồn kho, đơn và chat Shopee. Số liệu nằm ở database riêng `shopee`, bảng `item_shopee`, `price_list_shopee`, `seller_stock_shopee`, `order_shopee`, `order_item_shopee`, `push_shopee`, `conversation_shopee`, `message_shopee`, `webchat_push_shopee`. Hub chưa tự đẩy khi admin sửa sản phẩm (task đồng bộ của TuTM). Webhook đơn và tin chat được ký sẵn; đường nhận push trên hub là T-51.3, chưa làm. Schema chat shop là bản giả lập: trang seller chat của Open Platform không cấp quyền đọc (2026-11-11).
 
 ### TikTok Shop (US-25, đã làm)
 - Simulator là **app riêng** `simulators/tiktok-shop` (Spring Boot, cổng 8090, không DB, decisions #28), package `com.omniai.sim.tiktok`: `gateway/GatewayFilter` (rate limit → app_key, timestamp ±5 phút, sign → token → scope → shop_cipher), `auth/`, `event/` (`WebhookDispatcher`: ký, timeout 3 s, gửi lại 3 lần), `cs/`, `control/` (`/sim/*`). API và DTO: [../channel-api/tiktok.md](../channel-api/tiktok.md).
@@ -72,7 +74,7 @@ Quy ước: thay đổi trên hub đi qua hàng đợi đồng bộ, mỗi kênh
 - Thêm endpoint cần khóa thì đặt dưới `/api/admin/` (riêng `/api/conversations` giữ đúng tên trong backlog nên có rule riêng). US-13 (S3) thay tài khoản in-memory bằng tài khoản thật.
 
 ## Cấu hình (`application.yml`)
-`omniai.policy-dir`, `omniai.brain.url`, `omniai.brain.timeout` (10s), `omniai.web.allowed-origins`, `omniai.admin.username/password` (env `ADMIN_USERNAME`/`ADMIN_PASSWORD`, mặc định `admin`/`admin`). Datasource đọc từ env `DB_*`. `omniai.tiktok.*` (`TiktokProperties`): `app-key/app-secret` (env `TIKTOK_APP_KEY/SECRET`, mặc định khóa test giống simulator), `base-url` (`TIKTOK_SIM_URL`), `redirect-uri`, `webhook-url`, `webhook-max-skew` 5m, `max-concurrent` 40, `timeout` 10s.
+`omniai.policy-dir`, `omniai.brain.url`, `omniai.brain.timeout` (10s), `omniai.web.allowed-origins`, `omniai.admin.username/password` (env `ADMIN_USERNAME`/`ADMIN_PASSWORD`, mặc định `admin`/`admin`). Datasource đọc từ env `DB_*`. `omniai.channels.shopee.*` (`ShopeeChannelProperties`): khóa test `partner-id`, `partner-key`, `shop-id`, `access-token`, `push-callback-url`. `omniai.tiktok.*` (`TiktokProperties`): `app-key/app-secret` (env `TIKTOK_APP_KEY/SECRET`, mặc định khóa test giống simulator), `base-url` (`TIKTOK_SIM_URL`), `redirect-uri`, `webhook-url`, `webhook-max-skew` 5m, `max-concurrent` 40, `timeout` 10s.
 
 ## Test hiện có
 - `policy/PolicyEngineTest`: link, SĐT, chặn tên kênh khác (Shopee/TikTok), WEB giữ link, làm mềm claim y khoa, giá tiền không bị tưởng là SĐT, "giá trị" không bị tưởng là "trị". File YAML sai (11 ca) hoặc thiếu kênh thì lỗi lúc khởi động; cắt `max_length` không tách emoji. Chạy bộ ca dùng chung với bench `shared/policies/tests/cases.yaml` trên cả 3 kênh.
