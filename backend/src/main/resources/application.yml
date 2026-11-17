@@ -13,6 +13,14 @@ spring:
     open-in-view: false
   flyway:
     enabled: true
+  # SMTP cho OTP (OTP_SENDER=smtp): host/port/tài khoản lấy từ env SPRING_MAIL_*, vd Gmail + App Password.
+  # Timeout 5 s để mail server treo không giữ request (và khoá dòng otp_challenge) lâu.
+  mail:
+    default-encoding: UTF-8
+    properties:
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
 
 server:
   port: ${PORT:8080}
