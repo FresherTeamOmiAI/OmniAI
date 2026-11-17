@@ -47,10 +47,19 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
-        <!-- Xác thực admin tạm cho /api/admin/** (SRS Q-01), thay bằng tài khoản thật ở US-13 -->
+        <!-- Admin: HTTP Basic 1 tài khoản từ env (SRS Q-01). Người mua: email + OTP, JWT (US-13, decisions #36) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+        </dependency>
+        <!-- Gửi OTP qua SMTP (SRS Q-02); dev mặc định in mã ra log -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
 
         <dependency>

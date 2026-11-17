@@ -22,6 +22,10 @@ management:
     web:
       exposure:
         include: health,info
+  health:
+    # SMTP chỉ dùng khi OTP_SENDER=smtp; không để /actuator/health DOWN vì mail server.
+    mail:
+      enabled: false
 
 omniai:
   policy-dir: ${OMNIAI_POLICY_DIR:../shared/policies}
@@ -35,6 +39,20 @@ omniai:
   admin:
     username: ${ADMIN_USERNAME:admin}
     password: ${ADMIN_PASSWORD:admin}
+  # Đăng nhập người mua bằng email + OTP (US-13, SRS NFR-08, decisions #36).
+  # OTP_SENDER=log (mặc định): in mã ra log backend. OTP_SENDER=smtp: gửi mail, cần SPRING_MAIL_HOST/PORT/USERNAME/PASSWORD.
+  otp:
+    sender: ${OTP_SENDER:log}
+    mail-from: ${OTP_MAIL_FROM:no-reply@omniai.local}
+    ttl: 5m
+    max-attempts: 5
+    lock: 15m
+    resend-interval: 60s
+    max-per-hour: 5
+  # JWT HS256 của người mua. Giá trị mặc định chỉ dùng khi dev (tối thiểu 32 byte).
+  auth:
+    jwt-secret: ${JWT_SECRET:omniai-dev-jwt-secret-change-me-32bytes!}
+    token-ttl: 7d
   # Kênh TikTok Shop (US-25). S2 trỏ tới simulator simulators/tiktok-shop (decisions #22, #28).
   # Khóa app phải trùng với simulator; giá trị mặc định là khóa test, không phải bí mật.
   tiktok:

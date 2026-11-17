@@ -1,7 +1,7 @@
 # Hợp đồng API
 
-> Cập nhật: 2026-11-13 · T-04.1 ghi chú JSON sau V15; T-09.3 `/api/orders`; T-09.2 bộ lọc `GET /api/products`; T-04.1 `prices` theo kênh, `GET /api/admin/sales-channels` (decisions #32); trước đó US-11 (T-11.2), US-25, T-47.1
-> Nguồn: `backend/.../channel/simulator/*`, `channel/web/*`, `channel/tiktok/*`, `catalog/ProductController.java`, `catalog/AdminProductController.java`, `catalog/ProductRequest.java`, `conversation/ConversationController.java`, `brain/*`, `common/*`, `ai-brain/app/main.py`, `ai-brain/app/schemas.py`, `shared/schemas/canonical-message.schema.json`, `web/src/shared/types.ts`
+> Cập nhật: 2026-11-17 · T-13.1 `/api/auth/otp`, `/api/auth/otp/verify`, `/api/me`, `/ws/chat?token=`; trước đó 2026-11-13 · T-04.1 ghi chú JSON sau V15; T-09.3 `/api/orders`; T-09.2 bộ lọc `GET /api/products`; T-04.1 `prices` theo kênh, `GET /api/admin/sales-channels` (decisions #32); trước đó US-11 (T-11.2), US-25, T-47.1
+> Nguồn: `backend/.../channel/simulator/*`, `channel/web/*`, `channel/tiktok/*`, `catalog/ProductController.java`, `catalog/AdminProductController.java`, `catalog/ProductRequest.java`, `conversation/ConversationController.java`, `identity/AuthController.java`, `brain/*`, `common/*`, `ai-brain/app/main.py`, `ai-brain/app/schemas.py`, `shared/schemas/canonical-message.schema.json`, `web/src/shared/types.ts`
 
 JSON phía backend dùng **camelCase**. Riêng hợp đồng backend → ai-brain dùng **snake_case**.
 
@@ -12,8 +12,20 @@ JSON phía backend dùng **camelCase**. Riêng hợp đồng backend → ai-brai
 | POST | `/api/simulator/{channel}/messages` | `{messageId?, userId*, text*}` | `BotReply` | `channel` viết thường: web, shopee, tiktok. Bỏ trống `messageId` thì server tự sinh UUID; gửi trùng `messageId` thì nhận lại kết quả cũ. Dùng cho bench và trang `/admin/policy`. |
 | GET | `/api/products?skinType=&category=&minPrice=&maxPrice=&page=&size=&sort=` | | `PageResponse<Product>` = `{items, page, size, total}` | Chỉ trả sản phẩm `active=true`. Lọc tuỳ chọn, kết hợp AND (T-09.2): `skinType` 1 loại da (`oily, dry, combination, sensitive, normal`, khớp nguyên giá trị trong `skinTypes`); `category` 1 danh mục; `minPrice`/`maxPrice` theo **giá web** (`prices.WEB`, VND, gồm cả mốc). Không phân biệt hoa thường, bỏ trống = không lọc. Giá trị ngoài từ vựng, giá âm, `minPrice > maxPrice` thì `400` ProblemDetail có `errors[{field, message}]`; sai kiểu số thì `400`. Mặc định size 20. |
 | GET | `/api/products/{id}` | | `Product` hoặc 404 | Sản phẩm `active=false` cũng trả 404 (SRS G-06). |
-| WS | `/ws/chat` | text frame `{messageId, text}` | text frame `BotReply`, hoặc `{error:"invalid_message", messageId}` | Kênh WEB. Origin cho phép: `WEB_ALLOWED_ORIGINS`. JSON hỏng hoặc text rỗng/null thì server trả frame lỗi, không im lặng; `messageId` lấy từ tin gửi lên, là `null` nếu JSON hỏng. Session vẫn mở. Widget có timeout 12 s (lớn hơn `omniai.brain.timeout` 10 s): hết giờ thì báo "Shop đang bận". |
+| WS | `/ws/chat` | text frame `{messageId, text}` | text frame `BotReply`, hoặc `{error:"invalid_message", messageId}` | Kênh WEB. Origin cho phép: `WEB_ALLOWED_ORIGINS`. JSON hỏng hoặc text rỗng/null thì server trả frame lỗi, không im lặng; `messageId` lấy từ tin gửi lên, là `null` nếu JSON hỏng. Session vẫn mở. Widget có timeout 12 s (lớn hơn `omniai.brain.timeout` 10 s): hết giờ thì báo "Shop đang bận". **Đăng nhập (US-13):** mở `/ws/chat?token=<JWT>`; token hợp lệ thì `channelUserId` = customer id, hội thoại `web:c<customerId>` (nối lại vẫn cùng hội thoại), `customerId` vào `CanonicalMessage`. Thiếu/sai/hết hạn token thì vẫn nối như khách vãng lai (`channelUserId` = session id). |
 | GET | `/actuator/health`, `/actuator/info` | | | |
+
+## Đăng nhập người mua (US-13, T-13.1)
+
+Đăng ký = đăng nhập bằng email + OTP 6 số (SRS UC-07, NFR-08). Email được trim + viết thường. `/api/auth/**` mở công khai; `/api/me` cần `Authorization: Bearer <token>` (JWT HS256, `sub` = customer id, claim `email`, `iss=omniai`, hạn 7 ngày), thiếu/sai/hết hạn thì `401`. JWT **không** mở được `/api/admin/**` (admin vẫn Basic, decisions #36). Nguồn: `identity/AuthController.java`, `AuthExceptionHandler.java`.
+
+| Method | Path | Request | Response | Ghi chú |
+|---|---|---|---|---|
+| POST | `/api/auth/otp` | `{email*, consent*}` | `202 {expiresInSeconds: 300, resendAfterSeconds: 60}` | `consent` phải là `true` (đồng ý xử lý dữ liệu cá nhân). Mã gửi qua email (`OTP_SENDER=smtp`) hoặc in ra log backend (`log`, mặc định dev). Gửi mã mới thì mã cũ mất hiệu lực |
+| POST | `/api/auth/otp/verify` | `{email*, code*}` (`code` 6 chữ số) | `200 {token, expiresAt, customer: {id, email, displayName}, newCustomer}` | Đúng mã: tạo `customer` nếu chưa có, gắn `channel_identity` WEB (`linked_by=OTP`, `consent_at`). Mã dùng 1 lần |
+| GET | `/api/me` | Bearer | `{id, email, displayName}` | Khách không còn trong DB thì `401` |
+
+Lỗi là ProblemDetail có `code`: `400` sai dữ liệu (`errors[{field, message}]`), `401 otp_invalid` (kèm `attemptsLeft`), `401 otp_expired` (chưa gửi mã / hết 5 phút / đã dùng), `423 otp_locked` (sai 5 lần, khoá email 15 phút, chặn cả gửi mã), `429 otp_rate_limited` (gửi lại < 60 s hoặc đã 5 mã trong 1 giờ), `503 otp_send_failed` (SMTP lỗi). `423`/`429` có `retryAfterSeconds` và header `Retry-After`.
 
 ## Admin sản phẩm (`/api/admin/**`, US-08, T-08.1)
 
