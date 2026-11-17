@@ -1,6 +1,6 @@
 # Trạng thái hiện tại
 
-> Cập nhật: 2026-11-13 · T-04.1 V15 chuẩn hoá bảng product; T-09.3 đặt hàng ảo, US-09 đủ 3 task; T-09.1 trang chi tiết + bộ lọc web; T-09.2 API lọc store; T-04.1 tách giá theo kênh khỏi `product` (V13, decisions #32); T-47.3 profile `supabase` cho Postgres trên Supabase (decisions #33); 2026-11-12 · T-09.1 store phân trang 20 SKU/trang (chưa có trang chi tiết); US-11 lưu hội thoại mọi kênh (T-11.1–T-11.3); T-47.1 catalog thật 366 SKU trong DB, 366 ảnh đã lên Supabase (decisions #27, #30); US-25 kênh TikTok Shop qua simulator (T-25.1–T-25.3), chạy thử với Gemini + Postman; trước đó: T-06.8 timeout widget, lập lại kế hoạch (decisions #22–#24) · Sprint hiện tại: **S2 (10–16/11/2026)**
+> Cập nhật: 2026-11-17 · T-13.1 OTP + JWT người mua, chat gắn tài khoản; T-13.2 màn `/login`; trước đó 2026-11-13 · T-04.1 V15 chuẩn hoá bảng product; T-09.3 đặt hàng ảo, US-09 đủ 3 task; T-09.1 trang chi tiết + bộ lọc web; T-09.2 API lọc store; T-04.1 tách giá theo kênh khỏi `product` (V13, decisions #32); T-47.3 profile `supabase` cho Postgres trên Supabase (decisions #33); 2026-11-12 · T-09.1 store phân trang 20 SKU/trang (chưa có trang chi tiết); US-11 lưu hội thoại mọi kênh (T-11.1–T-11.3); T-47.1 catalog thật 366 SKU trong DB, 366 ảnh đã lên Supabase (decisions #27, #30); US-25 kênh TikTok Shop qua simulator (T-25.1–T-25.3), chạy thử với Gemini + Postman; trước đó: T-06.8 timeout widget, lập lại kế hoạch (decisions #22–#24) · Sprint hiện tại: **S2 (10–16/11/2026)**
 
 Bảng này cho biết cái gì đã chạy được, cái gì mới là khung, cái gì chưa có. Agent đọc file này **trước khi** đi tìm code để khỏi tìm thứ chưa tồn tại. Kế hoạch chi tiết: `tools/tracking/backlog.py` và GitHub Issues (milestone Sprint 0–12).
 
@@ -33,9 +33,10 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | Catalog: file 80 SKU (`shared/catalog/products.csv`) | Done | Có validator `tools/catalog/validate_catalog.py`. Đã nạp vào DB qua migration V5, sinh bằng `tools/catalog/csv_to_sql.py` (T-08.2) | US-04, US-08 |
 | Catalog: API admin `/api/admin/products` | Done | List (gồm SKU ẩn), tạo, sửa, ẩn/hiện, validate giống validator CSV, lỗi ProblemDetail (T-08.1) | US-08 |
 | Màn admin sản phẩm `/admin/products` | Done | Đăng nhập Basic, bảng gồm SKU ẩn + tìm/lọc/phân trang, thêm/sửa trong dialog, ẩn/hiện (T-08.3). Chưa có test tự động phía web, TC trình duyệt ở `docs/testcases/US-08.md` mục D | US-08 |
-| Xác thực admin | Khung | HTTP Basic 1 tài khoản từ env cho `/api/admin/**` (SRS Q-01). Tài khoản thật ở US-13 | US-08, US-13 |
-| Customer / ChannelIdentity entity | Khung | Chưa có API | |
-| Identity (OTP, OMNI-code) | Chưa | Mới có package-info | US-13, 22 |
+| Xác thực admin | Khung | HTTP Basic 1 tài khoản từ env cho `/api/admin/**` (SRS Q-01). Giữ nguyên, US-13 chỉ làm đăng nhập người mua (decisions #36) | US-08 |
+| Customer / ChannelIdentity entity | Khung | Tạo/gắn khi đăng nhập OTP (danh tính WEB). Chưa có API quản lý | US-13 |
+| Đăng nhập người mua (email + OTP, JWT) | Done | `identity/*`, V16 (decisions #36). `POST /api/auth/otp`, `/api/auth/otp/verify`, `GET /api/me`. Hết hạn 5 phút, sai 5 lần khoá 15 phút, gửi lại ≥ 60 s và ≤ 5 lần/giờ, bắt buộc consent, gắn `channel_identity` WEB. Mã in ra log (`OTP_SENDER=log`), SMTP có nhưng **chưa thử với mail server thật**. Web `/login` + `AccountMenu`; chat widget gửi token, hội thoại `web:c<id>` có `customer_id`. Test `OtpAuthApiTest`, `WebChatAuthInterceptorTest`, TC tay `docs/testcases/US-13.md` | US-13 |
+| Mã liên kết OMNI-xxxx | Chưa | | US-22 |
 | Order, Promotion | Chưa | Mới có package-info | US-09, 33 |
 | Web store (list + lọc + chi tiết + đặt thử) | Done | Danh sách phân trang, lọc 5 loại da / danh mục / khoảng giá web (T-09.2 + T-09.1), trang chi tiết `/products/:id` có giá + INCI + nguồn, banner thử nghiệm, **đặt hàng ảo** (T-09.3: `POST /api/orders`, đơn DEMO, không trừ tồn kho, `DemoOrderApiTest`). Chưa có test tự động phía web, TC trình duyệt ở `docs/testcases/US-09.md` mục C, D. Chưa có giỏ nhiều sản phẩm | US-09 |
 | Trang thử luật kênh `/admin/policy` | Done | | UC-24 |
@@ -50,7 +51,8 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 - Hội thoại: DB lỗi lúc lưu thì chỉ log, mất bản ghi lượt đó. TikTok báo `45101006` thì hub gửi `fallback_message` nhưng DB vẫn ghi `finalText` ban đầu. Chưa có xóa/ẩn dữ liệu hội thoại theo yêu cầu khách (BVDLCN, US-30).
 - Backend/ai-brain không tự đọc `.env` (script `.bat` nạp hộ, IDE thì phải tự cấu hình).
 - Chưa có `mvnw`, mỗi máy phải tự cài Maven.
-- Widget chat: nối lại WebSocket thì `channelUserId` đổi theo session mới (tài khoản web ở US-13).
+- Widget chat: khách **chưa đăng nhập** nối lại WebSocket thì `channelUserId` đổi theo session mới (đã đăng nhập thì giữ hội thoại `web:c<id>`). Widget chưa tải lại tin cũ khi nối lại.
+- OTP: chưa có job dọn `otp_challenge` cũ; JWT không thu hồi được trước hạn (đăng xuất chỉ xoá ở trình duyệt); token WS nằm trong query string.
 - Câu Gemini có markdown (`**`), widget hiện thô (T-06.7).
 - Bench tính ca chậm hơn 5 s là fail, nên tỉ lệ pass với Gemini lẫn cả lỗi chất lượng và lỗi độ trễ (decisions #21). Chưa tách thành metric riêng.
 - Chạy brain và bench cần `LLM_API_KEY` và quota free tier; CI (US-16) sẽ phải giải quyết việc cấp key.

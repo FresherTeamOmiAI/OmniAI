@@ -1,4 +1,5 @@
 import { BrowserRouter, Route, Routes } from 'react-router'
+import { LoginPage } from '../features/account'
 import { PolicyPlaygroundPage } from '../features/policy-playground'
 import { ProductAdminPage } from '../features/product-admin'
 import { ProductDetailPage, StorePage } from '../features/store'
@@ -11,6 +12,7 @@ export default function App() {
         <Route element={<ShopLayout />}>
           <Route index element={<StorePage />} />
           <Route path="products/:id" element={<ProductDetailPage />} />
+          <Route path="login" element={<LoginPage />} />
           <Route path="admin/products" element={<ProductAdminPage />} />
           <Route path="admin/policy" element={<PolicyPlaygroundPage />} />
           <Route path="*" element={<p className="page-empty">Không tìm thấy trang.</p>} />

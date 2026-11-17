@@ -138,6 +138,13 @@ select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent);
 .login-form input, .admin-toolbar input, .admin-toolbar select, .field input, .field select, .field textarea {
   font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); width: 100%;
 }
+/* Đăng nhập người mua (features/account, US-13), dùng chung .login-form */
+.login-form .login-consent { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: start; font-weight: 400; font-size: 14px; }
+.login-form .login-consent input { width: auto; margin-top: 3px; }
+.login-form .otp-input { font-size: 22px; letter-spacing: .4em; text-align: center; font-variant-numeric: tabular-nums; }
+.login-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.account-menu { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+.account-email { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
 .admin-header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .admin-header h2 { margin: 0 auto 0 0; }
 .admin-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0; }
