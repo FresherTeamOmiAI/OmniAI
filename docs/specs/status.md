@@ -1,6 +1,6 @@
 # Trạng thái hiện tại
 
-> Cập nhật: 2026-11-18 · review S2 ([../tracking/review-S2.md](../tracking/review-S2.md)): sửa các dòng cũ, thêm nợ kỹ thuật tìm được, US-43 kéo về S3 (decisions #36, #37); 2026-11-13 · T-04.1 V15 chuẩn hoá bảng product; T-09.3 đặt hàng ảo, US-09 đủ 3 task; T-09.1 trang chi tiết + bộ lọc web; T-09.2 API lọc store; T-04.1 tách giá theo kênh khỏi `product` (V13, decisions #32); T-47.3 profile `supabase` cho Postgres trên Supabase (decisions #33); 2026-11-12 · T-09.1 store phân trang 20 SKU/trang (chưa có trang chi tiết); US-11 lưu hội thoại mọi kênh (T-11.1–T-11.3); T-47.1 catalog thật 366 SKU trong DB, 366 ảnh đã lên Supabase (decisions #27, #30); US-25 kênh TikTok Shop qua simulator (T-25.1–T-25.3), chạy thử với Gemini + Postman; trước đó: T-06.8 timeout widget, lập lại kế hoạch (decisions #22–#24) · Sprint hiện tại: **S3 (17–23/11/2026)**
+> Cập nhật: 2026-11-18 · T-11.4 chống trùng nguyên tử ở `MessageRouter`; review S2 ([../tracking/review-S2.md](../tracking/review-S2.md)): sửa các dòng cũ, thêm nợ kỹ thuật tìm được, US-43 kéo về S3 (decisions #36, #37); 2026-11-13 · T-04.1 V15 chuẩn hoá bảng product; T-09.3 đặt hàng ảo, US-09 đủ 3 task; T-09.1 trang chi tiết + bộ lọc web; T-09.2 API lọc store; T-04.1 tách giá theo kênh khỏi `product` (V13, decisions #32); T-47.3 profile `supabase` cho Postgres trên Supabase (decisions #33); 2026-11-12 · T-09.1 store phân trang 20 SKU/trang (chưa có trang chi tiết); US-11 lưu hội thoại mọi kênh (T-11.1–T-11.3); T-47.1 catalog thật 366 SKU trong DB, 366 ảnh đã lên Supabase (decisions #27, #30); US-25 kênh TikTok Shop qua simulator (T-25.1–T-25.3), chạy thử với Gemini + Postman; trước đó: T-06.8 timeout widget, lập lại kế hoạch (decisions #22–#24) · Sprint hiện tại: **S3 (17–23/11/2026)**
 
 Bảng này cho biết cái gì đã chạy được, cái gì mới là khung, cái gì chưa có. Agent đọc file này **trước khi** đi tìm code để khỏi tìm thứ chưa tồn tại. Kế hoạch chi tiết: `tools/tracking/backlog.py` và GitHub Issues (milestone Sprint 0–12).
 
@@ -14,7 +14,7 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 | Postgres trên Supabase (profile `supabase`) | Khung | `application-supabase.yml` + callback thu quyền `anon`/`authenticated` (decisions #33). Đã chạy trên project Supabase của LucVT (13/11): Flyway V1–V12 trên Postgres 17, 366 SKU, quyền `anon`/`authenticated` = 0, `chatbot_reader` đăng nhập qua pooler (`chatbot_reader.<project-ref>`) chỉ đọc được view. ai-brain trỏ `CHATBOT_DB_URL` sang được. Thành viên khác vẫn dùng DB local | |
 | Script chạy Windows `tools/systembat` | Done | setup / run-all / stop-all / test-all / bench | US-02 |
 | CanonicalMessage + ChannelAdapter | Done | | |
-| MessageRouter + idempotency | Khung | Idempotency in-memory (US-29). Đã lưu hội thoại | US-06, US-11, US-29 |
+| MessageRouter + idempotency | Khung | Idempotency in-memory (US-29), nguyên tử: 2 request trùng đồng thời chỉ gọi Brain 1 lần (T-11.4). Đã lưu hội thoại | US-06, US-11, US-29 |
 | Lưu hội thoại mọi kênh | Done | `conversation/*`, bảng V11 (decisions #31). `MessageRouter` lưu tin khách trước khi gọi Brain, lưu câu bot kèm rawText/finalText/vi phạm/blocked/handoff. Brain lỗi hay ném exception thì vẫn lưu, `handoff=true`. API `GET /api/conversations` (lọc kênh, phân trang) và `/{id}/messages`, cần Basic ADMIN. Test `ConversationStoreIT` (gồm T-11.3 Brain lỗi), `ConversationApiTest`, TC tay `docs/testcases/US-11.md`. Chưa có màn admin (US-14, S3) | US-11 |
 | Kênh WEB (WebSocket) | Done | T-06.1 FE widget auto-reconnect + T-06.2 BE adapter + T-06.8: server trả `invalid_message` cho tin JSON lỗi/rỗng, widget timeout 12 s, test WS thật `WebChatSocketIT`. Widget tải cả catalog (`/api/products` 4 × 100) để ghép thẻ gợi ý, sẽ bỏ ở T-43.3 | US-06 |
 | Simulator API | Done | Dùng cho bench và `/admin/policy` | US-07 |
@@ -55,7 +55,6 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 - Bench tính ca chậm hơn 5 s là fail, nên tỉ lệ pass với Gemini lẫn cả lỗi chất lượng và lỗi độ trễ (decisions #21, #36). Tách thành metric riêng ở T-12.5.
 - Chạy brain và bench cần `LLM_API_KEY` và quota free tier; CI (US-16) sẽ phải giải quyết việc cấp key.
 - Hiệu năng (review S2, [đặc tả](../tracking/dac-ta-hieu-nang-catalog.md)): widget chat tải cả catalog mỗi lần mở trang; ai-brain mở kết nối DB mới cho mỗi câu SQL, không cache; giá NULL ở kênh tạm ngừng (V13) làm ai-brain lỗi 500; đơn DEMO nạp sản phẩm từng dòng. Sửa ở US-43 (S3).
-- `MessageRouter` chống trùng không nguyên tử: 2 request trùng đến cùng lúc đều gọi Brain (T-11.4).
 - Report bench nằm trong `.gitignore`, không có lịch sử để so "trước/sau" (T-12.5).
 
 ## Sprint S0–S3 (tóm tắt)

@@ -1,5 +1,6 @@
 package com.omniai.catalog;
 
+import com.omniai.common.PageResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -9,8 +10,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
 
 /** API đọc catalog cho web store và AI Brain, chỉ trả sản phẩm active. CRUD admin: AdminProductController. */
 @RestController
@@ -36,15 +35,12 @@ public class ProductController {
                                       @RequestParam(required = false) Long maxPrice,
                                       @PageableDefault(size = 20) Pageable pageable) {
         Page<Product> page = service.storeSearch(new StoreFilter(skinType, category, minPrice, maxPrice), pageable);
-        return new PageResponse<>(page.getContent(), page.getNumber(), page.getSize(), page.getTotalElements());
+        return PageResponse.of(page);
     }
 
     /** Sản phẩm ẩn trả 404 như không tồn tại (SRS G-06). Admin xem qua /api/admin/products/{id}. */
     @GetMapping("/{id}")
     public ResponseEntity<Product> get(@PathVariable Long id) {
         return ResponseEntity.of(repository.findByIdAndActiveTrue(id));
-    }
-
-    public record PageResponse<T>(List<T> items, int page, int size, long total) {
     }
 }

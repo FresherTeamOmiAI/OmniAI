@@ -1,6 +1,6 @@
 package com.omniai.catalog;
 
-import com.omniai.catalog.ProductController.PageResponse;
+import com.omniai.common.PageResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.data.domain.Page;
@@ -38,7 +38,7 @@ public class AdminProductController {
                                       @RequestParam(required = false) Boolean active,
                                       @PageableDefault(size = 20, sort = "id") Pageable pageable) {
         Page<Product> page = service.search(q, active, pageable);
-        return new PageResponse<>(page.getContent(), page.getNumber(), page.getSize(), page.getTotalElements());
+        return PageResponse.of(page);
     }
 
     @GetMapping("/{id}")
