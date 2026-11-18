@@ -34,7 +34,7 @@ public class ConversationMessage {
 
     public enum Direction { IN, OUT }
 
-    /** Trạng thái gửi câu OUT ra kênh gửi async (V16, T-25.4). null = kênh đồng bộ hoặc tin IN. */
+    /** Trạng thái gửi câu OUT ra kênh gửi async (V17, T-25.4). null = kênh đồng bộ hoặc tin IN. */
     public enum DeliveryStatus { RETRYING, SENT, FAILED }
 
     @Id

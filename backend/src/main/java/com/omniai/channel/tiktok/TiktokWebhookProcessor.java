@@ -30,7 +30,7 @@ import java.util.concurrent.TimeUnit;
  * Sàn không gửi lại webhook đã nhận 200, nên gửi tin lỗi thì hub tự lo (T-25.4): lỗi tạm thời (mạng, 5xx, rate limit
  * đã hết lượt ở {@link TiktokApi}) thì thử lại theo {@code send-attempts}, chờ {@code send-retry-backoff} rồi gấp đôi.
  * Lỗi không thử lại được (45109001, không có quyền, chưa cấp scope, shop chưa ủy quyền...) hoặc hết lượt thì câu trả
- * lời được ghi {@code FAILED} + handoff để nhân viên xử lý. Trạng thái từng lần ghi vào conversation_message (V16).
+ * lời được ghi {@code FAILED} + handoff để nhân viên xử lý. Trạng thái từng lần ghi vào conversation_message (V17).
  */
 @Component
 public class TiktokWebhookProcessor implements DisposableBean {
