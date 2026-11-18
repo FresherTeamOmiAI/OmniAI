@@ -1,6 +1,6 @@
 # Hợp đồng API
 
-> Cập nhật: 2026-11-18 · T-14.2 lọc `/api/conversations` theo ngày, vi phạm, handoff; `ConversationView` thêm số liệu; T-25.4 `MessageView.deliveryStatus`, `deliveryAttempts`; 2026-11-13 · T-04.1 ghi chú JSON sau V15; T-09.3 `/api/orders`; T-09.2 bộ lọc `GET /api/products`; T-04.1 `prices` theo kênh, `GET /api/admin/sales-channels` (decisions #32); trước đó US-11 (T-11.2), US-25, T-47.1
+> Cập nhật: 2026-11-18 · T-49.1 `/api/admin/sync/**` trạng thái đồng bộ sản phẩm ra sàn; T-14.2 lọc `/api/conversations` theo ngày, vi phạm, handoff; `ConversationView` thêm số liệu; T-25.4 `MessageView.deliveryStatus`, `deliveryAttempts`; 2026-11-13 · T-04.1 ghi chú JSON sau V15; T-09.3 `/api/orders`; T-09.2 bộ lọc `GET /api/products`; T-04.1 `prices` theo kênh, `GET /api/admin/sales-channels` (decisions #32); trước đó US-11 (T-11.2), US-25, T-47.1
 > Nguồn: `backend/.../channel/simulator/*`, `channel/web/*`, `channel/tiktok/*`, `catalog/ProductController.java`, `catalog/AdminProductController.java`, `catalog/ProductRequest.java`, `conversation/ConversationController.java`, `brain/*`, `common/*`, `ai-brain/app/main.py`, `ai-brain/app/schemas.py`, `shared/schemas/canonical-message.schema.json`, `web/src/shared/types.ts`
 
 JSON phía backend dùng **camelCase**. Riêng hợp đồng backend → ai-brain dùng **snake_case**.
@@ -42,6 +42,20 @@ Cần header `Authorization: Basic` với `ADMIN_USERNAME`/`ADMIN_PASSWORD` (SRS
 - Server chuẩn hóa trước khi kiểm: trim, Unicode NFC, `sku` viết hoa, `category`/`skinTypes`/`skinConcerns`/`usageTime` viết thường và bỏ trùng, INCI nối bằng `", "`, chuỗi rỗng thành `null`.
 - Luật kiểm giống `tools/catalog/validate_catalog.py` (`catalog/CatalogVocabulary.java`): dạng SKU, bộ từ vựng ở [data-model.md](data-model.md), INCI ≥ 2 thành phần, giá/tồn kho ≥ 0, dung tích/PAO > 0, độ dài cột, tên/mô tả không có claim y khoa ("trị mụn", "đặc trị", "chữa"...).
 - Lỗi dạng ProblemDetail (RFC 9457, `application/problem+json`): `{type, title, status, detail, instance, errors?}`. `400` sai dữ liệu có `errors: [{field, message}]`; `400` JSON hỏng hoặc sai kiểu; `404`; `409` trùng SKU.
+
+## Đồng bộ sản phẩm ra sàn (`/api/admin/sync/**`, US-49, T-49.1)
+Cần Basic ADMIN. Màn admin ở T-49.3.
+
+| Method | Path | Response | Ghi chú |
+|---|---|---|---|
+| GET | `/api/admin/sync/channels` | `["SHOPEE", ...]` | Kênh có connector. S3 rỗng trên app thật (connector Shopee sau T-49.2) |
+| GET | `/api/admin/sync/products/by-ids?ids=1,2,3` | `[SyncView]` | 1–100 id, cho 1 trang bảng sản phẩm. Sản phẩm/kênh chưa từng xếp hàng thì không có dòng |
+| GET | `/api/admin/sync/products?status=&channel=&page=&size=` | `PageResponse<SyncView>` | Lọc `PENDING | SYNCED | FAILED` (không phân biệt hoa thường), mới cập nhật trước. `size` 1–100. Sai thì `400` |
+| POST | `/api/admin/sync/products/{productId}/{channel}/retry` | `SyncView` | Về `PENDING`, `attempts = 0`, gửi ở lượt quét kế. Chưa có dòng thì `404` |
+| POST | `/api/admin/sync/products/resync?channel=SHOPEE` | `{queued}` | Xếp lại mọi sản phẩm của kênh (kể cả nội dung không đổi). Kênh không có connector hoặc tạm ngừng thì `400` |
+
+- `SyncView = {productId, channel, status, attempts, lastError?, externalId?, syncedAt?, nextAttemptAt, updatedAt}`. `externalId` = mã sản phẩm phía sàn sau lần tạo đầu. `attempts` = số lần đã gửi cho bản đang chờ (SYNCED: số lần của lượt thành công).
+- Hợp đồng cho connector (`sync/ProductChannelConnector`): `push(ProductSnapshot, externalId)` tạo khi `externalId == null`, sửa khi có, trả mã phía sàn; ném `SyncException(retryable=false)` khi thử lại vô ích. `ProductSnapshot = {productId, channel, sku, name, brand, category, description, ingredientsInci, sizeMl, imageKeys[], imageUrls[], price (của kênh), stock, active}`.
 
 ## Đơn hàng (`/api/orders`, T-09.3, SRS UC-06)
 Mở công khai như store (đơn S2 không gắn khách, không có dữ liệu cá nhân, decisions #34). Từ S3 đơn gắn khách đăng nhập thì phải khoá theo chủ đơn.

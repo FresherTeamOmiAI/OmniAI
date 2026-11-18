@@ -1,6 +1,6 @@
 # Backend (Spring Boot)
 
-> Cập nhật: 2026-11-18 · T-25.4 TikTok gửi lỗi sau 200 thì thử lại / handoff; T-11.4 chống trùng nguyên tử ở `MessageRouter`, `PageResponse` chuyển sang `common`; 2026-11-13 · T-04.1 `CatalogNormalizationTest`; T-09.3 `DemoOrderApiTest`; T-09.2 `StoreFilterApiTest`; T-04.1 bước thêm kênh có bán hàng (V13); trước đó 2026-11-12 · commit 67e63cc · T-11.1–T-11.3; trước đó T-25.1, T-25.2, T-47.1
+> Cập nhật: 2026-11-18 · T-49.1 module `sync` (khung đồng bộ chiều đi); T-25.4 TikTok gửi lỗi sau 200 thì thử lại / handoff; T-11.4 chống trùng nguyên tử ở `MessageRouter`, `PageResponse` chuyển sang `common`; 2026-11-13 · T-04.1 `CatalogNormalizationTest`; T-09.3 `DemoOrderApiTest`; T-09.2 `StoreFilterApiTest`; T-04.1 bước thêm kênh có bán hàng (V13); trước đó 2026-11-12 · commit 67e63cc · T-11.1–T-11.3; trước đó T-25.1, T-25.2, T-47.1
 > Nguồn: `backend/pom.xml`, `backend/src/main/java/com/omniai/**` (gồm `conversation/*`), `backend/src/test/**`, `simulators/tiktok-shop/**`
 
 Spring Boot 4.1.2, Java 21, Maven (chưa có `mvnw`). Starter đang dùng: webmvc, websocket, validation, data-jpa, flyway (+postgresql), actuator, security, lombok. Test dùng spring-boot-starter-test, webmvc-test (MockMvc), security-test + Testcontainers (postgresql). Kiến trúc modular monolith: mỗi package là một module.
@@ -17,6 +17,7 @@ Spring Boot 4.1.2, Java 21, Maven (chưa có `mvnw`). Starter đang dùng: webmv
 | `channel.credential` | Token OAuth2 của shop trên kênh sàn (bảng V8) | `ChannelCredential`, `ChannelCredentialRepository` | TuTM |
 | `conversation` | Lưu hội thoại mọi kênh (bảng V11, US-11) | `ConversationRecorder` (interface router gọi; `NOOP` cho test), `ConversationService` (bản thật + đọc cho API), `ConversationController` (`/api/conversations`), `ConversationView`, `MessageView`, `Conversation`, `ConversationMessage`, `StoredViolation`, các repository | TuTM |
 | `brain` | Client gọi ai-brain | `BrainClient` (interface để mock), `HttpBrainClient` (RestClient), `BrainRequest/Response` | ChienPX/TuTM |
+| `sync` | Đồng bộ hub → sàn chiều đi (US-49, T-49.1) | `ProductSyncService` (nghe `catalog.ProductChanged`, xếp hàng, gửi, thử lại), `ProductSyncWorker` (`@Scheduled`), `ProductChannelConnector` (1 bean / sàn), `ProductSnapshot`, `SyncException`, `ProductSyncState` + repository, `AdminSyncController` (`/api/admin/sync`), `SyncProperties` | TuTM |
 | `policy` | Áp luật kênh | `PolicyEngine`, `ChannelPolicy`, `PolicyRule`, `PolicyAction`, `PolicyResult`, `PolicyViolation`. Xem [policy.md](policy.md) | HungDQ |
 | `catalog` | Sản phẩm: API đọc cho store/AI, API admin | `Product`, `ProductRepository`, `ProductController` (đọc, chỉ active), `AdminProductController` + `ProductService` (CRUD admin), `ProductRequest`, `CatalogVocabulary` (luật dữ liệu), `ProductErrors`, `AdminProductExceptionHandler` (ProblemDetail) | LucVT |
 | `customer` | Khách + danh tính kênh | `Customer`, `ChannelIdentity`, các repository | LucVT |
@@ -54,8 +55,8 @@ Simulator chung `/api/simulator/{channel}/messages` vẫn giữ cho bench và `/
 - `TiktokApi` giới hạn 40 request đồng thời (sàn chặn 50), gặp 429 thì backoff, tối đa 3 lần.
 - Fixture hợp đồng dùng chung cho hub và simulator: `shared/channel-fixtures/tiktok/` (mục Example của docv2; webhook và token ghi chưa đối chiếu).
 
-## Đồng bộ hub ↔ kênh (trụ E, decisions #23, chưa có code)
-Hub (backend) là nguồn dữ liệu gốc. Thiết kế chi tiết viết ở T-48.3 sau khi có bảng đối chiếu API.
+## Đồng bộ hub ↔ kênh (trụ E, decisions #23)
+Hub (backend) là nguồn dữ liệu gốc. Bảng endpoint từng sàn viết ở T-48.3. Chiều đi đã có khung (T-49.1), chưa có connector sàn nào.
 
 | Chiều | Dữ liệu | US · Sprint |
 |---|---|---|
@@ -68,7 +69,13 @@ Hub (backend) là nguồn dữ liệu gốc. Thiết kế chi tiết viết ở 
 | Về | Trạng thái duyệt/vi phạm sản phẩm | US-54 S7 |
 | Về | Đánh giá sản phẩm | US-55 S8 |
 
-Quy ước: thay đổi trên hub đi qua hàng đợi đồng bộ, mỗi kênh một connector, gửi lỗi thì thử lại và không gửi trùng (US-49). Mọi webhook từ sàn đều kiểm chữ ký và chống trùng. Nội dung đẩy ra sàn phải qua luật của kênh (US-54).
+Quy ước: thay đổi trên hub đi qua hàng đợi đồng bộ, mỗi kênh một connector, gửi lỗi thì thử lại và không gửi trùng (US-49).
+
+**Khung chiều đi (`sync`, T-49.1, decisions #42):**
+1. `ProductService.create/update/setActive` phát `ProductChanged` trong transaction của nó. `ProductSyncService.onProductChanged` (`@EventListener`, cùng transaction) tính `ProductSnapshot.contentHash()` cho mỗi kênh `sales_channel.active && !owned` có connector và sản phẩm có giá ở kênh đó, rồi ghi `product_channel_sync`: chưa có dòng thì tạo `PENDING` (sản phẩm ẩn chưa từng lên sàn thì bỏ); hash bằng bản đã gửi (`SYNCED`) hoặc bằng bản đang chờ (`PENDING`) thì bỏ qua; khác thì về `PENDING`, `attempts = 0`. Product rollback thì hàng đợi rollback theo.
+2. `ProductSyncWorker` mỗi `omniai.sync.poll-interval-ms` (1000) gọi `claimDue`: `UPDATE ... FOR UPDATE SKIP LOCKED RETURNING`, dời `next_attempt_at` thêm `lease` (60 s) để instance khác không nhận trùng, tối đa `batch-size` (20) dòng.
+3. `deliver`: đọc sản phẩm **hiện tại** (sửa nhiều lần trước khi gửi thì chỉ gửi bản mới nhất), gọi connector ngoài transaction. Thành công → `SYNCED`, lưu `external_id`; nếu admin sửa tiếp trong lúc gửi thì vẫn `PENDING` để gửi bản mới. Lỗi → `attempts++`, chờ `retry-backoff` (2 s) gấp đôi; tới `max-attempts` (4 = lần đầu + 3 lần thử lại) hoặc `SyncException(retryable=false)` → `FAILED`, admin bấm thử lại.
+4. Kênh nào chưa có connector thì không có dòng nào. Thêm sàn = thêm 1 bean `ProductChannelConnector`. `omniai.sync.enabled=false` (env `SYNC_ENABLED`) tắt worker. Mọi webhook từ sàn đều kiểm chữ ký và chống trùng. Nội dung đẩy ra sàn phải qua luật của kênh (US-54).
 
 ## Bảo mật (`common/SecurityConfig.java`)
 - `/api/admin/**` và `/api/conversations/**` cần đăng nhập (role ADMIN, HTTP Basic, 1 tài khoản in-memory từ `omniai.admin.*`, SRS Q-01; hội thoại thêm ở US-11, decisions #31). Mọi đường khác `permitAll`: store, simulator, `/ws/chat`, webhook kênh, actuator.
