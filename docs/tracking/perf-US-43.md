@@ -34,6 +34,8 @@
 Phân tích store trang 0 (26 SELECT ở lần tách chi tiết): **16 câu `select … from brand`** (N+1 theo hãng, mục 1 #6 của đặc tả), 4 câu bảng tra cứu `category`/`skin_type`/`skin_concern`/`sales_channel` (#5), 1 `count`, 1 trang `product`, 5 câu nạp collection (giá kênh, loại da, vấn đề da, ảnh, INCI). Đặc tả ước tính ~17 câu, đo thật 16–28 tuỳ số hãng trên trang.
 
 ## 3. ai-brain: phần đọc DB mỗi câu chat (không gồm LLM)
+
+> Đo trên code ai-brain **trước** f38632f (PR #277, merge vào `dev` 18/11). Commit đó đã dùng lại 1 kết nối và cache mỗi câu SQL 120 s (`catalog_access.py`), tức một phần T-43.4. Số "sau" phải đo trên `dev` mới; trường `connections_per_chat` của bản đo này nay đổi tên `run_select_calls_per_chat`.
 `brain_db.py` gọi đúng 2 hàm `/chat` dùng (`load_public_catalog`, `load_search_rows`), 10 lượt, Postgres local:
 
 | Chỉ số | Trước |

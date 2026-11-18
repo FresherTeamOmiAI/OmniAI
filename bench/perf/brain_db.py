@@ -1,7 +1,8 @@
 """Đo phần đọc DB của ai-brain cho mỗi câu chat, không gọi LLM (US-43, T-43.2/T-43.4). Owner: LucVT.
 
 Gọi đúng 2 hàm /chat đang dùng (app.catalog_access.load_public_catalog, app.rag.search.load_search_rows), đếm số
-lần mở kết nối (mỗi run_select = 1 kết nối psycopg mới ở code hiện tại) và dung lượng đọc về.
+lần gọi run_select và số dòng đọc về. Trước f38632f mỗi run_select mở 1 kết nối psycopg mới; từ f38632f dùng lại
+1 kết nối và cache kết quả 120 s, nên các lượt sau lượt đầu thường đọc từ cache.
 
     cd bench
     ..\\ai-brain\\.venv\\Scripts\\python -m perf.brain_db             # dùng CHATBOT_DB_URL trong môi trường
@@ -67,7 +68,7 @@ def main(argv: list[str] | None = None) -> int:
 
     result = {
         "rounds": args.rounds,
-        "connections_per_chat": connections,
+        "run_select_calls_per_chat": connections,
         "rows_read_per_chat": rows_read,
         "catalog_lines_in_prompt": catalog_lines,
         "search_rows": search_rows,
