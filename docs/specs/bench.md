@@ -1,6 +1,6 @@
 # Bench
 
-> Cập nhật: 2026-11-18 · T-43.2 thêm `bench/perf/` đo hiệu năng (LucVT); trước đó 2026-11-12 · commit bf9cef4 · Owner: HungDQ · transport tiktok: TuTM (T-25.2)
+> Cập nhật: 2026-11-18 · T-43.4 `perf.brain_db` đo cache lạnh/ấm; T-43.2 thêm `bench/perf/` đo hiệu năng (LucVT); trước đó 2026-11-12 · commit bf9cef4 · Owner: HungDQ · transport tiktok: TuTM (T-25.2)
 > Nguồn: `bench/bench/run.py`, `bench/bench/policy_check.py`, `bench/datasets/*.jsonl`, `bench/perf/*`, `bench/tests/*`
 
 Bench đo chất lượng bot theo từng kênh. Đây là **đóng góp chính** của dự án. Bench gửi từng ca vào backend qua API simulator, hoặc qua WebSocket `/ws/chat` giống chat widget (cần backend + ai-brain đang chạy, tức là luôn đo trên **LLM thật và Postgres thật**, decisions #25: `.env` phải có `LLM_API_KEY` và mỗi lần chạy tốn quota free tier), rồi tự chấm lại `finalText` bằng cùng bộ YAML luật. Phương pháp, cách áp vào bài toán và tài liệu tham khảo: [../bench/huong-dan-benchmark.md](../bench/huong-dan-benchmark.md).
@@ -38,7 +38,7 @@ Summary (`summarize()`): `total`, `passed`, `latency_p95_ms`, và `by_channel` g
 Không gọi LLM, không chấm policy. Kết quả trước/sau ghi ở [../tracking/perf-US-43.md](../tracking/perf-US-43.md).
 - `seed_conversations.sql`: 200 hội thoại × 50 tin = 10.000 tin (`external_id` `perf-%`), chỉ chạy DB local, chạy lại được. `docker compose exec -T postgres psql -U omniai -d omniai < bench/perf/seed_conversations.sql`; dọn: `DELETE FROM conversation WHERE external_id LIKE 'perf-%'`.
 - `python -m perf.load_test [--base-url] [--requests 200] [--workers 10] [--widget-rounds 20] [--json reports/x.json]` (chạy trong `bench/`): 4 kịch bản `store_list`, `product_detail`, `conversations` (Basic `ADMIN_USERNAME`/`ADMIN_PASSWORD`, mặc định admin/admin), `widget_catalog` (lặp `size=100` tới hết như `ChatWidget`). In bảng p50/p95/max (nearest rank), KB/response; mã thoát 1 nếu có request lỗi.
-- `..i-brain\.venv\Scripts\python -m perf.brain_db [--rounds 10] [--json …]`: gọi `load_public_catalog` + `load_search_rows` của ai-brain bằng `CHATBOT_DB_URL` (chỉ SELECT), đếm kết nối, dòng đọc về, thời gian DB mỗi câu chat.
+- `..i-brain\.venv\Scripts\python -m perf.brain_db [--rounds 10] [--json …]`: gọi `load_search_rows` + `search_product` + `catalog_snapshot` của ai-brain bằng `CHATBOT_DB_URL` (chỉ SELECT), đếm câu SELECT, dòng đọc về, dòng trong prompt, thời gian DB và xếp hạng ở 2 trạng thái: lạnh (cache vừa hết hạn) và ấm (trong TTL). Không đọc được catalog thì trả mã 1.
 
 ## Test
 `tests/test_policy_check.py`: nạp đủ kênh, Shopee bắt được link/SĐT/kênh khác, WEB cho phép link, claim y khoa bị bắt ở mọi kênh. Ngoài ra chạy bộ ca dùng chung `shared/policies/tests/cases.yaml` (18 ca × 3 kênh, cùng bộ với `PolicyEngineTest`), để chắc regex cho kết quả giống nhau ở Python và Java.
