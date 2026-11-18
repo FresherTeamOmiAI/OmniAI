@@ -1,6 +1,6 @@
 # Hợp đồng API
 
-> Cập nhật: 2026-11-17 · T-13.1 `/api/auth/otp`, `/api/auth/otp/verify`, `/api/me`, `/ws/chat?token=`; trước đó 2026-11-13 · T-04.1 ghi chú JSON sau V15; T-09.3 `/api/orders`; T-09.2 bộ lọc `GET /api/products`; T-04.1 `prices` theo kênh, `GET /api/admin/sales-channels` (decisions #32); trước đó US-11 (T-11.2), US-25, T-47.1
+> Cập nhật: 2026-11-18 · T-13.1 `/api/orders` cần JWT người mua, chỉ chủ đơn xem (decisions #40); 2026-11-17 · T-13.1 `/api/auth/otp`, `/api/auth/otp/verify`, `/api/me`, `/ws/chat?token=`; trước đó 2026-11-13 · T-04.1 ghi chú JSON sau V15; T-09.3 `/api/orders`; T-09.2 bộ lọc `GET /api/products`; T-04.1 `prices` theo kênh, `GET /api/admin/sales-channels` (decisions #32); trước đó US-11 (T-11.2), US-25, T-47.1
 > Nguồn: `backend/.../channel/simulator/*`, `channel/web/*`, `channel/tiktok/*`, `catalog/ProductController.java`, `catalog/AdminProductController.java`, `catalog/ProductRequest.java`, `conversation/ConversationController.java`, `identity/AuthController.java`, `brain/*`, `common/*`, `ai-brain/app/main.py`, `ai-brain/app/schemas.py`, `shared/schemas/canonical-message.schema.json`, `web/src/shared/types.ts`
 
 JSON phía backend dùng **camelCase**. Riêng hợp đồng backend → ai-brain dùng **snake_case**.
@@ -56,12 +56,12 @@ Cần header `Authorization: Basic` với `ADMIN_USERNAME`/`ADMIN_PASSWORD` (SRS
 - Lỗi dạng ProblemDetail (RFC 9457, `application/problem+json`): `{type, title, status, detail, instance, errors?}`. `400` sai dữ liệu có `errors: [{field, message}]`; `400` JSON hỏng hoặc sai kiểu; `404`; `409` trùng SKU.
 
 ## Đơn hàng (`/api/orders`, T-09.3, SRS UC-06)
-Mở công khai như store (đơn S2 không gắn khách, không có dữ liệu cá nhân, decisions #34). Từ S3 đơn gắn khách đăng nhập thì phải khoá theo chủ đơn.
+Cần đăng nhập người mua: `Authorization: Bearer <JWT>` (cùng chuỗi filter với `/api/me`, decisions #40). Thiếu/sai/hết hạn token, Basic admin, hoặc token của khách đã bị xoá → `401`. Đơn gắn `customer_id` = `sub` của token (SRS G-04). Nguồn: `order/OrderController.java`, `OrderService.java`.
 
 | Method | Path | Body | Trả về | Ghi chú |
 |---|---|---|---|---|
 | POST | `/api/orders` | `{items: [{productId*, quantity*}]}` | `201` + `Location`, `OrderView` | Tạo đơn **DEMO** trên kênh WEB: không thanh toán, không giao, **không trừ tồn kho** (G-04). 1–20 dòng, `quantity` 1–10; dòng trùng `productId` được gộp (tổng vẫn <= 10). Sản phẩm không có / đang ẩn → `400` ở `items[i].productId`; hết hàng / không đủ hàng / tổng > 10 → `400` ở `items[i].quantity` |
-| GET | `/api/orders/{id}` | | `OrderView` | Không có thì `404` |
+| GET | `/api/orders/{id}` | | `OrderView` | Chỉ chủ đơn xem được. Không có, của khách khác, hoặc đơn S2 không gắn khách → `404` (không lộ đơn có tồn tại) |
 
 - `OrderView`: `id, status ("DEMO"), channel ("WEB"), items[{productId, sku, name, unitPrice, quantity, lineTotal}], total, createdAt, notice` (`notice` = "Đơn thử nghiệm: không thanh toán, không giao hàng."). `unitPrice`, `name`, `sku` là bản chụp lúc đặt.
 - Lỗi theo ProblemDetail như API sản phẩm: `400` có `errors[{field, message}]` (field dạng `items[0].quantity`), JSON hỏng `400`, `404`.

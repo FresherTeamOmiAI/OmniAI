@@ -2,6 +2,9 @@ package com.omniai.order;
 
 import com.omniai.TestcontainersConfig;
 import com.omniai.brain.BrainClient;
+import com.omniai.customer.Customer;
+import com.omniai.customer.CustomerRepository;
+import com.omniai.identity.TokenService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,7 +18,10 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Base64;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -30,6 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Đặt hàng ảo (T-09.3, SRS UC-06, G-04): đơn DEMO, giá web chụp lại lúc đặt, KHÔNG trừ tồn kho, hết hàng thì không cho đặt.
+ * Từ S3 phải đăng nhập (JWT người mua), đơn gắn customer_id, chỉ chủ đơn xem được (G-04, decisions #40).
  * Cấu hình giống StoreFilterApiTest để dùng chung Spring context. Mỗi test rollback.
  */
 @SpringBootTest
@@ -45,8 +52,18 @@ class DemoOrderApiTest {
     @Autowired
     JdbcTemplate jdbc;
 
+    @Autowired
+    CustomerRepository customers;
+
+    @Autowired
+    TokenService tokens;
+
     @MockitoBean
     BrainClient brainClient;
+
+    /** Khách đã đăng nhập, đặt mọi đơn trong test (trừ khi ghi khác). */
+    private Customer buyer;
+    private String token;
 
     /** Sản phẩm thật, active, còn hàng (dòng manual trong selection.csv). */
     private long ceraId;
@@ -58,6 +75,8 @@ class DemoOrderApiTest {
         ceraId = jdbc.queryForObject("SELECT id FROM product WHERE sku = 'CERA-CLE-01'", Long.class);
         ceraPrice = jdbc.queryForObject("SELECT price FROM product_channel WHERE product_id = ? AND channel_code = 'WEB'", Long.class, ceraId);
         ceraStock = jdbc.queryForObject("SELECT stock FROM product WHERE id = ?", Integer.class, ceraId);
+        buyer = newCustomer("buyer@example.com");
+        token = tokens.issue(buyer).token();
     }
 
     @Test
@@ -76,19 +95,20 @@ class DemoOrderApiTest {
 
         // G-04: đơn DEMO không trừ tồn kho.
         assertThat(jdbc.queryForObject("SELECT stock FROM product WHERE id = ?", Integer.class, ceraId)).isEqualTo(ceraStock);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM customer_order WHERE status = 'DEMO' AND customer_id IS NULL"
-                + " AND external_order_id IS NULL", Integer.class)).isEqualTo(1);
+        // G-04 từ S3: đơn gắn khách đang đăng nhập.
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM customer_order WHERE status = 'DEMO' AND customer_id = ?"
+                + " AND external_order_id IS NULL", Integer.class, buyer.getId())).isEqualTo(1);
     }
 
     @Test
     void getReturnsSavedOrderAndUnknownIsNotFound() throws Exception {
         String location = order("[{\"productId\": %d, \"quantity\": 1}]".formatted(ceraId))
                 .andReturn().getResponse().getHeader("Location");
-        mvc.perform(get(location))
+        mvc.perform(auth(get(location)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].sku").value("CERA-CLE-01"))
                 .andExpect(jsonPath("$.status").value("DEMO"));
-        mvc.perform(get("/api/orders/999999")).andExpect(status().isNotFound());
+        mvc.perform(auth(get("/api/orders/999999"))).andExpect(status().isNotFound());
     }
 
     /** Đơn chụp lại giá lúc đặt: shop đổi giá sau đó thì đơn cũ không đổi. */
@@ -98,7 +118,7 @@ class DemoOrderApiTest {
                 .andReturn().getResponse().getHeader("Location");
         jdbc.update("UPDATE product_channel SET price = price + 50000 WHERE product_id = ? AND channel_code = 'WEB'", ceraId);
         jdbc.update("UPDATE product SET name = 'Tên mới' WHERE id = ?", ceraId);
-        mvc.perform(get(location))
+        mvc.perform(auth(get(location)))
                 .andExpect(jsonPath("$.items[0].unitPrice").value(ceraPrice))
                 .andExpect(jsonPath("$.items[0].name").value(org.hamcrest.Matchers.not("Tên mới")));
     }
@@ -134,12 +154,54 @@ class DemoOrderApiTest {
         order("[{\"productId\": %d, \"quantity\": 0}, {\"productId\": null, \"quantity\": 11}]".formatted(ceraId))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[*].field", containsInAnyOrder("items[0].quantity", "items[1].productId", "items[1].quantity")));
-        mvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON).content("{\"items\": \"x\"}"))
+        mvc.perform(auth(post("/api/orders")).contentType(MediaType.APPLICATION_JSON).content("{\"items\": \"x\"}"))
                 .andExpect(status().isBadRequest());
         // Tổng sau khi gộp vượt 10 cũng bị chặn.
         order("[{\"productId\": %d, \"quantity\": 6}, {\"productId\": %d, \"quantity\": 6}]".formatted(ceraId, ceraId))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value(endsWith("quantity")));
+    }
+
+    /** G-04 từ S3: không token, token rác, Basic admin đều bị 401 và không tạo đơn. */
+    @Test
+    void orderingNeedsCustomerLogin() throws Exception {
+        String body = "{\"items\": [{\"productId\": %d, \"quantity\": 1}]}".formatted(ceraId);
+        String basic = "Basic " + Base64.getEncoder().encodeToString("admin:admin".getBytes());
+        for (String header : new String[] {null, "Bearer khong.phai.token", basic}) {
+            MockHttpServletRequestBuilder req = post("/api/orders").contentType(MediaType.APPLICATION_JSON).content(body);
+            if (header != null) {
+                req.header("Authorization", header);
+            }
+            mvc.perform(req).andExpect(status().isUnauthorized());
+        }
+        String location = order("[{\"productId\": %d, \"quantity\": 1}]".formatted(ceraId))
+                .andReturn().getResponse().getHeader("Location");
+        mvc.perform(get(location)).andExpect(status().isUnauthorized());
+        mvc.perform(get(location).header("Authorization", basic)).andExpect(status().isUnauthorized());
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM customer_order", Integer.class)).isEqualTo(1);
+    }
+
+    /** Chỉ chủ đơn xem được đơn. Đơn của người khác và đơn S2 không gắn khách trả 404 như không có. */
+    @Test
+    void onlyOwnerCanReadOrder() throws Exception {
+        String location = order("[{\"productId\": %d, \"quantity\": 1}]".formatted(ceraId))
+                .andReturn().getResponse().getHeader("Location");
+        String other = tokens.issue(newCustomer("other@example.com")).token();
+        mvc.perform(get(location).header("Authorization", "Bearer " + other)).andExpect(status().isNotFound());
+        mvc.perform(auth(get(location))).andExpect(status().isOk());
+
+        long guestOrder = jdbc.queryForObject(
+                "INSERT INTO customer_order (channel_code, status, total_amount) VALUES ('WEB', 'DEMO', 0) RETURNING id", Long.class);
+        mvc.perform(auth(get("/api/orders/" + guestOrder))).andExpect(status().isNotFound());
+    }
+
+    /** Token còn hạn nhưng khách đã bị xoá: 401 như GET /api/me, không lỗi khoá ngoại. */
+    @Test
+    void deletedCustomerCannotOrder() throws Exception {
+        customers.delete(buyer);
+        customers.flush();
+        order("[{\"productId\": %d, \"quantity\": 1}]".formatted(ceraId)).andExpect(status().isUnauthorized());
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM customer_order", Integer.class)).isZero();
     }
 
     // Ràng buộc V14 ở mức DB: mỗi test 1 câu bị chặn (câu lỗi làm hỏng cả transaction nên không gộp được).
@@ -175,6 +237,16 @@ class DemoOrderApiTest {
     }
 
     private ResultActions order(String itemsJson) throws Exception {
-        return mvc.perform(post("/api/orders").contentType(MediaType.APPLICATION_JSON).content("{\"items\": " + itemsJson + "}"));
+        return mvc.perform(auth(post("/api/orders")).contentType(MediaType.APPLICATION_JSON).content("{\"items\": " + itemsJson + "}"));
+    }
+
+    private MockHttpServletRequestBuilder auth(MockHttpServletRequestBuilder req) {
+        return req.header("Authorization", "Bearer " + token);
+    }
+
+    private Customer newCustomer(String email) {
+        Customer c = new Customer();
+        c.setEmail(email);
+        return customers.saveAndFlush(c);
     }
 }

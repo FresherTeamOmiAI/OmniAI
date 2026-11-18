@@ -23,9 +23,10 @@ import java.util.List;
 /**
  * 2 chuỗi filter:
  * <ul>
- *   <li>{@code /api/me/**}: người mua, {@code Authorization: Bearer <JWT>} cấp sau khi đăng nhập OTP (US-13, decisions #39).</li>
+ *   <li>{@code /api/me/**}, {@code /api/orders/**}: người mua, {@code Authorization: Bearer <JWT>} cấp sau khi đăng nhập
+ *   OTP (US-13, decisions #39). Đặt thử cần đăng nhập, đơn gắn khách (SRS G-04, decisions #40).</li>
  *   <li>Còn lại: khóa /api/admin/** và /api/conversations/** bằng HTTP Basic với 1 tài khoản admin từ biến môi trường
- *   (SRS Q-01, admin giữ Basic, không thuộc US-13). Mọi đường khác (store, /api/auth, simulator, /ws/chat, actuator,
+ *   (SRS Q-01, admin giữ Basic, không thuộc US-13). Mọi đường khác (store /api/products, /api/auth, simulator, /ws/chat, actuator,
  *   webhook kênh) vẫn mở.</li>
  * </ul>
  */
@@ -43,7 +44,7 @@ public class SecurityConfig {
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
         converter.setJwtGrantedAuthoritiesConverter(jwt -> List.of(new SimpleGrantedAuthority("ROLE_" + ROLE_CUSTOMER)));
         http
-                .securityMatcher("/api/me", "/api/me/**")
+                .securityMatcher("/api/me", "/api/me/**", "/api/orders", "/api/orders/**")
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth.anyRequest().hasRole(ROLE_CUSTOMER))
