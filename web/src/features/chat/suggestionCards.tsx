@@ -9,6 +9,7 @@ export interface SuggestedSku {
   price: number
   category: string | null
   imageUrl: string | null
+  product: Product | null
 }
 
 const PRODUCT_LINE = /^\d+\.\s+(.+?)\s+—\s+(.+?)\s+—\s+(\d{1,3}(?:\.\d{3})*)đ$/
@@ -44,13 +45,45 @@ export function splitSuggestion(text: string, products: Product[]): { items: Sug
       price: Number(match[3].replaceAll('.', '')),
       category: product?.category ?? null,
       imageUrl: product?.imageUrl ?? null,
+      product: product ?? null,
     })
   }
+  items.push(...productsMentioned(text, products, seen))
   return { items, note: notes.filter(Boolean).join('\n') }
 }
 
 /** Số màu minh hoạ (--tone-0 … --tone-5 trong tokens.css). */
 const TONES = 6
+
+/** Câu chữ tự do vẫn hiện ảnh nếu nhắc đúng tên sản phẩm trong catalog. */
+function productsMentioned(text: string, products: Product[], seen: Set<string>): SuggestedSku[] {
+  const folded = text.toLocaleLowerCase('vi')
+  const ranked = [...products].sort((a, b) => b.name.length - a.name.length)
+  const found: SuggestedSku[] = []
+  for (const product of ranked) {
+    const name = product.name.toLocaleLowerCase('vi')
+    if (name.length < 12) continue
+    const identity = `${product.brand}|${product.name}`.toLocaleLowerCase('vi')
+    if (seen.has(identity)) continue
+    const branded = `${product.brand} — ${product.name}`.toLocaleLowerCase('vi')
+    if (!folded.includes(branded) && !folded.includes(name)) continue
+    if (found.some((item) => item.name.toLocaleLowerCase('vi').includes(name))) continue
+    seen.add(identity)
+    const price = product.prices.WEB ?? Object.values(product.prices)[0] ?? 0
+    found.push({
+      key: product.sku,
+      sku: product.sku,
+      brand: product.brand,
+      name: product.name,
+      price,
+      category: product.category,
+      imageUrl: product.imageUrl,
+      product,
+    })
+    if (found.length === 3) break
+  }
+  return found
+}
 
 function toneFor(label: string): number {
   let hash = 0

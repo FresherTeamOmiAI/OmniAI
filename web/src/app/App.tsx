@@ -1,4 +1,5 @@
 import { BrowserRouter, Link, Route, Routes } from 'react-router'
+import { ShopeeProductPage, TiktokProductPage } from '../features/marketplace'
 import { PolicyPlaygroundPage } from '../features/policy-playground'
 import { ProductAdminPage } from '../features/product-admin'
 import { ProductDetailPage, StorePage } from '../features/store'
@@ -18,6 +19,8 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="mo-phong/shopee/:sku" element={<ShopeeProductPage />} />
+        <Route path="mo-phong/tiktok/:sku" element={<TiktokProductPage />} />
         <Route element={<ShopLayout />}>
           <Route index element={<StorePage />} />
           <Route path="products/:id" element={<ProductDetailPage />} />

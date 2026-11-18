@@ -14,7 +14,7 @@ public class ShopeeChannelProperties {
     private String accessToken = "test-access-token";
     /** URL hub sẽ nhận push đơn. Dùng để ký, chưa gọi mạng nếu để trống. */
     private String pushCallbackUrl = "http://127.0.0.1:8080/api/channels/shopee/push";
-    /** Database `shopee`, tách khỏi database hub. */
+    /** Postgres của simulator. Supabase dùng database postgres; local/test vẫn dùng database shopee. */
     private Datasource datasource = new Datasource();
 
     public long getPartnerId() {

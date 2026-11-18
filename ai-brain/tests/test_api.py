@@ -67,11 +67,11 @@ def test_shopee_prompt_forbids_off_platform_contact():
     assert "1000" in prompt
 
 
-def test_price_question_has_no_invented_numbers():
+def test_price_question_does_not_invent_a_number():
     body = chat("Kem chống nắng giá bao nhiêu shop?")
     assert "450.000" not in body["reply"]
-    assert "kiểm tra" in body["reply"]
-    assert "grounding:price" in body["warnings"]
+    assert "mã hoặc tên" in body["reply"]
+    assert "grounding:price" not in body["warnings"]
 
 
 def test_product_question_prefixes_catalog_suggestions(monkeypatch):
@@ -199,7 +199,18 @@ def test_usage_without_history_does_not_reuse_another_chat(monkeypatch):
     assert "LUMI-SUN-01" not in body["reply"]
 
 
-def test_price_from_catalog_is_kept():
-    body = chat("Kem chống nắng kiềm dầu giá bao nhiêu shop?")
+def test_price_from_the_backend_is_kept(monkeypatch):
+    from app.tools.price_stock import PriceStock
+
+    monkeypatch.setattr(
+        "app.tools.price_stock.fetch_price_stock",
+        lambda sku, client=None: PriceStock(
+            "LUMI-SUN-01", "Lumi Lab", "Kem chống nắng kiềm dầu SPF50+", "sunscreen", {"WEB": 289000}, 12
+        ),
+    )
+    monkeypatch.setattr("app.agent.graph.load_search_rows", lambda: [])
+    body = chat("LUMI-SUN-01 giá bao nhiêu shop?")
     assert "289.000đ" in body["reply"]
+    assert "còn 12" in body["reply"]
+    assert "450.000" not in body["reply"]
     assert "grounding:price" not in body["warnings"]
