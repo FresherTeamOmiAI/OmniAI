@@ -1,6 +1,6 @@
 # TikTok Shop: bảng đối chiếu API cho simulator và đồng bộ hub ↔ kênh
 
-> Cập nhật: 2026-11-11 · commit 0821a35 · Owner: TuTM · T-25.3 (US-25)
+> Cập nhật: 2026-11-18 · T-25.4 mục 6, 9: thử lại và handoff khi gửi lỗi; 2026-11-11 · commit 0821a35 · Owner: TuTM · T-25.3 (US-25)
 > DTO chi tiết từng API (request, response, mã lỗi): [tiktok-dto.md](tiktok-dto.md), sinh bằng `tools/channel-api/extract_tiktok_dto.py`.
 
 ## 1. Nguồn và độ tin cậy
@@ -90,7 +90,7 @@ Scope cần cấp: `seller.authorization.info`, `seller.customer_service`; từ 
 
 - TikTok giới hạn QPS theo từng API và từng app **(chưa đối chiếu)**. CS còn có quota **10.000 request/ngày** (mã `45101004`, có trong thư mục).
 - **Simulator:** tối đa **50 request đồng thời** cho mỗi app (`sim.rate-limit.max-concurrent`). Vượt thì trả HTTP 429 kèm `code` rate limit.
-- **Hub:** tự giới hạn số request đồng thời dưới 50. Gặp 429 thì retry có backoff, tối đa 3 lần, sau đó trả handoff.
+- **Hub:** tự giới hạn số request đồng thời dưới 50. Gặp 429 thì `TiktokApi` retry có backoff, tối đa 3 lần. Vẫn lỗi thì lượt gửi tin đó tính là lỗi tạm thời: `TiktokWebhookProcessor` thử lại cả lượt (mặc định 4 lần, backoff 2 s gấp đôi), hết lượt thì câu trả lời ghi `FAILED` + handoff (T-25.4).
 
 ## 7. Danh sách API
 
@@ -167,11 +167,14 @@ Các enum chính:
 |---|---|---|---|
 | Access token hết hạn / sai | `code` token (chưa đối chiếu: 105002 / 105001) | Refresh 1 lần rồi gọi lại | `TiktokTokenManagerTest`, `/sim/faults` |
 | Refresh token hết hạn | `code` refresh (chưa đối chiếu) | `NEEDS_REAUTH`, handoff | như trên |
-| Sai scope | `code` scope (chưa đối chiếu: 105005) | Không retry, log lỗi, handoff | như trên |
+| Sai scope | `code` scope (chưa đối chiếu: 105005) | Không retry, câu trả lời `FAILED` + handoff | `TiktokWebhookIT` |
 | Sai chữ ký / `app_key` / timestamp lệch | `code` 106001 / 106002 (chưa đối chiếu) | Lỗi cấu hình, không retry | sim `GatewayTest` |
 | invalid_params: thiếu `type`/`content`, TEXT > 2000 ký tự, `page_size` ngoài khoảng | `45101002` (CS) | Không retry, log | sim `CustomerServiceTest` |
 | Nội dung nhạy cảm | `45101006` | Gửi `fallback_message` của kênh | sim |
-| Không được gửi trong hội thoại | `45109001` | Handoff | sim |
+| Không được gửi trong hội thoại | `45109001` | Không retry, câu trả lời `FAILED` + handoff | `TiktokWebhookIT` |
+| Shop không có quyền với hội thoại | `45102007` | Không retry, `FAILED` + handoff | `TiktokWebhookIT` |
+| Send Message lỗi mạng / 5xx / `36009003` sau khi đã trả 200 | | Thử lại tới 4 lần (backoff 2 s gấp đôi), hết lượt thì `FAILED` + handoff | `TiktokWebhookIT` |
+| Hàng đợi xử lý của hub đầy | | Trả 503 (`busy`), bỏ đánh dấu `tts_notification_id` để lần gửi lại được nhận | `TiktokWebhookIT` |
 | Vượt 50 request đồng thời | HTTP 429 | Backoff, tối đa 3 lần | sim `RateLimitTest` |
 | Webhook trùng / trễ / hub trả 5xx | Gửi lại tối đa 3 lần | Chống trùng theo `tts_notification_id` | hub `TiktokWebhookControllerTest` |
 | Brain chậm > 3 s | | Webhook vẫn trả 200 ngay, tin gửi sau | như trên |

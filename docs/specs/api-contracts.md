@@ -1,6 +1,6 @@
 # Hợp đồng API
 
-> Cập nhật: 2026-11-13 · T-04.1 ghi chú JSON sau V15; T-09.3 `/api/orders`; T-09.2 bộ lọc `GET /api/products`; T-04.1 `prices` theo kênh, `GET /api/admin/sales-channels` (decisions #32); trước đó US-11 (T-11.2), US-25, T-47.1
+> Cập nhật: 2026-11-18 · T-49.1 `/api/admin/sync/**` trạng thái đồng bộ sản phẩm ra sàn; T-14.2 lọc `/api/conversations` theo ngày, vi phạm, handoff; `ConversationView` thêm số liệu; T-25.4 `MessageView.deliveryStatus`, `deliveryAttempts`; 2026-11-13 · T-04.1 ghi chú JSON sau V15; T-09.3 `/api/orders`; T-09.2 bộ lọc `GET /api/products`; T-04.1 `prices` theo kênh, `GET /api/admin/sales-channels` (decisions #32); trước đó US-11 (T-11.2), US-25, T-47.1
 > Nguồn: `backend/.../channel/simulator/*`, `channel/web/*`, `channel/tiktok/*`, `catalog/ProductController.java`, `catalog/AdminProductController.java`, `catalog/ProductRequest.java`, `conversation/ConversationController.java`, `brain/*`, `common/*`, `ai-brain/app/main.py`, `ai-brain/app/schemas.py`, `shared/schemas/canonical-message.schema.json`, `web/src/shared/types.ts`
 
 JSON phía backend dùng **camelCase**. Riêng hợp đồng backend → ai-brain dùng **snake_case**.
@@ -44,6 +44,20 @@ Cần header `Authorization: Basic` với `ADMIN_USERNAME`/`ADMIN_PASSWORD` (SRS
 - Luật kiểm giống `tools/catalog/validate_catalog.py` (`catalog/CatalogVocabulary.java`): dạng SKU, bộ từ vựng ở [data-model.md](data-model.md), INCI ≥ 2 thành phần, giá/tồn kho ≥ 0, dung tích/PAO > 0, độ dài cột, tên/mô tả không có claim y khoa ("trị mụn", "đặc trị", "chữa"...).
 - Lỗi dạng ProblemDetail (RFC 9457, `application/problem+json`): `{type, title, status, detail, instance, errors?}`. `400` sai dữ liệu có `errors: [{field, message}]`; `400` JSON hỏng hoặc sai kiểu; `404`; `409` trùng SKU.
 
+## Đồng bộ sản phẩm ra sàn (`/api/admin/sync/**`, US-49, T-49.1)
+Cần Basic ADMIN. Màn admin ở T-49.3.
+
+| Method | Path | Response | Ghi chú |
+|---|---|---|---|
+| GET | `/api/admin/sync/channels` | `["SHOPEE", ...]` | Kênh có connector. S3 rỗng trên app thật (connector Shopee sau T-49.2) |
+| GET | `/api/admin/sync/products/by-ids?ids=1,2,3` | `[SyncView]` | 1–100 id, cho 1 trang bảng sản phẩm. Sản phẩm/kênh chưa từng xếp hàng thì không có dòng |
+| GET | `/api/admin/sync/products?status=&channel=&page=&size=` | `PageResponse<SyncView>` | Lọc `PENDING | SYNCED | FAILED` (không phân biệt hoa thường), mới cập nhật trước. `size` 1–100. Sai thì `400` |
+| POST | `/api/admin/sync/products/{productId}/{channel}/retry` | `SyncView` | Về `PENDING`, `attempts = 0`, gửi ở lượt quét kế. Chưa có dòng thì `404` |
+| POST | `/api/admin/sync/products/resync?channel=SHOPEE` | `{queued}` | Xếp lại mọi sản phẩm của kênh (kể cả nội dung không đổi). Kênh không có connector hoặc tạm ngừng thì `400` |
+
+- `SyncView = {productId, channel, status, attempts, lastError?, externalId?, syncedAt?, nextAttemptAt, updatedAt}`. `externalId` = mã sản phẩm phía sàn sau lần tạo đầu. `attempts` = số lần đã gửi cho bản đang chờ (SYNCED: số lần của lượt thành công).
+- Hợp đồng cho connector (`sync/ProductChannelConnector`): `push(ProductSnapshot, externalId)` tạo khi `externalId == null`, sửa khi có, trả mã phía sàn; ném `SyncException(retryable=false)` khi thử lại vô ích. `ProductSnapshot = {productId, channel, sku, name, brand, category, description, ingredientsInci, sizeMl, imageKeys[], imageUrls[], price (của kênh), stock, active}`.
+
 ## Đơn hàng (`/api/orders`, T-09.3, SRS UC-06)
 Mở công khai như store (đơn S2 không gắn khách, không có dữ liệu cá nhân, decisions #34). Từ S3 đơn gắn khách đăng nhập thì phải khoá theo chủ đơn.
 
@@ -61,11 +75,11 @@ Cần Basic ADMIN giống `/api/admin/**` (hội thoại là dữ liệu cá nh�
 
 | Method | Path | Request | Response | Ghi chú |
 |---|---|---|---|---|
-| GET | `/api/conversations?channel=&page=&size=` | | `PageResponse<ConversationView>` | Mới nhất trước (`lastMessageAt` giảm dần). `channel` không phân biệt hoa thường (`web`, `SHOPEE`), bỏ trống = mọi kênh, kênh lạ `400`. `size` mặc định 20, 1–100, ngoài khoảng hoặc `page` < 0 thì `400`. Không nhận `sort` |
+| GET | `/api/conversations?channel=&from=&to=&hasViolation=&handoff=&page=&size=` | | `PageResponse<ConversationView>` | Mới nhất trước (`lastMessageAt` giảm dần). Bộ lọc kết hợp AND (T-14.2). `channel` không phân biệt hoa thường (`web`, `SHOPEE`), bỏ trống = mọi kênh, kênh lạ `400`. `from`/`to`: ngày `yyyy-MM-dd` **giờ VN**, gồm cả 2 mốc, lấy hội thoại có hoạt động trong khoảng (`startedAt` < hết ngày `to`, `lastMessageAt` ≥ đầu ngày `from`); sai định dạng hoặc `from > to` thì `400`. `hasViolation=true`: có ≥ 1 câu OUT bị chặn hoặc có luật vi phạm (trong khoảng ngày nếu có). `handoff=true`: có ≥ 1 câu OUT `handoff`. `size` mặc định 20, 1–100, ngoài khoảng hoặc `page` < 0 thì `400`. Không nhận `sort` |
 | GET | `/api/conversations/{id}/messages?page=&size=` | | `PageResponse<MessageView>` | Theo thời gian tăng dần. `size` mặc định 50, tối đa 100. Không có hội thoại thì `404` |
 
-- `ConversationView = {id, channel, conversationId, channelUserId, customerId?, startedAt, lastMessageAt, messageCount}`. `conversationId` = `CanonicalMessage.conversationId` (id phía kênh), `id` là id trong hub dùng cho `/messages`. `messageCount` đếm cả IN lẫn OUT.
-- `MessageView = {id, direction: IN|OUT, messageId, text, rawText?, violations[], blocked, handoff, createdAt}`. IN: `text` là tin khách, `rawText` null. OUT: `text` = `finalText` (khách nhận), `rawText` = câu AI gốc, `violations[]` = `PolicyViolation`. `messageId` của OUT là id tin khách mà nó trả lời.
+- `ConversationView = {id, channel, conversationId, channelUserId, customerId?, startedAt, lastMessageAt, messageCount, flaggedCount, handoffCount, lastText?}`. `flaggedCount` = số câu OUT bị chặn hoặc có vi phạm, `handoffCount` = số câu OUT chuyển nhân viên, `lastText` = tin cuối (IN hoặc OUT); 3 trường này tính bằng 1 câu SQL cho cả trang. `conversationId` = `CanonicalMessage.conversationId` (id phía kênh), `id` là id trong hub dùng cho `/messages`. `messageCount` đếm cả IN lẫn OUT.
+- `MessageView = {id, direction: IN|OUT, messageId, text, rawText?, violations[], blocked, handoff, deliveryStatus?, deliveryAttempts, createdAt}`. `deliveryStatus` chỉ có ở câu OUT của kênh gửi async (TikTok): `RETRYING` đang thử lại, `SENT` sàn đã nhận, `FAILED` không gửi được (kèm `handoff=true`); null với kênh đồng bộ (T-25.4). IN: `text` là tin khách, `rawText` null. OUT: `text` = `finalText` (khách nhận), `rawText` = câu AI gốc, `violations[]` = `PolicyViolation`. `messageId` của OUT là id tin khách mà nó trả lời.
 - Lỗi `400`/`404` trả theo xử lý lỗi mặc định của Spring (`ResponseStatusException`), chưa phải ProblemDetail như admin sản phẩm.
 
 ## Kênh TikTok Shop (US-25)

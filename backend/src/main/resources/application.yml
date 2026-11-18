@@ -58,6 +58,12 @@ omniai:
     webhook-max-skew: 5m
     max-concurrent: 40
     timeout: 10s
+  # Đồng bộ sản phẩm hub -> sàn (US-49, T-49.1). Chỉ gửi ra kênh có connector; S3 chưa có connector nào (Shopee sau T-49.2).
+  sync:
+    enabled: ${SYNC_ENABLED:true}
+    poll-interval-ms: 1000
+    max-attempts: 4
+    retry-backoff: 2s
   # Ảnh sản phẩm trên Supabase Storage (decisions #26). Backend chỉ ghép URL public, không cần khoá service.
   # SUPABASE_URL trống thì imageUrl = null (web hiện khung trống).
   images:

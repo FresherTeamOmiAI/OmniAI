@@ -18,6 +18,8 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 
 /**
  * Luồng chung cho mọi kênh: tin chuẩn hóa -> lưu tin vào -> AI Brain -> Policy của kênh -> lưu câu ra
@@ -35,11 +37,12 @@ public class MessageRouter {
     private final TurnHistory history;
 
     // Idempotency tạm trong bộ nhớ: kênh gửi lại cùng messageId (webhook retry) thì trả lại kết quả cũ.
-    // Sprint 7 chuyển sang Redis để chạy được nhiều instance.
-    private final Map<String, BotReply> processed = Collections.synchronizedMap(
+    // Giữ future thay vì kết quả để chống trùng nguyên tử: request trùng đến khi lượt đầu chưa xong thì chờ
+    // và nhận cùng câu trả lời, không gọi Brain lần 2 (T-11.4). Sprint 7 chuyển sang Redis để chạy nhiều instance.
+    private final Map<String, CompletableFuture<BotReply>> processed = Collections.synchronizedMap(
             new LinkedHashMap<>(16, 0.75f, true) {
                 @Override
-                protected boolean removeEldestEntry(Map.Entry<String, BotReply> eldest) {
+                protected boolean removeEldestEntry(Map.Entry<String, CompletableFuture<BotReply>> eldest) {
                     return size() > IDEMPOTENCY_CACHE_SIZE;
                 }
             });
@@ -59,10 +62,35 @@ public class MessageRouter {
 
     public BotReply handle(CanonicalMessage message) {
         String key = message.channel() + ":" + message.messageId();
-        BotReply cached = processed.get(key);
-        if (cached != null) {
-            return cached;
+        CompletableFuture<BotReply> mine = new CompletableFuture<>();
+        CompletableFuture<BotReply> earlier = processed.putIfAbsent(key, mine);
+        if (earlier != null) {
+            return await(earlier);
         }
+        try {
+            BotReply reply = process(message, key);
+            mine.complete(reply);
+            return reply;
+        } catch (RuntimeException e) {
+            // Lượt lỗi không được nhớ: kênh gửi lại thì xử lý lại. Request đang chờ nhận cùng lỗi.
+            processed.remove(key, mine);
+            mine.completeExceptionally(e);
+            throw e;
+        }
+    }
+
+    private static BotReply await(CompletableFuture<BotReply> earlier) {
+        try {
+            return earlier.join();
+        } catch (CompletionException e) {
+            if (e.getCause() instanceof RuntimeException cause) {
+                throw cause;
+            }
+            throw e;
+        }
+    }
+
+    private BotReply process(CanonicalMessage message, String key) {
         // Lưu tin khách trước khi hỏi Brain: Brain treo hay lỗi thì tin vẫn còn (NFR-06).
         record("tin vào", key, () -> recorder.inbound(message));
 
@@ -78,7 +106,6 @@ public class MessageRouter {
                 brain.handoff());
 
         record("câu trả lời", key, () -> recorder.reply(message, reply));
-        processed.put(key, reply);
         return reply;
     }
 

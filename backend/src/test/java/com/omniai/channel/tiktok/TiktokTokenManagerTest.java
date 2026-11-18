@@ -36,7 +36,7 @@ class TiktokTokenManagerTest {
     private static final String SHOP = "shop-1";
     private static final TiktokProperties PROPS = new TiktokProperties("app", "secret", "http://sim", "http://cb",
             "http://hook", Duration.ofMinutes(5), 40, Duration.ofSeconds(5), 3, Duration.ofMillis(1),
-            Duration.ofMinutes(5), 10);
+            Duration.ofMinutes(5), 10, 4, Duration.ofMillis(1));
 
     private ChannelCredentialRepository repository;
     private TiktokApi api;

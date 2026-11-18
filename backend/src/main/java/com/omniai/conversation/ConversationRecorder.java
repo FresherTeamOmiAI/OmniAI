@@ -2,6 +2,7 @@ package com.omniai.conversation;
 
 import com.omniai.common.BotReply;
 import com.omniai.common.CanonicalMessage;
+import com.omniai.conversation.ConversationMessage.DeliveryStatus;
 
 /**
  * Nơi MessageRouter ghi lại tin vào/ra. Tách interface để test router không cần Spring/DB.
@@ -25,4 +26,11 @@ public interface ConversationRecorder {
 
     /** Lưu câu bot gửi ra (rawText, finalText, luật vi phạm, blocked, handoff). */
     void reply(CanonicalMessage message, BotReply reply);
+
+    /**
+     * Ghi kết quả gửi câu trả lời cho {@code message} ra kênh gửi async (T-25.4). {@code FAILED} thì câu đó thành
+     * handoff. {@code sentText} khác null khi kênh đã nhận một câu khác finalText (vd. câu fallback của kênh).
+     */
+    default void delivery(CanonicalMessage message, DeliveryStatus status, int attempts, String error, String sentText) {
+    }
 }

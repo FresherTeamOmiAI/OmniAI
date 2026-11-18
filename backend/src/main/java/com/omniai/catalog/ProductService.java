@@ -7,6 +7,7 @@ import com.omniai.catalog.ProductErrors.NotFound;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.MapJoin;
 import jakarta.persistence.criteria.Predicate;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -52,10 +53,12 @@ public class ProductService {
     private final SkinConcernRepository skinConcerns;
     private final BrandRepository brands;
     private final IngredientRepository ingredients;
+    private final ApplicationEventPublisher events;
 
     public ProductService(ProductRepository repository, SalesChannelRepository channels, CategoryRepository categories,
                           SkinTypeRepository skinTypes, SkinConcernRepository skinConcerns, BrandRepository brands,
-                          IngredientRepository ingredients) {
+                          IngredientRepository ingredients, ApplicationEventPublisher events) {
+        this.events = events;
         this.repository = repository;
         this.channels = channels;
         this.categories = categories;
@@ -146,7 +149,14 @@ public class ProductService {
         return save(product);
     }
 
+    /** Lưu rồi báo {@link ProductChanged} trong cùng transaction (US-49: đồng bộ ra sàn ghi hàng đợi cùng lúc). */
     private Product save(Product product) {
+        Product saved = saveAndFlush(product);
+        events.publishEvent(new ProductChanged(saved.getId()));
+        return saved;
+    }
+
+    private Product saveAndFlush(Product product) {
         try {
             return repository.saveAndFlush(product);
         } catch (DataIntegrityViolationException e) {

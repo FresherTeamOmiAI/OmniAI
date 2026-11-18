@@ -1,6 +1,6 @@
 # Mô hình dữ liệu
 
-> Cập nhật: 2026-11-13 · T-04.1 V15 chuẩn hoá product (decisions #35); T-09.3 V14 `customer_order`; T-09.2 store lọc qua Specification; T-04.1 tách giá theo kênh (V13, decisions #32) · Owner: LucVT (catalog, customer, identity, order, promotion); TuTM (channel_credential, conversation)
+> Cập nhật: 2026-11-18 · T-49.1 V18 `product_channel_sync`; T-25.4 V17 trạng thái gửi câu bot (`delivery_status`); 2026-11-13 · T-04.1 V15 chuẩn hoá product (decisions #35); T-09.3 V14 `customer_order`; T-09.2 store lọc qua Specification; T-04.1 tách giá theo kênh (V13, decisions #32) · Owner: LucVT (catalog, customer, identity, order, promotion); TuTM (channel_credential, conversation)
 > Nguồn: `backend/src/main/resources/db/migration/*.sql`, `backend/.../catalog/*`, `backend/.../customer/*`, `backend/.../channel/credential/*`, `backend/.../conversation/*`
 
 DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flyway** quản lý, JPA để `ddl-auto: validate`. Vì vậy mọi thay đổi bảng đều phải viết migration mới `V<n>__<mo_ta>.sql`. **Không sửa migration đã merge.**
@@ -24,6 +24,8 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 | `V13__product_channel_price.sql` | T-04.1 sửa theo review: **tách giá theo kênh khỏi `product`**. Thêm `sales_channel` (WEB, SHOPEE, TIKTOK) và `product_channel` (1 dòng / sản phẩm / kênh), chép giá 366 SKU × 3 kênh, xoá 3 cột `price_*` và CHECK `ck_product_prices`. Tạo lại 2 view chatbot với đúng tên cột cũ (decisions #32) |
 | `V14__demo_order.sql` | T-09.3: bảng `customer_order` + `customer_order_item` (đơn mọi kênh; S2 chỉ có đơn `DEMO` trên web, không trừ tồn kho, decisions #34) |
 | `V15__normalize_product.sql` | T-04.1 sửa theo review (phần A+B, decisions #35): **chuẩn hoá bảng `product`**. Bảng tra cứu `brand`, `category`, `skin_type`, `skin_concern`, `ingredient`; bảng nối `product_skin_type`, `product_skin_concern`, `product_ingredient` (giữ thứ tự INCI); `product_image`; `use_am`/`use_pm` thay `usage_time`; `created_at`. Xoá 8 cột `brand, skin_types, skin_concerns, usage_time, ingredients_inci, image_key, image_source_url, image_license_note`. Tạo lại 2 view chatbot **giữ nguyên cột** qua view nội bộ `product_text_pivot` |
+| `V17__message_delivery.sql` | T-25.4: thêm `delivery_status`, `delivery_attempts`, `delivery_error` vào `conversation_message` (trạng thái gửi câu bot ra kênh gửi async, TikTok). Owner: TuTM |
+| `V18__product_channel_sync.sql` | T-49.1: bảng `product_channel_sync` (hàng đợi + trạng thái đồng bộ sản phẩm ra từng sàn, decisions #42). Owner: TuTM |
 
 ## Bảng
 
@@ -89,6 +91,9 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 **conversation_message** (`conversation/ConversationMessage.java`): 1 tin. `direction` `IN | OUT` (CHECK).
 - `message_id`: IN là messageId tin khách, OUT là messageId của tin mà bot trả lời. Unique (`conversation_id`, `direction`, `message_id`): kênh gửi lại cùng tin thì không thêm dòng.
 - `text`: IN = tin khách, OUT = `finalText` (câu khách nhận sau policy). `raw_text`: chỉ OUT, câu gốc của AI Brain. `blocked`, `handoff`, `created_at` (IN = `receivedAt` của kênh, OUT = lúc trả lời).
+- `delivery_status` (V17, CHECK `RETRYING | SENT | FAILED`, NULL = kênh trả lời đồng bộ như web/simulator API, hoặc tin IN), `delivery_attempts` (số lần đã gửi), `delivery_error` (lỗi lần gần nhất, ≤ 1000 ký tự). `FAILED` thì `handoff = TRUE`: hàng chờ cho nhân viên (US-35), có index một phần theo `created_at`. Sàn nhận câu khác finalText (fallback khi TikTok báo `45101006`) thì `text` được ghi đè bằng câu đó.
+
+**product_channel_sync** (`sync/ProductSyncState.java`, V18, T-49.1): PK (`product_id`, `channel_code`), FK CASCADE theo sản phẩm, FK `sales_channel`. `status` `PENDING | SYNCED | FAILED` (CHECK). `content_hash` = SHA-256 nội dung cần có trên sàn, `synced_hash` = của bản đã gửi thành công: bằng nhau thì sự kiện mới là trùng, không gửi. Hash gồm tên, mô tả, hãng, loại, INCI, dung tích, khoá ảnh, active; **không** gồm giá, tồn (US-50). `external_id` (mã phía sàn), `attempts`, `next_attempt_at` (lúc gửi/thử lại; đang gửi thì bị dời thêm `lease`), `last_error`, `synced_at`, `updated_at`. Index một phần `next_attempt_at WHERE status = 'PENDING'`. Tách khỏi `product_channel` vì bảng đó là `@ElementCollection`, Hibernate ghi lại cả bảng con khi đổi giá.
 
 **message_violation** (`@ElementCollection` `StoredViolation` của `ConversationMessage`): (`message_id`, `position`) PK, `rule_id`, `action` `BLOCK | REDACT | REPLACE` (CHECK), `matched`. Xóa tin thì xóa theo (CASCADE).
 
