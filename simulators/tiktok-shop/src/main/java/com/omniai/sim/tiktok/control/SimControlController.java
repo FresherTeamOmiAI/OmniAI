@@ -8,6 +8,7 @@ import com.omniai.sim.tiktok.cs.CsModels.Message;
 import com.omniai.sim.tiktok.cs.CustomerService;
 import com.omniai.sim.tiktok.event.WebhookDispatcher;
 import com.omniai.sim.tiktok.event.WebhookRegistry;
+import com.omniai.sim.tiktok.ui.ApiCallLog;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -42,15 +43,17 @@ public class SimControlController {
     private final TokenStore tokens;
     private final Faults faults;
     private final ProductCatalog products;
+    private final ApiCallLog apiCalls;
 
     public SimControlController(CustomerService cs, WebhookDispatcher webhooks, WebhookRegistry registry,
-                                TokenStore tokens, Faults faults, ProductCatalog products) {
+                                TokenStore tokens, Faults faults, ProductCatalog products, ApiCallLog apiCalls) {
         this.cs = cs;
         this.webhooks = webhooks;
         this.registry = registry;
         this.tokens = tokens;
         this.faults = faults;
         this.products = products;
+        this.apiCalls = apiCalls;
     }
 
     /** wait_ms > 0: chờ shop trả lời trong hội thoại đó tối đa wait_ms (bench dùng để đo độ trễ đầu-cuối). */
@@ -106,7 +109,7 @@ public class SimControlController {
         return products.all();
     }
 
-    /** Xóa hội thoại, token, webhook đã đăng ký, sản phẩm, log giao và tắt mọi fault. */
+    /** Xóa hội thoại, token, webhook đã đăng ký, sản phẩm, log giao webhook, log API của /ui và tắt mọi fault. */
     @PostMapping("/reset")
     public Map<String, Object> reset() {
         cs.clear();
@@ -115,6 +118,7 @@ public class SimControlController {
         webhooks.clear();
         faults.reset();
         products.clear();
+        apiCalls.clear();
         return Map.of("reset", true);
     }
 

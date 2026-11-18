@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Sản phẩm của shop giả lập, giữ trong bộ nhớ (simulator không có DB, decisions #28). Kiểm dữ liệu theo các mã lỗi
@@ -41,6 +42,10 @@ public class ProductCatalog {
     private final Map<String, StoredProduct> products = new ConcurrentHashMap<>();
     private final Map<String, String> byIdempotencyKey = new ConcurrentHashMap<>();
     private final Map<String, UploadedImage> images = new ConcurrentHashMap<>();
+    /** Byte ảnh đã upload, để trang /ui hiện đúng ảnh hub gửi. Giới hạn tổng để không ăn hết heap. */
+    private final Map<String, byte[]> imageData = new ConcurrentHashMap<>();
+    private final AtomicLong imageBytes = new AtomicLong();
+    private static final long MAX_IMAGE_BYTES = 256L * 1024 * 1024;
 
     public ProductCatalog(SimProperties props, Clock clock) {
         this.config = props.products();
@@ -63,6 +68,11 @@ public class ProductCatalog {
         String uri = "tos-sim-i-omniai/" + UUID.randomUUID().toString().replace("-", "");
         UploadedImage image = new UploadedImage(uri, "http://localhost/sim-images/" + uri, 720, 720, kind);
         images.put(uri, image);
+        if (imageBytes.addAndGet(data.length) <= MAX_IMAGE_BYTES) {
+            imageData.put(uri, data);
+        } else {
+            imageBytes.addAndGet(-data.length);
+        }
         return image;
     }
 
@@ -141,10 +151,17 @@ public class ProductCatalog {
                 .thenComparing(StoredProduct::id)).toList();
     }
 
+    /** Byte của ảnh đã upload (rỗng nếu không có hoặc đã vượt giới hạn bộ nhớ). */
+    public Optional<byte[]> imageData(String uri) {
+        return Optional.ofNullable(uri == null ? null : imageData.get(uri));
+    }
+
     public void clear() {
         products.clear();
         byIdempotencyKey.clear();
         images.clear();
+        imageData.clear();
+        imageBytes.set(0);
     }
 
     // ---------- kiểm dữ liệu ----------

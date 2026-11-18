@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TikTok Shop Simulator</title>
+  <link rel="stylesheet" href="ui.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo" aria-hidden="true">♪</span>
+    <div>
+      <div class="brand-title">TikTok Shop <span class="muted">Simulator</span></div>
+      <div class="brand-sub" id="shopLine">đang tải…</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span class="pill" id="authPill" title="Trạng thái ủy quyền OAuth của hub">OAuth: ?</span>
+    <label class="switch" title="Tự tải lại mỗi 2 giây">
+      <input type="checkbox" id="autoRefresh" checked>
+      <span>Tự cập nhật</span>
+    </label>
+    <span class="dot" id="liveDot" title="Kết nối tới simulator"></span>
+  </div>
+</header>
+
+<nav class="tabs" role="tablist">
+  <button role="tab" data-tab="chat" class="active">Chat <span class="badge" id="cntChat">0</span></button>
+  <button role="tab" data-tab="products">Sản phẩm <span class="badge" id="cntProducts">0</span></button>
+  <button role="tab" data-tab="calls">API hub gọi <span class="badge" id="cntCalls">0</span></button>
+  <button role="tab" data-tab="webhooks">Webhook <span class="badge" id="cntWebhooks">0</span></button>
+  <button role="tab" data-tab="control">Điều khiển</button>
+</nav>
+
+<main>
+  <!-- ================= Chat ================= -->
+  <section class="tab-panel active" id="tab-chat">
+    <div class="chat">
+      <aside class="conv-list">
+        <div class="conv-head">
+          <strong>Hội thoại</strong>
+          <button class="btn small" id="newBuyerBtn" type="button">+ Buyer mới</button>
+        </div>
+        <ul id="convList"></ul>
+        <p class="empty" id="convEmpty">Chưa có hội thoại. Bấm "+ Buyer mới" rồi gửi tin đầu tiên.</p>
+      </aside>
+      <div class="thread">
+        <div class="thread-head" id="threadHead">
+          <div>
+            <strong id="threadTitle">Chọn một hội thoại</strong>
+            <div class="muted small" id="threadMeta"></div>
+          </div>
+        </div>
+        <div class="messages" id="messages"></div>
+        <form class="composer" id="composer" autocomplete="off">
+          <div class="composer-row buyer-fields">
+            <label>buyer_user_id <input id="buyerId" required maxlength="64"></label>
+            <label>Tên hiển thị <input id="buyerNick" maxlength="64" placeholder="(tùy chọn)"></label>
+          </div>
+          <div class="samples" id="samples"></div>
+          <div class="composer-row">
+            <textarea id="buyerText" rows="2" maxlength="2000" placeholder="Nhập tin của buyer… (Enter để gửi, Shift+Enter xuống dòng)" required></textarea>
+            <button class="btn primary" type="submit" id="sendBtn">Gửi</button>
+          </div>
+          <div class="muted small" id="sendStatus"></div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= Sản phẩm ================= -->
+  <section class="tab-panel" id="tab-products">
+    <div class="toolbar">
+      <input type="search" id="productSearch" placeholder="Tìm theo tên, product_id, seller_sku…">
+      <select id="productStatus">
+        <option value="">Mọi trạng thái</option>
+        <option value="ACTIVATE">ACTIVATE</option>
+        <option value="SELLER_DEACTIVATED">SELLER_DEACTIVATED</option>
+      </select>
+      <span class="muted small" id="productSummary"></span>
+    </div>
+    <div class="grid" id="productGrid"></div>
+    <p class="empty" id="productEmpty">Hub chưa đẩy sản phẩm nào (Create Product). Sửa một sản phẩm ở hub rồi xem lại tab này.</p>
+  </section>
+
+  <!-- ================= API calls ================= -->
+  <section class="tab-panel" id="tab-calls">
+    <div class="toolbar">
+      <select id="callGroup">
+        <option value="">Mọi nhóm API</option>
+        <option value="/product/">Products</option>
+        <option value="/customer_service/">Customer Service</option>
+        <option value="/event/">Event (webhook)</option>
+        <option value="/authorization/">Authorization</option>
+        <option value="/api/v2/token/">Token</option>
+      </select>
+      <label class="check"><input type="checkbox" id="callErrors"> Chỉ lỗi</label>
+      <input type="search" id="callSearch" placeholder="Lọc theo path / nội dung…">
+      <button class="btn small" id="clearCalls" type="button">Xóa log</button>
+    </div>
+    <table class="table" id="callTable">
+      <thead><tr><th>Giờ</th><th>Method</th><th>Path</th><th>HTTP</th><th>code</th><th>message</th><th>ms</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <p class="empty" id="callEmpty">Chưa có request nào từ hub.</p>
+  </section>
+
+  <!-- ================= Webhook ================= -->
+  <section class="tab-panel" id="tab-webhooks">
+    <p class="muted small">Webhook simulator đã bắn về hub (mới nhất trước). Hub phải trả 2xx trong 3 s, nếu không simulator gửi lại tối đa 3 lần.</p>
+    <table class="table" id="hookTable">
+      <thead><tr><th>Sự kiện</th><th>tts_notification_id</th><th>Địa chỉ</th><th>Kết quả</th><th>Các lần gửi</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <p class="empty" id="hookEmpty">Chưa gửi webhook nào.</p>
+  </section>
+
+  <!-- ================= Điều khiển ================= -->
+  <section class="tab-panel" id="tab-control">
+    <div class="cards">
+      <div class="card">
+        <h3>Shop</h3>
+        <dl class="kv" id="shopInfo"></dl>
+      </div>
+      <div class="card">
+        <h3>Ủy quyền OAuth</h3>
+        <div id="tokenInfo"></div>
+        <p class="muted small">Hub bắt đầu ủy quyền ở <code>GET http://localhost:8080/api/admin/channels/tiktok/authorize</code> (đăng nhập admin).</p>
+        <div class="row">
+          <button class="btn" type="button" data-expire="access">Cho access token hết hạn</button>
+          <button class="btn" type="button" data-expire="refresh">Cho cả refresh token hết hạn</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Webhook đã đăng ký</h3>
+        <div id="hookRegs"></div>
+      </div>
+      <div class="card wide">
+        <h3>Lỗi giả lập (fault injection)</h3>
+        <form id="faultForm" class="form-grid">
+          <label>Độ trễ mỗi API (ms) <input type="number" min="0" step="100" name="api_latency_ms"></label>
+          <label>Trễ trước khi gửi webhook (ms) <input type="number" min="0" step="100" name="webhook_delay_ms"></label>
+          <label class="check"><input type="checkbox" name="webhook_duplicate"> Gửi mỗi webhook 2 lần (thử chống trùng)</label>
+          <label class="check"><input type="checkbox" name="block_sending"> Chặn Send Message (45109001)</label>
+          <label class="span2">Từ nhạy cảm, cách nhau dấu phẩy (Send Message trả 45101006)
+            <input name="sensitive_words" placeholder="vd: zalo, chuyển khoản">
+          </label>
+          <fieldset class="span2">
+            <legend>Thu hồi scope</legend>
+            <div id="scopeBoxes" class="row wrap"></div>
+          </fieldset>
+          <div class="span2 row">
+            <button class="btn primary" type="submit">Lưu fault</button>
+            <button class="btn" type="button" id="faultsOff">Tắt hết fault</button>
+            <span class="muted small" id="faultStatus"></span>
+          </div>
+        </form>
+      </div>
+      <div class="card danger">
+        <h3>Reset simulator</h3>
+        <p class="muted small">Xóa hội thoại, token, webhook đã đăng ký, sản phẩm, log và tắt mọi fault. Hub phải ủy quyền lại.</p>
+        <button class="btn danger" type="button" id="resetBtn">Reset toàn bộ</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<dialog id="detail">
+  <form method="dialog" class="dialog-head">
+    <strong id="detailTitle"></strong>
+    <button class="btn small" value="close">Đóng</button>
+  </form>
+  <div id="detailBody"></div>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="ui.js"></script>
+</body>
+</html>

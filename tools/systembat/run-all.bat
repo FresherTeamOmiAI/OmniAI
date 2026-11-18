@@ -30,7 +30,7 @@ echo   Web      http://localhost:5173
 echo   Policy   http://localhost:5173/admin/policy
 echo   Backend  http://localhost:8080/actuator/health
 echo   Brain    http://localhost:8000/health
-echo   TikTok   http://localhost:8090/sim/deliveries  (uy quyen: GET /api/admin/channels/tiktok/authorize)
+echo   TikTok   http://localhost:8090/ui  (uy quyen: GET /api/admin/channels/tiktok/authorize)
 set "OMNI_NESTED="
 call "%HERE%_pause.bat"
 exit /b 0

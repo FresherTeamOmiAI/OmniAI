@@ -1,6 +1,6 @@
 # Tổng quan hệ thống
 
-> Cập nhật: 2026-11-18 · T-43.4 biến `CATALOG_CACHE_TTL_SECONDS` của ai-brain; profile `supabase` không ghi đè mật khẩu `chatbot_reader` (decisions #43); T-49.1 biến `SYNC_ENABLED`; 2026-11-13 · profile `supabase` cho Postgres trên Supabase (decisions #33); trước đó 2026-11-11 · commit 0f3d600
+> Cập nhật: 2026-11-18 · bonus: simulator TikTok có trang `/ui`; 2026-11-18 · T-43.4 biến `CATALOG_CACHE_TTL_SECONDS` của ai-brain; profile `supabase` không ghi đè mật khẩu `chatbot_reader` (decisions #43); T-49.1 biến `SYNC_ENABLED`; 2026-11-13 · profile `supabase` cho Postgres trên Supabase (decisions #33); trước đó 2026-11-11 · commit 0f3d600
 > Nguồn: `README.md`, `docker-compose.yml`, `.env.example`, `simulators/tiktok-shop/src/main/resources/application.yml`, `backend/src/main/resources/application.yml`, `web/vite.config.ts`, `tools/systembat/`
 
 ## Mục tiêu
@@ -45,7 +45,7 @@ Dữ liệu 2 chiều hub <-> sàn (trụ E, chưa có code, bảng US ở backe
 | Web (Vite) | 5173 | http://localhost:5173, trang thử luật `/admin/policy` |
 | Backend | 8080 (`PORT`) | `/actuator/health` |
 | AI Brain | 8000 | `/health` |
-| Simulator TikTok Shop | 8090 (`TIKTOK_SIM_PORT`) | `/sim/faults`, `/sim/deliveries` |
+| Simulator TikTok Shop | 8090 (`TIKTOK_SIM_PORT`) | UI kiểm tra `/ui`, `/sim/faults`, `/sim/deliveries` |
 | Postgres 16 + pgvector | 5432 | user/pass/db `omniai` |
 | Redis | 6379 | (chưa dùng, dự kiến S7) |
 | RabbitMQ | 5672, UI 15672 | (chưa dùng, dự kiến S7) |
