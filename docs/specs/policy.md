@@ -53,6 +53,14 @@ YAML của sàn là **bản nháp**, chưa đối chiếu quy định hiện hà
 3. Nếu cần thì thêm ca bench vào `bench/datasets/`.
 4. Cập nhật bảng "Luật hiện có" ở trên.
 
+## Phạm vi câu hỏi
+
+`shared/policies/scope/question.yaml` không phải luật kênh. File nằm trong thư mục con nên `PolicyEngine` và `policy_check.py` không nạp. AI Brain đọc file này trong `app/rules/scope.py` **trước** khi gọi tool hoặc LLM:
+
+- Khớp một mục `refuse` (phép tính, lập trình, văn học, triết học, sử học, địa lý, chủ đề khác) thì trả `fallback_message`, `provider` là `policy`, không gọi model. `refuse` được xét trước `allow`, nên câu vừa có từ shop vừa có môn ngoài phạm vi vẫn bị chặn.
+- Không khớp mục `allow` (da, sản phẩm, cách dùng, giá, còn hàng, chào hỏi) thì cũng trả câu đó.
+- Câu được cho qua mới đi tiếp luồng tư vấn. Luật kênh vẫn lọc câu trả lời sau đó như cũ.
+
 ## Lỗ hổng đã biết
 - `\bchữa\b` trong `no-medical-claim` khớp cả "sửa chữa", vốn không phải claim y khoa. Để T-20.2 (S4) xử lý cùng các ca không khớp nhầm khác.
 
