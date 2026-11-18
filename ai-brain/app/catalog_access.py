@@ -4,7 +4,7 @@ Thiếu CHATBOT_DB_URL thì brain không khởi động (require_config). Lỗi 
 chat vẫn chạy và grounding.py bỏ mọi giá vì không có giá nào để đối chiếu.
 
 Một kết nối dùng lại, có khoá. Catalog đã đọc được nhớ ở rag/search.py (load_search_rows), nên database chỉ bị đọc
-khi cache hết hạn và không cần pool (decisions #45). Mở kết nối lỗi thì ngừng thử CONNECT_BACKOFF_S giây: mỗi lần
+khi cache hết hạn và không cần pool (decisions #47). Mở kết nối lỗi thì ngừng thử CONNECT_BACKOFF_S giây: mỗi lần
 thử với mật khẩu sai là một lần đăng nhập hỏng, đủ nhiều thì pooler Supabase chặn cả role (ECIRCUITBREAKER, 18/11).
 """
 

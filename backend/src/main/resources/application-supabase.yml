@@ -18,5 +18,5 @@ spring:
 omniai:
   chatbot-reader:
     # DB dùng chung cả nhóm: role chatbot_reader đã LOGIN thì KHÔNG đặt lại mật khẩu theo CHATBOT_DB_PASSWORD của máy này.
-    # Mật khẩu do chủ project Supabase đặt; mọi người chép CHATBOT_DB_PASSWORD/CHATBOT_DB_URL của chủ project (decisions #43).
+    # Mật khẩu do chủ project Supabase đặt; mọi người chép CHATBOT_DB_PASSWORD/CHATBOT_DB_URL của chủ project (decisions #45).
     overwrite-password: false
