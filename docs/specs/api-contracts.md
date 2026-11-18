@@ -1,6 +1,6 @@
 # Hợp đồng API
 
-> Cập nhật: 2026-11-18 · T-19.3 API hồ sơ da `/api/me/profile` (JWT) và `/api/internal/customers/{id}/profile` (`X-Internal-Token`); T-21.5, T-21.6 simulator Shopee tách ra `simulators/shopee` (:8091, trang `/ui`); bonus: API `/sim/ui/*` và trang `/ui` của simulator TikTok; T-49.3 sửa ghi chú `/api/admin/sync/channels` (đã có SHOPEE, TIKTOK); T-50.1–T-50.4 API Products của simulator TikTok, `aspect` và `/link` của đồng bộ; 2026-11-18 · T-49.1 `/api/admin/sync/**` trạng thái đồng bộ sản phẩm ra sàn; T-14.2 lọc `/api/conversations` theo ngày, vi phạm, handoff; `ConversationView` thêm số liệu; T-25.4 `MessageView.deliveryStatus`, `deliveryAttempts`; 2026-11-13 · T-04.1 ghi chú JSON sau V15; T-09.3 `/api/orders`; T-09.2 bộ lọc `GET /api/products`; T-04.1 `prices` theo kênh, `GET /api/admin/sales-channels` (decisions #32); trước đó US-11 (T-11.2), US-25, T-47.1
+> Cập nhật: 2026-11-18 · T-22.1 mã liên kết OMNI `/api/me/link-codes`, `/api/me/link-requests`, `/api/internal/link-codes/claim`; T-19.3 API hồ sơ da `/api/me/profile` (JWT) và `/api/internal/customers/{id}/profile` (`X-Internal-Token`); T-21.5, T-21.6 simulator Shopee tách ra `simulators/shopee` (:8091, trang `/ui`); bonus: API `/sim/ui/*` và trang `/ui` của simulator TikTok; T-49.3 sửa ghi chú `/api/admin/sync/channels` (đã có SHOPEE, TIKTOK); T-50.1–T-50.4 API Products của simulator TikTok, `aspect` và `/link` của đồng bộ; 2026-11-18 · T-49.1 `/api/admin/sync/**` trạng thái đồng bộ sản phẩm ra sàn; T-14.2 lọc `/api/conversations` theo ngày, vi phạm, handoff; `ConversationView` thêm số liệu; T-25.4 `MessageView.deliveryStatus`, `deliveryAttempts`; 2026-11-13 · T-04.1 ghi chú JSON sau V15; T-09.3 `/api/orders`; T-09.2 bộ lọc `GET /api/products`; T-04.1 `prices` theo kênh, `GET /api/admin/sales-channels` (decisions #32); trước đó US-11 (T-11.2), US-25, T-47.1
 > Nguồn: `backend/.../channel/simulator/*`, `channel/web/*`, `channel/tiktok/*`, `catalog/ProductController.java`, `catalog/AdminProductController.java`, `catalog/ProductRequest.java`, `conversation/ConversationController.java`, `brain/*`, `common/*`, `ai-brain/app/main.py`, `ai-brain/app/schemas.py`, `shared/schemas/canonical-message.schema.json`, `web/src/shared/types.ts`
 
 JSON phía backend dùng **camelCase**. Riêng hợp đồng backend → ai-brain dùng **snake_case**.
@@ -45,6 +45,35 @@ Lỗi là ProblemDetail có `code`: `400` sai dữ liệu (`errors[{field, messa
 | PUT | `/api/internal/customers/{customerId}/profile` | ai-brain | `SkinProfileView` | `source = CHAT`. Chỉ gọi sau khi khách xác nhận hồ sơ và đồng ý trong chat (UC-13 bước 2, T-19.1) |
 
 `/api/internal/**`: header `X-Internal-Token` phải bằng env `INTERNAL_API_TOKEN` của backend (ai-brain đặt cùng giá trị). Thiếu, sai, server chưa đặt token, hay dùng Basic admin / JWT khách → `401` (không có body).
+
+## Mã liên kết OMNI (US-22, T-22.1, SRS UC-08)
+
+Gắn danh tính Shopee/TikTok vào khách đã đăng nhập web (decisions #49). Nguồn: `identity/LinkCodeService.java`, `MeLinkController.java`, `InternalLinkController.java`, `LinkExceptionHandler.java`.
+
+1. Web lấy mã `OMNI-XXXXXX` (6 ký tự `A–Z`, `2–9`, bỏ `O`, `I`), hạn 15 phút. Lấy mã mới thì mã cũ chưa ai gõ bị thu hồi. Backend chỉ lưu SHA-256 nên không xem lại mã cũ được.
+2. Khách gõ mã trong chat sàn. Adapter tìm mã bằng regex `(?i)\bOMNI-[A-HJ-NP-Z2-9]{6}\b` (`LinkCodes.PATTERN`) rồi gọi API nội bộ `claim` (T-22.3). Mã dùng 1 lần.
+3. Web hiện yêu cầu "Liên kết tài khoản Shopee ***abc?". Khách tick consent và xác nhận trong 15 phút kể từ lúc gõ mã thì `channel_identity` được gắn: `linked_by = LINK_CODE`, `confidence = 1.0`, `consent_at`.
+
+| Method | Path | Ai gọi | Body | Response | Ghi chú |
+|---|---|---|---|---|---|
+| POST | `/api/me/link-codes` | Web, `Bearer <JWT>` | – | `201 {code, expiresAt, expiresInSeconds: 900}` | T-22.2 |
+| GET | `/api/me/link-requests` | Web | – | `200 [{id, channel, channelUser: "***abc", claimedAt, confirmBefore}]` | Chỉ yêu cầu đang chờ, còn hạn xác nhận |
+| POST | `/api/me/link-requests/{id}/confirm` | Web | `{consent*}` | `200 {channel, channelUser, linkedAt}` | T-22.4. `consent` khác `true` → `400 errors[{field: consent}]` |
+| POST | `/api/me/link-requests/{id}/reject` | Web | – | `204` | |
+| POST | `/api/internal/link-codes/claim` | T-22.3, header `X-Internal-Token` | `{channel*: SHOPEE\|TIKTOK, channelUserId*, code*}` | `200 {status: "PENDING_CONFIRMATION", confirmBefore}` | `code` nhận chữ thường, khoảng trắng, thiếu tiền tố `OMNI-` |
+
+Lỗi là ProblemDetail có `code`:
+- `404 link_code_invalid`: không có mã này; kèm `attemptsLeft`.
+- `410 link_code_expired`:
+  - claim: mã hết hạn, đã thu hồi hoặc đã được gõ; kèm `attemptsLeft`.
+  - confirm/reject: yêu cầu đã xử lý hoặc quá hạn xác nhận.
+- `423 link_locked`: danh tính kênh thất bại 5 lần trong 1 giờ (cửa sổ trượt); kèm `retryAfterSeconds` và header `Retry-After`.
+- `409 identity_already_linked`: danh tính kênh đã gắn khách (claim), hoặc đã gắn khách khác (confirm). Không gộp.
+- `400 errors[{field, message}]`: sai body, hoặc `channel = WEB`.
+- `404`: yêu cầu không có hoặc của khách khác.
+- `401`: thiếu JWT/token, hoặc khách đã bị xoá.
+
+Sau khi liên kết, adapter/router tìm khách bằng `ChannelIdentityRepository.findByChannelAndExternalId(channel, channelUserId)` để điền `CanonicalMessage.customerId` (chưa làm; T-22.3).
 
 ## Admin sản phẩm (`/api/admin/**`, US-08, T-08.1)
 
