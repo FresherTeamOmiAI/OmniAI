@@ -23,6 +23,7 @@ import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.util.HashMap;
@@ -30,7 +31,7 @@ import java.util.Map;
 import java.util.concurrent.Semaphore;
 
 /**
- * Cổng chung cho các API mở (/authorization, /event, /customer_service), làm đúng thứ tự sàn kiểm:
+ * Cổng chung cho các API mở (/authorization, /event, /customer_service, /product), làm đúng thứ tự sàn kiểm:
  * rate limit → app_key, timestamp, sign → access token → scope → shop_cipher.
  * Token, OAuth và /sim/* không đi qua cổng này.
  */
@@ -67,7 +68,7 @@ public class GatewayFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return requiredScope(request.getRequestURI()) == null;
+        return requiredScope(request.getMethod(), request.getRequestURI()) == null;
     }
 
     @Override
@@ -79,9 +80,12 @@ public class GatewayFilter extends OncePerRequestFilter {
             return;
         }
         try {
-            CachedBodyRequest wrapped = new CachedBodyRequest(request);
+            // multipart/form-data (Upload Product Image) không ký body và phải để Spring tự đọc các part
+            boolean multipart = String.valueOf(request.getContentType()).startsWith(MediaType.MULTIPART_FORM_DATA_VALUE);
+            HttpServletRequest wrapped = multipart ? request : new CachedBodyRequest(request);
+            String body = multipart ? null : ((CachedBodyRequest) wrapped).bodyText();
             try {
-                request.setAttribute(GRANT_ATTRIBUTE, check(wrapped));
+                request.setAttribute(GRANT_ATTRIBUTE, check(wrapped, body));
             } catch (ApiException e) {
                 writeError(response, e.error(), e.detail());
                 return;
@@ -93,30 +97,44 @@ public class GatewayFilter extends OncePerRequestFilter {
         }
     }
 
-    private TokenStore.Grant check(CachedBodyRequest request) {
+    private TokenStore.Grant check(HttpServletRequest request, String body) {
         String path = request.getRequestURI();
-        Map<String, String> query = new HashMap<>();
-        request.getParameterMap().forEach((k, v) -> query.put(k, v.length > 0 ? v[0] : ""));
+        // Chỉ lấy tham số trên URL: với multipart, getParameterMap() gộp cả trường form vào (không được ký).
+        Map<String, String> query = queryParams(request.getQueryString());
 
         if (!props.appKey().equals(query.get("app_key"))) {
             throw new ApiException(TiktokErrorCode.INVALID_SIGN, "Unknown app_key.");
         }
         checkTimestamp(query.get("timestamp"));
-        String body = request.body.length == 0 ? null : new String(request.body, StandardCharsets.UTF_8);
         String expected = TiktokSigner.signRequest(path, query, body, props.appSecret());
         if (!TiktokSigner.matches(expected, query.get("sign"))) {
             throw new ApiException(TiktokErrorCode.INVALID_SIGN);
         }
 
         TokenStore.Grant grant = tokens.authenticate(request.getHeader(ACCESS_TOKEN_HEADER));
-        String scope = requiredScope(path);
+        String scope = requiredScope(request.getMethod(), path);
         if (!grant.scopes().contains(scope) || faults.isRevoked(scope)) {
             throw new ApiException(TiktokErrorCode.SCOPE_NOT_AUTHORIZED, "Required scope: " + scope + ".");
         }
-        if (!path.startsWith("/authorization/") && !props.shop().cipher().equals(query.get("shop_cipher"))) {
+        if (!path.startsWith("/authorization/") && !path.equals(IMAGE_UPLOAD_PATH)
+                && !props.shop().cipher().equals(query.get("shop_cipher"))) {
             throw new ApiException(TiktokErrorCode.INVALID_SHOP_CIPHER);
         }
         return grant;
+    }
+
+    static Map<String, String> queryParams(String queryString) {
+        Map<String, String> query = new HashMap<>();
+        if (queryString == null || queryString.isEmpty()) {
+            return query;
+        }
+        for (String pair : queryString.split("&")) {
+            int eq = pair.indexOf('=');
+            String key = URLDecoder.decode(eq < 0 ? pair : pair.substring(0, eq), StandardCharsets.UTF_8);
+            String value = eq < 0 ? "" : URLDecoder.decode(pair.substring(eq + 1), StandardCharsets.UTF_8);
+            query.putIfAbsent(key, value);
+        }
+        return query;
     }
 
     private void checkTimestamp(String raw) {
@@ -132,8 +150,19 @@ public class GatewayFilter extends OncePerRequestFilter {
         }
     }
 
-    /** Scope theo trang docv2 của từng nhóm. null = không đi qua cổng. */
-    static String requiredScope(String path) {
+    /** Upload Product Image không theo shop nên không có shop_cipher (docv2). */
+    static final String IMAGE_UPLOAD_PATH = "/product/202309/images/upload";
+
+    /**
+     * Scope theo trang docv2 của từng API. null = không đi qua cổng. Products: Create/Edit/Update Price/Inventory cần
+     * seller.product.write; Activate/Deactivate, Get Product, Upload Image cần seller.product.basic.
+     */
+    static String requiredScope(String method, String path) {
+        if (path.startsWith("/product/")) {
+            boolean basic = "GET".equals(method) || path.endsWith("/activate") || path.endsWith("/deactivate")
+                    || path.equals(IMAGE_UPLOAD_PATH);
+            return basic ? "seller.product.basic" : "seller.product.write";
+        }
         if (path.startsWith("/customer_service/")) return "seller.customer_service";
         if (path.startsWith("/event/") || path.startsWith("/authorization/")) return "seller.authorization.info";
         return null;
@@ -163,6 +192,10 @@ public class GatewayFilter extends OncePerRequestFilter {
         CachedBodyRequest(HttpServletRequest request) throws IOException {
             super(request);
             this.body = request.getInputStream().readAllBytes();
+        }
+
+        String bodyText() {
+            return body.length == 0 ? null : new String(body, StandardCharsets.UTF_8);
         }
 
         @Override

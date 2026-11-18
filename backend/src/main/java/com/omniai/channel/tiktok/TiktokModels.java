@@ -68,6 +68,44 @@ public final class TiktokModels {
     }
 
     /** sender_role: CUSTOMER_SERVICE | SYSTEM | ROBOT. Bot của hub gửi ROBOT. */
+    // ---------- Products (docv2, US-50; docs/channel-api/tiktok-dto.md mục Products) ----------
+
+    public record ProductImage(String uri) {
+    }
+
+    public record ProductPrice(String amount, String currency) {
+    }
+
+    public record ProductInventory(String warehouseId, Integer quantity) {
+    }
+
+    public record ProductSku(String id, String sellerSku, ProductPrice price, List<ProductInventory> inventory) {
+    }
+
+    public record ProductWeight(String value, String unit) {
+    }
+
+    /** Body Create Product (202309) / Edit Product (202509). idempotencyKey chỉ dùng khi tạo. */
+    public record ProductBody(String title, String description, String categoryId, List<ProductImage> mainImages,
+                              List<ProductSku> skus, ProductWeight packageWeight, String saveMode,
+                              String idempotencyKey) {
+    }
+
+    public record ProductSkuRef(String id, String sellerSku) {
+    }
+
+    public record ProductResult(String productId, List<ProductSkuRef> skus) {
+    }
+
+    public record SkuUpdateBody(List<ProductSku> skus) {
+    }
+
+    public record ProductIdsBody(List<String> productIds) {
+    }
+
+    public record UploadedImage(String uri, String url, int height, int width, String useCase) {
+    }
+
     public record SendMessageRequest(String type, String content, String senderRole) {
     }
 

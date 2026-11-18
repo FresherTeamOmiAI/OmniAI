@@ -36,6 +36,9 @@ import java.util.stream.Collectors;
  *   <li><b>Gửi</b> ({@link #deliver}): đọc sản phẩm hiện tại, gọi connector ngoài transaction, ghi kết quả.</li>
  *   <li><b>Thử lại</b>: lỗi tạm thời thì chờ {@code retry-backoff} gấp đôi mỗi lần; quá {@code max-attempts} hoặc
  *   lỗi không thử lại được thì FAILED.</li>
+ *   <li><b>Giá, tồn</b> (US-50, V19): mỗi kênh có thêm dòng PRICE (giá của đúng kênh đó) và STOCK, gửi riêng bằng
+ *   API giá/tồn của sàn khi sản phẩm đã có mã trên sàn. Lần tạo sản phẩm đã kèm giá, tồn nên 2 dòng này được ghi
+ *   SYNCED theo đúng giá trị đã gửi.</li>
  * </ul>
  */
 @Service
@@ -78,7 +81,7 @@ public class ProductSyncService {
     @EventListener
     @Transactional
     public void onProductChanged(ProductChanged event) {
-        products.findById(event.productId()).ifPresent(p -> targetChannels().forEach(c -> enqueue(p, c, false)));
+        products.findById(event.productId()).ifPresent(p -> targetChannels().forEach(c -> enqueueAll(p, c, false)));
     }
 
     /** Xếp lại mọi sản phẩm của 1 kênh (vd. lần đầu nối kênh, hoặc dữ liệu trên sàn bị xoá). Trả số dòng xếp. */
@@ -89,7 +92,7 @@ public class ProductSyncService {
         }
         int queued = 0;
         for (Product p : products.findAll()) {
-            if (enqueue(p, channel, true)) {
+            if (enqueueAll(p, channel, true)) {
                 queued++;
             }
         }
@@ -98,8 +101,8 @@ public class ProductSyncService {
 
     /** Admin bấm thử lại 1 dòng (thường là FAILED): về PENDING, đếm lại số lần từ 0. */
     @Transactional
-    public Optional<ProductSyncState> retry(Long productId, String channel) {
-        return states.findById(new ProductSyncState.Key(productId, channel)).map(s -> {
+    public Optional<ProductSyncState> retry(Long productId, String channel, SyncAspect aspect) {
+        return states.findById(new ProductSyncState.Key(productId, channel, aspect)).map(s -> {
             Instant now = clock.instant();
             s.setStatus(SyncStatus.PENDING);
             s.setAttempts(0);
@@ -111,25 +114,97 @@ public class ProductSyncService {
 
     private List<String> targetChannels() {
         return channels.findAll().stream()
-                .filter(c -> c.isActive() && !c.isOwned() && connectors.containsKey(c.getCode()))
+                .filter(c -> c.isActive() && !c.isOwned() && connectors.containsKey(c.getCode())
+                        && connectors.get(c.getCode()).ready())
                 .map(SalesChannel::getCode)
                 .toList();
     }
 
-    /** @return true nếu dòng được xếp (mới hoặc đổi sang PENDING). */
-    private boolean enqueue(Product product, String channel, boolean force) {
+    /**
+     * Liên kết sản phẩm hub với sản phẩm đã có sẵn trên sàn (mã phía sàn), rồi xếp gửi giá, tồn hiện tại.
+     * Dùng cho kênh chưa tạo được sản phẩm qua API (Shopee chờ add_item, T-49.2) hoặc shop đã đăng tay từ trước.
+     */
+    @Transactional
+    public List<ProductSyncState> link(Long productId, String channel, String externalId) {
+        ProductChannelConnector connector = connectors.get(channel);
+        if (connector == null) {
+            throw new IllegalArgumentException("Kênh " + channel + " chưa có connector");
+        }
+        if (externalId == null || externalId.isBlank() || externalId.length() > 64) {
+            throw new IllegalArgumentException("externalId phải có 1-64 ký tự");
+        }
+        Product product = products.findById(productId)
+                .orElseThrow(() -> new IllegalArgumentException("Không có sản phẩm " + productId));
+        if (!product.getPrices().containsKey(channel)) {
+            throw new IllegalArgumentException("Sản phẩm " + productId + " không bán ở kênh " + channel);
+        }
+        ProductSnapshot snapshot = ProductSnapshot.of(product, channel, images);
+        Instant now = clock.instant();
+        ProductSyncState.Key key = new ProductSyncState.Key(productId, channel, SyncAspect.PRODUCT);
+        ProductSyncState listing = states.findById(key).orElseGet(() -> new ProductSyncState(key));
+        String hash = snapshot.contentHash();
+        listing.setExternalId(externalId.trim());
+        listing.setStatus(SyncStatus.SYNCED);
+        listing.setContentHash(hash);
+        listing.setSyncedHash(hash);
+        listing.setAttempts(0);
+        listing.setLastError(null);
+        listing.setNextAttemptAt(now);
+        listing.setSyncedAt(now);
+        listing.setUpdatedAt(now);
+        states.save(listing);
+        for (SyncAspect aspect : List.of(SyncAspect.PRICE, SyncAspect.STOCK)) {
+            if (connector.aspects().contains(aspect)) {
+                enqueue(product.getId(), channel, aspect, snapshot.hashOf(aspect), true, true);
+            }
+        }
+        return states.findByIdProductIdIn(List.of(productId)).stream()
+                .filter(st -> st.getId().getChannel().equals(channel)).toList();
+    }
+
+    /** Xếp mọi phần connector của kênh hỗ trợ. @return true nếu có dòng được xếp. */
+    private boolean enqueueAll(Product product, String channel, boolean force) {
         if (!product.getPrices().containsKey(channel)) {
             return false; // không bán ở kênh này
         }
-        String hash = ProductSnapshot.of(product, channel, images).contentHash();
+        ProductChannelConnector connector = connectors.get(channel);
+        ProductSnapshot snapshot = ProductSnapshot.of(product, channel, images);
+        boolean queued = false;
+        if (connector.aspects().contains(SyncAspect.PRODUCT)) {
+            queued = enqueue(product.getId(), channel, SyncAspect.PRODUCT, snapshot.contentHash(), force,
+                    product.isActive());
+        }
+        // Giá, tồn chỉ gửi riêng khi sàn đã có sản phẩm; chưa có thì lần tạo sẽ mang theo.
+        if (listingId(product.getId(), channel) != null) {
+            for (SyncAspect aspect : List.of(SyncAspect.PRICE, SyncAspect.STOCK)) {
+                if (connector.aspects().contains(aspect)) {
+                    queued |= enqueue(product.getId(), channel, aspect, snapshot.hashOf(aspect), force, true);
+                }
+            }
+        }
+        return queued;
+    }
+
+    /** Mã sản phẩm phía sàn (dòng PRODUCT), null nếu chưa có. */
+    private String listingId(Long productId, String channel) {
+        return states.findById(new ProductSyncState.Key(productId, channel, SyncAspect.PRODUCT))
+                .map(ProductSyncState::getExternalId).orElse(null);
+    }
+
+    /**
+     * @param createIfMissing false = chưa có dòng thì bỏ qua (vd. sản phẩm ẩn chưa từng lên sàn)
+     * @return true nếu dòng được xếp (mới hoặc đổi sang PENDING).
+     */
+    private boolean enqueue(Long productId, String channel, SyncAspect aspect, String hash, boolean force,
+                            boolean createIfMissing) {
         Instant now = clock.instant();
-        ProductSyncState.Key key = new ProductSyncState.Key(product.getId(), channel);
+        ProductSyncState.Key key = new ProductSyncState.Key(productId, channel, aspect);
         ProductSyncState state = states.findById(key).orElse(null);
         if (state == null) {
-            if (!product.isActive()) {
+            if (!createIfMissing) {
                 return false; // chưa từng lên sàn và đang ẩn: không có gì để gửi
             }
-            state = new ProductSyncState(product.getId(), channel);
+            state = new ProductSyncState(key);
         } else if (!force && (hash.equals(state.getSyncedHash()) && state.getStatus() == SyncStatus.SYNCED
                 || hash.equals(state.getContentHash()) && state.getStatus() == SyncStatus.PENDING)) {
             return false; // sự kiện trùng: sàn đã có (hoặc sắp nhận) đúng nội dung này
@@ -159,12 +234,15 @@ public class ProductSyncService {
 
     /** Gửi 1 dòng đã nhận. Gọi connector ngoài transaction để không giữ kết nối DB trong lúc chờ sàn. */
     public void deliver(ProductSyncRepository.Claimed claimed) {
-        ProductSyncState.Key key = new ProductSyncState.Key(claimed.getProductId(), claimed.getChannelCode());
+        SyncAspect aspect = SyncAspect.valueOf(claimed.getAspect());
+        ProductSyncState.Key key = new ProductSyncState.Key(claimed.getProductId(), claimed.getChannelCode(), aspect);
         Attempt attempt = tx.execute(s -> states.findById(key)
                 .filter(st -> st.getStatus() == SyncStatus.PENDING)
                 .flatMap(st -> products.findById(key.getProductId()).map(p -> {
                     ProductSnapshot snapshot = ProductSnapshot.of(p, key.getChannel(), images);
-                    return new Attempt(snapshot, st.getExternalId(), st.getAttempts() + 1, snapshot.contentHash());
+                    String externalId = aspect == SyncAspect.PRODUCT ? st.getExternalId()
+                            : listingId(key.getProductId(), key.getChannel());
+                    return new Attempt(snapshot, externalId, st.getAttempts() + 1, snapshot.hashOf(aspect));
                 }))
                 .orElse(null));
         if (attempt == null) {
@@ -175,8 +253,23 @@ public class ProductSyncService {
             if (connector == null) {
                 throw new SyncException("Không có connector cho kênh " + key.getChannel(), false);
             }
-            String externalId = connector.push(attempt.snapshot(), attempt.externalId());
-            tx.executeWithoutResult(s -> markSynced(key, attempt, externalId));
+            String externalId = attempt.externalId();
+            switch (aspect) {
+                case PRODUCT -> externalId = connector.push(attempt.snapshot(), externalId);
+                case PRICE, STOCK -> {
+                    if (externalId == null) {
+                        throw new SyncException("Sản phẩm chưa có trên " + key.getChannel()
+                                + " (chưa tạo hoặc chưa liên kết mã sàn)", false);
+                    }
+                    if (aspect == SyncAspect.PRICE) {
+                        connector.pushPrice(attempt.snapshot(), externalId);
+                    } else {
+                        connector.pushStock(attempt.snapshot(), externalId);
+                    }
+                }
+            }
+            String sentId = externalId;
+            tx.executeWithoutResult(s -> markSynced(key, attempt, sentId));
         } catch (RuntimeException e) {
             boolean retryable = !(e instanceof SyncException se) || se.retryable();
             tx.executeWithoutResult(s -> markFailed(key, attempt, e, retryable));
@@ -202,9 +295,44 @@ public class ProductSyncService {
                 s.setAttempts(0);
                 s.setNextAttemptAt(now);
             }
-            log.info("Đồng bộ {} lên {}: xong sau {} lần (external_id={})", attempt.snapshot().sku(), key.getChannel(),
-                    attempt.attempts(), s.getExternalId());
+            log.info("Đồng bộ {} {} lên {}: xong sau {} lần (external_id={})", key.getAspect(), attempt.snapshot().sku(),
+                    key.getChannel(), attempt.attempts(), attempt.externalId() != null ? attempt.externalId() : externalId);
         });
+        if (key.getAspect() == SyncAspect.PRODUCT) {
+            recordPriceStockSentWithProduct(key, attempt.snapshot());
+        }
+    }
+
+    /**
+     * Tạo/sửa sản phẩm gửi kèm giá, tồn: ghi dòng PRICE, STOCK là đã gửi đúng giá trị trong snapshot. Nếu giá/tồn
+     * hiện tại đã khác (đổi trong lúc đang gửi) thì dòng đó về PENDING để gửi tiếp.
+     */
+    private void recordPriceStockSentWithProduct(ProductSyncState.Key key, ProductSnapshot sent) {
+        ProductChannelConnector connector = connectors.get(key.getChannel());
+        Product current = products.findById(key.getProductId()).orElse(null);
+        if (connector == null || current == null) {
+            return;
+        }
+        ProductSnapshot now = ProductSnapshot.of(current, key.getChannel(), images);
+        Instant at = clock.instant();
+        for (SyncAspect aspect : List.of(SyncAspect.PRICE, SyncAspect.STOCK)) {
+            if (!connector.aspects().contains(aspect)) {
+                continue;
+            }
+            ProductSyncState.Key k = new ProductSyncState.Key(key.getProductId(), key.getChannel(), aspect);
+            ProductSyncState st = states.findById(k).orElseGet(() -> new ProductSyncState(k));
+            String sentHash = sent.hashOf(aspect);
+            String currentHash = now.hashOf(aspect);
+            st.setSyncedHash(sentHash);
+            st.setSyncedAt(at);
+            st.setContentHash(currentHash);
+            st.setStatus(sentHash.equals(currentHash) ? SyncStatus.SYNCED : SyncStatus.PENDING);
+            st.setAttempts(0);
+            st.setLastError(null);
+            st.setNextAttemptAt(at);
+            st.setUpdatedAt(at);
+            states.save(st);
+        }
     }
 
     private void markFailed(ProductSyncState.Key key, Attempt attempt, RuntimeException error, boolean retryable) {

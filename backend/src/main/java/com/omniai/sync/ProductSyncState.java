@@ -15,7 +15,7 @@ import lombok.Setter;
 import java.io.Serializable;
 import java.time.Instant;
 
-/** 1 dòng product_channel_sync (V18): hàng đợi + trạng thái đồng bộ của 1 sản phẩm trên 1 kênh. */
+/** 1 dòng product_channel_sync (V18, V19): hàng đợi + trạng thái đồng bộ 1 phần (aspect) của 1 sản phẩm trên 1 kênh. */
 @Entity
 @Table(name = "product_channel_sync")
 @Getter
@@ -34,9 +34,14 @@ public class ProductSyncState {
         @Column(name = "channel_code", length = 20)
         private String channel;
 
-        public Key(Long productId, String channel) {
+        @Enumerated(EnumType.STRING)
+        @Column(length = 10)
+        private SyncAspect aspect;
+
+        public Key(Long productId, String channel, SyncAspect aspect) {
             this.productId = productId;
             this.channel = channel;
+            this.aspect = aspect;
         }
     }
 
@@ -71,7 +76,7 @@ public class ProductSyncState {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    ProductSyncState(Long productId, String channel) {
-        this.id = new Key(productId, channel);
+    ProductSyncState(Key id) {
+        this.id = id;
     }
 }

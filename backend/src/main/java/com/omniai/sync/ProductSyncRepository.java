@@ -15,6 +15,8 @@ public interface ProductSyncRepository extends JpaRepository<ProductSyncState, P
         Long getProductId();
 
         String getChannelCode();
+
+        String getAspect();
     }
 
     /**
@@ -23,13 +25,13 @@ public interface ProductSyncRepository extends JpaRepository<ProductSyncState, P
      */
     @Query(value = """
             UPDATE product_channel_sync s SET next_attempt_at = :leaseUntil
-             WHERE (s.product_id, s.channel_code) IN (
-                   SELECT product_id, channel_code FROM product_channel_sync
+             WHERE (s.product_id, s.channel_code, s.aspect) IN (
+                   SELECT product_id, channel_code, aspect FROM product_channel_sync
                     WHERE status = 'PENDING' AND next_attempt_at <= :now
                     ORDER BY next_attempt_at
                     LIMIT :limit
                     FOR UPDATE SKIP LOCKED)
-            RETURNING s.product_id AS productId, s.channel_code AS channelCode
+            RETURNING s.product_id AS productId, s.channel_code AS channelCode, s.aspect AS aspect
             """, nativeQuery = true)
     List<Claimed> claimDue(Instant now, Instant leaseUntil, int limit);
 
