@@ -22,6 +22,7 @@ import java.util.UUID;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
@@ -30,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * API xem hội thoại (T-11.2). Dữ liệu seed qua repository và rollback sau mỗi test (@Transactional).
+ * API xem hội thoại (T-11.2, bộ lọc T-14.2). Dữ liệu seed qua repository và rollback sau mỗi test (@Transactional).
  * DB dùng chung với các IT khác (có thể còn hội thoại của chúng), nên test chỉ kiểm hội thoại tự seed:
  * mốc thời gian năm 2100 để luôn đứng đầu danh sách sắp theo tin mới nhất.
  */
@@ -75,6 +76,21 @@ class ConversationApiTest {
         m.setText(text);
         m.setCreatedAt(at);
         return m;
+    }
+
+    /** Câu bot {@code messageId} của hội thoại {@code c}, đã lưu. */
+    private ConversationMessage out(Conversation c, String messageId, Instant at, boolean blocked, boolean handoff,
+                                    boolean withViolation) {
+        ConversationMessage m = seedMessage(c, Direction.OUT, "Dạ shop trả lời " + messageId, at);
+        m.setMessageId(messageId);
+        m.setRawText("raw " + messageId);
+        m.setBlocked(blocked);
+        m.setHandoff(handoff);
+        if (withViolation) {
+            m.getViolations().add(StoredViolation.of(new PolicyViolation("no_medical_claim", PolicyAction.REPLACE,
+                    "đặc trị")));
+        }
+        return messages.saveAndFlush(m);
     }
 
     // --- Xác thực ---
@@ -140,6 +156,105 @@ class ConversationApiTest {
         mvc.perform(get("/api/conversations").param("size", "0").with(ADMIN)).andExpect(status().isBadRequest());
         mvc.perform(get("/api/conversations").param("size", "101").with(ADMIN)).andExpect(status().isBadRequest());
         mvc.perform(get("/api/conversations").param("page", "-1").with(ADMIN)).andExpect(status().isBadRequest());
+    }
+
+    // --- Bộ lọc T-14.2 ---
+
+    @Test
+    void filtersByDateRangeInVietnamTime() throws Exception {
+        // Tháng 1/2100 và tháng 2/2100: không trùng dữ liệu của IT khác.
+        Conversation january = seed(ChannelType.WEB, Instant.parse("2100-01-10T03:00:00Z"));
+        // 17:30Z ngày 31/01 = 00:30 ngày 01/02 giờ VN: thuộc ngày 01/02.
+        Conversation lateNight = seed(ChannelType.WEB, Instant.parse("2100-01-31T17:30:00Z"));
+        Conversation february = seed(ChannelType.WEB, Instant.parse("2100-02-01T05:00:00Z"));
+
+        mvc.perform(get("/api/conversations").param("from", "2100-02-01").param("to", "2100-02-01")
+                        .param("size", "100").with(ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[*].id", hasItem(lateNight.getId().intValue())))
+                .andExpect(jsonPath("$.items[*].id", hasItem(february.getId().intValue())))
+                .andExpect(jsonPath("$.items[*].id", not(hasItem(january.getId().intValue()))));
+
+        mvc.perform(get("/api/conversations").param("from", "2100-01-01").param("to", "2100-01-31")
+                        .param("channel", "web").param("size", "100").with(ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[*].id", hasItem(january.getId().intValue())))
+                .andExpect(jsonPath("$.items[*].id", not(hasItem(lateNight.getId().intValue()))))
+                .andExpect(jsonPath("$.items[*].id", not(hasItem(february.getId().intValue()))));
+
+        // Chỉ có from: mọi hội thoại còn hoạt động từ ngày đó
+        mvc.perform(get("/api/conversations").param("from", "2100-02-01").param("size", "100").with(ADMIN))
+                .andExpect(jsonPath("$.items[*].id", hasItem(february.getId().intValue())))
+                .andExpect(jsonPath("$.items[*].id", not(hasItem(january.getId().intValue()))));
+    }
+
+    @Test
+    void filtersConversationsWherePolicyIntervened() throws Exception {
+        Instant at = Instant.parse("2100-03-01T03:00:00Z");
+        Conversation withViolation = seed(ChannelType.SHOPEE, at);
+        out(withViolation, "v-1", at, false, false, true);
+        Conversation blockedOnly = seed(ChannelType.SHOPEE, at);
+        out(blockedOnly, "b-1", at, true, false, false);
+        Conversation clean = seed(ChannelType.SHOPEE, at);
+        out(clean, "c-1", at, false, false, false);
+
+        mvc.perform(get("/api/conversations").param("hasViolation", "true").param("from", "2100-03-01")
+                        .param("to", "2100-03-01").param("size", "100").with(ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[*].id", hasItem(withViolation.getId().intValue())))
+                .andExpect(jsonPath("$.items[*].id", hasItem(blockedOnly.getId().intValue())))
+                .andExpect(jsonPath("$.items[*].id", not(hasItem(clean.getId().intValue()))))
+                .andExpect(jsonPath("$.items[*].flaggedCount", everyItem(greaterThanOrEqualTo(1))));
+
+        // Vi phạm nằm ngoài khoảng ngày thì không tính
+        mvc.perform(get("/api/conversations").param("hasViolation", "true").param("from", "2100-03-02")
+                        .param("size", "100").with(ADMIN))
+                .andExpect(jsonPath("$.items[*].id", not(hasItem(withViolation.getId().intValue()))));
+    }
+
+    @Test
+    void filtersHandoffAndCombinesWithChannel() throws Exception {
+        Instant at = Instant.parse("2100-04-01T03:00:00Z");
+        Conversation tiktokHandoff = seed(ChannelType.TIKTOK, at);
+        out(tiktokHandoff, "h-1", at, false, true, false);
+        Conversation webHandoff = seed(ChannelType.WEB, at);
+        out(webHandoff, "h-2", at, false, true, false);
+        Conversation tiktokOk = seed(ChannelType.TIKTOK, at);
+        out(tiktokOk, "h-3", at, false, false, false);
+
+        mvc.perform(get("/api/conversations").param("handoff", "true").param("channel", "tiktok")
+                        .param("from", "2100-04-01").param("size", "100").with(ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[*].channel", everyItem(is("TIKTOK"))))
+                .andExpect(jsonPath("$.items[*].id", hasItem(tiktokHandoff.getId().intValue())))
+                .andExpect(jsonPath("$.items[*].id", not(hasItem(tiktokOk.getId().intValue()))))
+                .andExpect(jsonPath("$.items[*].id", not(hasItem(webHandoff.getId().intValue()))));
+    }
+
+    @Test
+    void listShowsFlaggedAndHandoffCountsAndLastText() throws Exception {
+        Instant at = Instant.parse("2100-05-01T03:00:00Z");
+        Conversation c = seed(ChannelType.SHOPEE, at);
+        messages.saveAndFlush(seedMessage(c, Direction.IN, "Chỗ nào rẻ hơn?", at.minusSeconds(30)));
+        out(c, "s-1", at.minusSeconds(20), true, false, true);
+        out(c, "s-2", at.minusSeconds(10), false, true, false);
+        out(c, "s-3", at, false, false, false);
+
+        mvc.perform(get("/api/conversations").param("from", "2100-05-01").param("to", "2100-05-01")
+                        .param("channel", "shopee").with(ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].id").value(c.getId()))
+                .andExpect(jsonPath("$.items[0].flaggedCount").value(1))
+                .andExpect(jsonPath("$.items[0].handoffCount").value(1))
+                .andExpect(jsonPath("$.items[0].lastText").value("Dạ shop trả lời s-3"));
+    }
+
+    @Test
+    void rejectsBadDateRange() throws Exception {
+        mvc.perform(get("/api/conversations").param("from", "2100-02-02").param("to", "2100-02-01").with(ADMIN))
+                .andExpect(status().isBadRequest());
+        mvc.perform(get("/api/conversations").param("from", "18/11/2026").with(ADMIN))
+                .andExpect(status().isBadRequest());
     }
 
     // --- Tin của 1 hội thoại ---

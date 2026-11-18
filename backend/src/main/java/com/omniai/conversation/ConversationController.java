@@ -2,6 +2,7 @@ package com.omniai.conversation;
 
 import com.omniai.common.ChannelType;
 import com.omniai.common.PageResponse;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
 import java.util.Locale;
 
 /**
@@ -28,11 +30,26 @@ public class ConversationController {
         this.service = service;
     }
 
+    /**
+     * Lọc (T-14.2), kết hợp AND: {@code channel}; {@code from}/{@code to} là ngày {@code yyyy-MM-dd} giờ VN, gồm cả 2
+     * mốc, lấy hội thoại có hoạt động trong khoảng; {@code hasViolation=true} chỉ lấy hội thoại có câu bot bị policy
+     * can thiệp; {@code handoff=true} chỉ lấy hội thoại có câu chuyển nhân viên. Sai định dạng hoặc from > to: 400.
+     */
     @GetMapping
     public PageResponse<ConversationView> list(@RequestParam(required = false) String channel,
+                                               @RequestParam(required = false)
+                                               @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                               @RequestParam(required = false)
+                                               @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+                                               @RequestParam(defaultValue = "false") boolean hasViolation,
+                                               @RequestParam(defaultValue = "false") boolean handoff,
                                                @RequestParam(defaultValue = "0") int page,
                                                @RequestParam(defaultValue = "20") int size) {
-        return PageResponse.of(service.list(parseChannel(channel), checkPage(page), checkSize(size)));
+        if (from != null && to != null && from.isAfter(to)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "from phải <= to");
+        }
+        ConversationFilter filter = new ConversationFilter(parseChannel(channel), from, to, hasViolation, handoff);
+        return PageResponse.of(service.list(filter, checkPage(page), checkSize(size)));
     }
 
     @GetMapping("/{id}/messages")

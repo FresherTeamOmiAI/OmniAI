@@ -1,6 +1,6 @@
 # Hợp đồng API
 
-> Cập nhật: 2026-11-18 · T-25.4 `MessageView.deliveryStatus`, `deliveryAttempts`; 2026-11-13 · T-04.1 ghi chú JSON sau V15; T-09.3 `/api/orders`; T-09.2 bộ lọc `GET /api/products`; T-04.1 `prices` theo kênh, `GET /api/admin/sales-channels` (decisions #32); trước đó US-11 (T-11.2), US-25, T-47.1
+> Cập nhật: 2026-11-18 · T-14.2 lọc `/api/conversations` theo ngày, vi phạm, handoff; `ConversationView` thêm số liệu; T-25.4 `MessageView.deliveryStatus`, `deliveryAttempts`; 2026-11-13 · T-04.1 ghi chú JSON sau V15; T-09.3 `/api/orders`; T-09.2 bộ lọc `GET /api/products`; T-04.1 `prices` theo kênh, `GET /api/admin/sales-channels` (decisions #32); trước đó US-11 (T-11.2), US-25, T-47.1
 > Nguồn: `backend/.../channel/simulator/*`, `channel/web/*`, `channel/tiktok/*`, `catalog/ProductController.java`, `catalog/AdminProductController.java`, `catalog/ProductRequest.java`, `conversation/ConversationController.java`, `brain/*`, `common/*`, `ai-brain/app/main.py`, `ai-brain/app/schemas.py`, `shared/schemas/canonical-message.schema.json`, `web/src/shared/types.ts`
 
 JSON phía backend dùng **camelCase**. Riêng hợp đồng backend → ai-brain dùng **snake_case**.
@@ -60,10 +60,10 @@ Cần Basic ADMIN giống `/api/admin/**` (hội thoại là dữ liệu cá nh�
 
 | Method | Path | Request | Response | Ghi chú |
 |---|---|---|---|---|
-| GET | `/api/conversations?channel=&page=&size=` | | `PageResponse<ConversationView>` | Mới nhất trước (`lastMessageAt` giảm dần). `channel` không phân biệt hoa thường (`web`, `SHOPEE`), bỏ trống = mọi kênh, kênh lạ `400`. `size` mặc định 20, 1–100, ngoài khoảng hoặc `page` < 0 thì `400`. Không nhận `sort` |
+| GET | `/api/conversations?channel=&from=&to=&hasViolation=&handoff=&page=&size=` | | `PageResponse<ConversationView>` | Mới nhất trước (`lastMessageAt` giảm dần). Bộ lọc kết hợp AND (T-14.2). `channel` không phân biệt hoa thường (`web`, `SHOPEE`), bỏ trống = mọi kênh, kênh lạ `400`. `from`/`to`: ngày `yyyy-MM-dd` **giờ VN**, gồm cả 2 mốc, lấy hội thoại có hoạt động trong khoảng (`startedAt` < hết ngày `to`, `lastMessageAt` ≥ đầu ngày `from`); sai định dạng hoặc `from > to` thì `400`. `hasViolation=true`: có ≥ 1 câu OUT bị chặn hoặc có luật vi phạm (trong khoảng ngày nếu có). `handoff=true`: có ≥ 1 câu OUT `handoff`. `size` mặc định 20, 1–100, ngoài khoảng hoặc `page` < 0 thì `400`. Không nhận `sort` |
 | GET | `/api/conversations/{id}/messages?page=&size=` | | `PageResponse<MessageView>` | Theo thời gian tăng dần. `size` mặc định 50, tối đa 100. Không có hội thoại thì `404` |
 
-- `ConversationView = {id, channel, conversationId, channelUserId, customerId?, startedAt, lastMessageAt, messageCount}`. `conversationId` = `CanonicalMessage.conversationId` (id phía kênh), `id` là id trong hub dùng cho `/messages`. `messageCount` đếm cả IN lẫn OUT.
+- `ConversationView = {id, channel, conversationId, channelUserId, customerId?, startedAt, lastMessageAt, messageCount, flaggedCount, handoffCount, lastText?}`. `flaggedCount` = số câu OUT bị chặn hoặc có vi phạm, `handoffCount` = số câu OUT chuyển nhân viên, `lastText` = tin cuối (IN hoặc OUT); 3 trường này tính bằng 1 câu SQL cho cả trang. `conversationId` = `CanonicalMessage.conversationId` (id phía kênh), `id` là id trong hub dùng cho `/messages`. `messageCount` đếm cả IN lẫn OUT.
 - `MessageView = {id, direction: IN|OUT, messageId, text, rawText?, violations[], blocked, handoff, deliveryStatus?, deliveryAttempts, createdAt}`. `deliveryStatus` chỉ có ở câu OUT của kênh gửi async (TikTok): `RETRYING` đang thử lại, `SENT` sàn đã nhận, `FAILED` không gửi được (kèm `handoff=true`); null với kênh đồng bộ (T-25.4). IN: `text` là tin khách, `rawText` null. OUT: `text` = `finalText` (khách nhận), `rawText` = câu AI gốc, `violations[]` = `PolicyViolation`. `messageId` của OUT là id tin khách mà nó trả lời.
 - Lỗi `400`/`404` trả theo xử lý lỗi mặc định của Spring (`ResponseStatusException`), chưa phải ProblemDetail như admin sản phẩm.
 
