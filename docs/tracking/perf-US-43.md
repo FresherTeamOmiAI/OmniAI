@@ -9,7 +9,7 @@
 - Dữ liệu hội thoại: seed 200 hội thoại × 50 tin = **10.000 tin nhắn** (`seed_conversations.sql`), cộng 3 hội thoại có sẵn.
 - Load test: 200 request mỗi kịch bản, 10 luồng song song; widget đo 20 vòng tuần tự.
 - Số câu SQL: bật tạm `log_statement = 'all'` trên Postgres local, đếm câu SELECT giữa 2 câu đánh dấu (không gồm BEGIN/COMMIT), request thứ 2 sau khi làm nóng.
-- **Chưa đo được trên Supabase**: xem mục "Vấn đề gặp khi đo".
+- ai-brain đo cả trên Postgres local và Supabase (mục 3). API backend chỉ đo local: backend profile `supabase` cần DB `shopee` (T-21.5).
 
 ## 1. Độ trễ API (local, 10 luồng)
 | Kịch bản | Request | Lỗi | p50 (ms) | p95 (ms) | max (ms) | KB/response | Mục tiêu p95 |
@@ -43,14 +43,23 @@ Phân tích store trang 0 (26 SELECT ở lần tách chi tiết): **16 câu `sel
 | Dòng catalog đưa vào prompt | **100 / 364** SKU |
 | Thời gian DB p50 / p95 | 219,7 / 247,3 ms (catalog 33,8 ms, search 173,2 ms) |
 
-Trên Supabase (Sydney) mỗi kết nối có thêm SSL + ~100–300 ms mạng, nên con số thật sẽ cao hơn nhiều; đo lại khi role `chatbot_reader` đăng nhập được (mục dưới).
+Cùng phép đo trên **Supabase** (pooler Sydney, cấu hình `.env` thật, đo lại sau khi sửa mật khẩu `chatbot_reader`):
+
+| Chỉ số | Local | Supabase |
+|---|---|---|
+| Kết nối DB mới mỗi câu chat | 5 | 5 |
+| Thời gian catalog p50 | 33,8 ms | 2.199 ms |
+| Thời gian search p50 | 173,2 ms | 8.676 ms |
+| **Tổng phần DB p50 / p95** | 219,7 / 247,3 ms | **10.876 / 11.273 ms** |
+
+Trên Supabase, riêng phần đọc DB đã ~11 s mỗi câu chat, trước khi gọi LLM. Đây là nguyên nhân chính bot chậm khi chạy với Supabase, không phải Gemini. T-43.4 (pool + cache) là việc có tác dụng lớn nhất.
 
 ## 4. Mở trang store (đếm request)
-- Code `dev` hiện tại (sau US-56): widget **chỉ tải catalog khi mở chat lần đầu** (`ChatWidget.tsx`, `catalogWanted`), không còn tải ngay khi mở trang như lúc review S2. Mở trang store khi chat đang thu nhỏ: 1 request `/api/products`. Mở chat lần đầu: thêm **4 request, ~543 KB, ~290 ms** (local), 192 câu SQL.
+- Code `dev` hiện tại (sau US-56): widget **chỉ tải catalog khi mở chat lần đầu** (`ChatWidget.tsx`, `catalogWanted`), không còn tải ngay khi mở trang như lúc review S2. Mở trang store khi chat đang thu nhỏ: 1 request `/api/products`. Mở chat lần đầu: thêm **4 request, ~543 KB, ~290 ms** (local), 192 câu SQL. Đặc tả và comment issue #264 viết trước khi đo nên còn ghi "mỗi lần mở trang", đã sửa.
 - Mục tiêu T-43.3: mở chat cũng không gọi `/api/products`.
 
 ## Vấn đề gặp khi đo
-- **Supabase chặn role `chatbot_reader`**: pooler trả `FATAL: (ECIRCUITBREAKER) too many authentication failures, new connections are temporarily blocked`. Nghĩa là `CHATBOT_DB_URL` trên Supabase đang sai mật khẩu (hoặc role chưa được đặt mật khẩu trên Supabase). Hệ quả: ai-brain chạy profile Supabase **không đọc được catalog nào**, bot trả lời không có sản phẩm/giá. Có thể liên quan: `ChatbotReaderSetup` của backend đặt mật khẩu cho role lúc khởi động, mà backend hiện không khởi động được với profile `supabase` (thiếu DB `shopee`, T-21.5). Đã dừng thử để không kéo dài lệnh chặn.
+- **Supabase chặn role `chatbot_reader`** (đã xử lý 18/11): pooler trả `FATAL: (ECIRCUITBREAKER) too many authentication failures`. Kiểm bằng tài khoản `postgres`: role vẫn LOGIN và đang có 1 kết nối `chatbot_reader` từ máy khác, tức mật khẩu trên Supabase đã bị đổi khác `.env` của LucVT. Nguyên nhân: `ChatbotReaderSetup` của backend chạy `ALTER ROLE chatbot_reader … PASSWORD` mỗi lần khởi động, nên máy nào dùng chung Supabase với `CHATBOT_DB_PASSWORD` khác là ghi đè; ai-brain của người còn lại thử sai 5 lần mỗi câu chat tới khi bị chặn. Đã đặt lại mật khẩu theo `.env` của LucVT (chủ project), đăng nhập lại được ngay. Sửa tận gốc: backend không ghi đè mật khẩu trên Supabase (nhánh `bugfix/chatbot-reader-supabase`), ai-brain ngừng thử sau lỗi đăng nhập (T-43.4).
 - Hibernate 7 không in "Session Metrics" với `generate_statistics` qua `SPRING_APPLICATION_JSON` như mong đợi, nên đếm SQL ở phía Postgres. Test tự động ở T-43.1 vẫn có thể dùng `Statistics.getPrepareStatementCount()` trực tiếp.
 
 ## Gợi ý cho T-43.1 từ số đo

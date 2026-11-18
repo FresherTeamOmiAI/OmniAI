@@ -1,6 +1,6 @@
 # Đặc tả: bỏ tải hết sản phẩm, giảm query catalog (US-43)
 
-> Viết 2026-11-18 sau review S2 · Người làm: **LucVT** (cả 3 phần, decisions #37) · Issue: US-43 #148, T-43.1 #149, T-43.2 #150, T-43.3 #264, T-43.4 #265
+> Viết 2026-11-18 sau review S2 · Cập nhật 2026-11-18 theo số đo thật ([perf-US-43.md](perf-US-43.md)): widget sau US-56, bcrypt của Basic, ai-brain trên Supabase · Người làm: **LucVT** (cả 3 phần, decisions #37) · Issue: US-43 #148, T-43.1 #149, T-43.2 #150, T-43.3 #264, T-43.4 #265
 > Đọc kèm: [../specs/api-contracts.md](../specs/api-contracts.md), [../specs/data-model.md](../specs/data-model.md), [../specs/ai-brain.md](../specs/ai-brain.md)
 
 ## 1. Vì sao chậm (đã kiểm trong code ngày 18/11)
@@ -8,7 +8,7 @@ Backend **có** phân trang ở DB: `GET /api/products` → `ProductService.stor
 
 | # | Chỗ | Hiện tại | Hậu quả |
 |---|---|---|---|
-| 1 | `web/src/features/chat/ChatWidget.tsx:21-42` (gắn ở `ShopLayout.tsx:19`) | Mỗi lần mở trang store lặp `GET /api/products?page=N&size=100` tới hết catalog, chỉ để ghép ảnh/SKU vào thẻ gợi ý (`suggestionCards.tsx:34-38`) | 4 request nối tiếp, ~543 KB JSON, ~130 câu SQL **mỗi lần tải trang**, chạy song song với request của store |
+| 1 | `web/src/features/chat/ChatWidget.tsx` (gắn ở `ShopLayout.tsx`) | Lúc review: mỗi lần mở trang store lặp `GET /api/products?page=N&size=100` tới hết catalog, chỉ để ghép ảnh/SKU vào thẻ gợi ý (`suggestionCards.tsx`). **Từ US-56: chỉ tải khi khách mở chat lần đầu** (`catalogWanted`) | Đo 18/11: mỗi lần mở chat lần đầu 4 request nối tiếp, ~543 KB JSON, 192 câu SQL (48/trang), ~290 ms local |
 | 2 | `ai-brain/app/catalog_access.py:61-72` | Mỗi câu SQL mở **1 kết nối psycopg mới**, không pool, không cache | Mỗi câu chat 1–5 lần kết nối (SSL tới Supabase ~100–300 ms/lần) |
 | 3 | `ai-brain/app/rag/search.py:151-166`, `agent/graph.py:48,58` | Câu hỏi có loại da/danh mục/giá thì đọc **cả view** `chatbot_catalog_search` (4 trang × 100 dòng, kèm vector 768 số dạng chữ), parse lại vector, tính cosine bằng Python | ~600 KB dữ liệu mỗi câu chat |
 | 4 | `ai-brain/app/rules/sql_guard.py` (`CATALOG_SQL ... LIMIT 100`), `graph.py:45,68,71` | Prompt và danh sách giá được phép nói chỉ lấy **100/364 SKU đầu** (theo hãng A→C) | Bot không biết 264 SKU còn lại; giá đúng của SKU ngoài 100 dòng đầu bị `grounding.py` xoá. Prompt dài ~100 dòng làm LLM chậm thêm |
@@ -21,7 +21,7 @@ Backend **có** phân trang ở DB: `GET /api/products` → `ProductService.stor
 Ước tính: 1 trang store ~17 câu SQL (12–28). Với Supabase pooler ở Sydney (~100 ms/vòng): ~2 s một trang store, ~13 s cho vòng tải của widget. Con số này là ước tính, phải đo lại ở T-43.2.
 
 ## 2. Mục tiêu đo được (tiêu chí nghiệm thu chung)
-- Mở trang store: **widget không gọi `/api/products`**. Chỉ còn 1 request của store.
+- Mở trang store **và mở chat**: widget không gọi `/api/products`. Mở store chỉ còn 1 request của store (đã đúng từ US-56), mở chat không thêm request nào.
 - Một trang store 20 SP: **≤ 8 câu SQL** (đếm bằng Hibernate statistics trong test).
 - `GET /api/products?size=500` không trả quá 100 SP. Sort trường lạ trả 400 ProblemDetail.
 - JSON được gzip (header `Content-Encoding: gzip` khi request có `Accept-Encoding: gzip`).
@@ -39,6 +39,7 @@ Backend **có** phân trang ở DB: `GET /api/products` → `ProductService.stor
 7. `OrderService.createDemo`: lấy mọi sản phẩm của đơn bằng 1 query (`findAllByIdInAndActiveTrue`).
 8. Test đếm SQL: bật `hibernate.generate_statistics` trong test, gọi `GET /api/products?page=0&size=20`, khẳng định `getPrepareStatementCount() ≤ 8`. Lưu ý: các test API hiện có `@Transactional` ở cấp class nên cache entity giữa các lần gọi, test đếm phải xoá persistence context hoặc không `@Transactional`.
 9. Nhỏ, làm nếu kịp: 2 request cùng tạo hãng/INCI mới gây 500 (`ProductService.java:208-232`), bắt lỗi trùng rồi đọc lại.
+10. **bcrypt của HTTP Basic** (đo 18/11: `/api/conversations` p95 530 ms, DB chỉ 2 câu SQL; request Basic sai mật khẩu cũng mất ~90 ms). `SecurityConfig.passwordEncoder()`: `DelegatingPasswordEncoder` vẫn encode mặc định `bcrypt` (OTP giữ bcrypt), thêm id `sha256-ct` = SHA-256 so sánh bằng `MessageDigest.isEqual`; tài khoản admin trong bộ nhớ lưu `{sha256-ct}…`. Mật khẩu admin vốn ở dạng rõ trong env/bộ nhớ nên bcrypt không bảo vệ thêm (bcrypt chỉ có ích khi kho hash bị lộ). Kỳ vọng p95 `conversations` < 50 ms. Làm **trước** khi bàn index.
 
 ## 4. Phần C: ai-brain (T-43.4, #265)
 1. Thêm `psycopg-pool` vào `ai-brain/requirements.txt` (ghi phiên bản cố định). Tạo `ConnectionPool(CHATBOT_DB_URL, min_size=1, max_size=4)` khi app khởi động (lifespan trong `app/main.py`), mở lười để pytest dùng stub không cần DB. `run_select` lấy kết nối từ pool, giữ `read_only = True` và `SET statement_timeout = '2s'`.
@@ -48,6 +49,8 @@ Backend **có** phân trang ở DB: `GET /api/products` → `ProductService.stor
 5. Giá NULL ở một kênh: bỏ giá đó, sản phẩm không có giá ở kênh hiện tại thì không gợi ý ở kênh đó. Không `int(None)`.
 6. Log thời gian từng chặng (`db_ms`, `rank_ms`, `llm_ms`) để T-43.2 đo được phần không phải LLM.
 7. pytest: stub `run_select` có đếm số lần gọi → 10 lượt chat trong TTL chỉ 1 lần nạp; hết TTL thì nạp lại; dòng giá NULL không làm lỗi; SKU vị trí > 100 giữ đúng giá.
+8. **Lỗi đăng nhập DB thì ngừng thử** trong N giây (vd. 60 s) và log mã lỗi Postgres (`sqlstate`, không log URL). Ngày 18/11 mật khẩu `chatbot_reader` sai làm pooler Supabase chặn role (`ECIRCUITBREAKER`) vì mỗi câu chat thử 5 kết nối; log hiện chỉ ghi `OperationalError` nên khó tìm nguyên nhân.
+- Số đo 18/11 trên Supabase: phần đọc DB **~10,9 s mỗi câu chat** (p50, catalog 2,2 s + search 8,7 s), local ~0,22 s. Đây là phần lớn độ trễ của bot trên Supabase, không phải LLM.
 - Không làm đợt này: xếp hạng bằng pgvector trong SQL (`ORDER BY embedding <=> …`, phải sửa `sql_guard`), Redis.
 - ChienPX cũng đang sửa `search.py` (T-10.4, phần `parse_constraints`) và `graph.py` (T-21.7, `system_prompt_for`). Nhắn ChienPX trước khi sửa 2 file này, merge PR của ai xong trước rồi người kia rebase.
 
@@ -64,7 +67,7 @@ Backend **có** phân trang ở DB: `GET /api/products` → `ProductService.stor
 ## 6. Đo trước/sau (T-43.2, #150), làm cuối
 - Đo **trước** khi sửa (chạy trên `dev` hiện tại) và **sau** khi xong B, C, A. Ghi kết quả vào `docs/tracking/perf-US-43.md`.
 - Script (Python `httpx` hoặc `k6`, đặt trong `bench/perf/`): 200 request, 10 luồng, cho `GET /api/products?page=0..18&size=20`, `GET /api/products/{id}`, `GET /api/conversations?size=20` (seed 10.000 tin nhắn bằng SQL trước). In p50/p95.
-- Đếm request lúc mở `/`: DevTools → Network, lọc `/api/products`. Trước: 5 (4 widget + 1 store), sau: 1.
+- Đếm request: DevTools → Network, lọc `/api/products`. Mở `/` khi chat thu nhỏ: 1 (đã đúng từ US-56). Mở chat lần đầu: trước +4, sau +0.
 - ai-brain: lấy `db_ms`, `rank_ms` từ log của 20 câu chat có ràng buộc (vd. "kem chống nắng cho da dầu dưới 300k").
 - Đo trên DB local, và trên profile `supabase` nếu có.
 
