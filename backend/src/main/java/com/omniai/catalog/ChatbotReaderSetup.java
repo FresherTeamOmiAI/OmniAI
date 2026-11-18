@@ -16,7 +16,7 @@ import java.util.List;
  * <p>{@code omniai.chatbot-reader.overwrite-password} (mặc định true): DB local của từng máy thì đặt lại mật khẩu mỗi lần
  * khởi động. DB dùng chung (profile supabase) đặt false: role đã LOGIN thì giữ nguyên mật khẩu, vì mỗi máy có
  * {@code CHATBOT_DB_PASSWORD} khác nhau sẽ ghi đè lẫn nhau, ai-brain của người khác đăng nhập sai tới mức pooler chặn
- * role (decisions #41).
+ * role (decisions #43).
  */
 @Component
 public class ChatbotReaderSetup implements ApplicationRunner {
