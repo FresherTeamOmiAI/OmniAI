@@ -48,9 +48,9 @@ class ShopeeSimulatorTest {
     void emptyShopeeTables() {
         JdbcTemplate jdbc = store.jdbc();
         jdbc.execute("""
-                TRUNCATE TABLE webchat_push_shopee, message_shopee, conversation_shopee,
-                               push_shopee, order_item_shopee, order_shopee,
-                               seller_stock_shopee, price_list_shopee, item_shopee
+                TRUNCATE TABLE tbl_shopee_webchat_push, tbl_shopee_message, tbl_shopee_conversation,
+                               tbl_shopee_push, tbl_shopee_order_item, tbl_shopee_order,
+                               tbl_shopee_seller_stock, tbl_shopee_price_list, tbl_shopee_item
                 RESTART IDENTITY CASCADE
                 """);
     }
@@ -94,10 +94,10 @@ class ShopeeSimulatorTest {
                 .andExpect(jsonPath("$.originalPrice").value(HUB_PRICE_SHOPEE));
 
         assertThat(store.jdbc().queryForObject(
-                "SELECT original_price FROM price_list_shopee WHERE item_id = ? AND model_id = 0",
+                "SELECT original_price FROM tbl_shopee_price_list WHERE item_id = ? AND model_id = 0",
                 Long.class, ITEM_ID)).isEqualTo(HUB_PRICE_SHOPEE);
         assertThat(store.jdbc().queryForObject(
-                "SELECT stock FROM seller_stock_shopee WHERE item_id = ? AND model_id = 0 AND location_id = '-'",
+                "SELECT stock FROM tbl_shopee_seller_stock WHERE item_id = ? AND model_id = 0 AND location_id = '-'",
                 Long.class, ITEM_ID)).isEqualTo((long) HUB_STOCK);
     }
 
@@ -140,13 +140,13 @@ class ShopeeSimulatorTest {
                 .andExpect(jsonPath("$.response.order_list[0].item_list[0].model_quantity_purchased").value(2));
 
         assertThat(store.jdbc().queryForObject(
-                "SELECT currency FROM order_shopee WHERE order_sn = ?", String.class, orderSn)).isEqualTo("VND");
+                "SELECT currency FROM tbl_shopee_order WHERE order_sn = ?", String.class, orderSn)).isEqualTo("VND");
         assertThat(store.jdbc().queryForObject(
-                "SELECT item_sku FROM order_item_shopee WHERE order_sn = ?", String.class, orderSn)).isEqualTo("LUMI-SUN-01");
+                "SELECT item_sku FROM tbl_shopee_order_item WHERE order_sn = ?", String.class, orderSn)).isEqualTo("LUMI-SUN-01");
         assertThat(store.jdbc().queryForObject(
-                "SELECT ordersn FROM push_shopee WHERE order_sn = ?", String.class, orderSn)).isEqualTo(orderSn);
+                "SELECT ordersn FROM tbl_shopee_push WHERE order_sn = ?", String.class, orderSn)).isEqualTo(orderSn);
         assertThat(store.jdbc().queryForObject(
-                "SELECT code FROM push_shopee WHERE order_sn = ?", Integer.class, orderSn)).isEqualTo(3);
+                "SELECT code FROM tbl_shopee_push WHERE order_sn = ?", Integer.class, orderSn)).isEqualTo(3);
 
         mvc.perform(signed(get(ShopeeSimulatorController.ORDER_DETAIL_PATH)
                         .param("order_sn_list", orderSn),
@@ -187,7 +187,7 @@ class ShopeeSimulatorTest {
         assertThat(body.get("authorization").asString())
                 .isEqualTo(ShopeeSign.push(shopee.getPushCallbackUrl(), raw, shopee.getPartnerKey()));
         assertThat(store.jdbc().queryForObject(
-                "SELECT code FROM webchat_push_shopee WHERE message_id = ?",
+                "SELECT code FROM tbl_shopee_webchat_push WHERE message_id = ?",
                 Integer.class, Long.parseLong(body.get("message_id").asString()))).isEqualTo(10);
 
         mvc.perform(signed(get(ShopeeSimulatorController.CONVERSATION_LIST_PATH),
@@ -239,7 +239,7 @@ class ShopeeSimulatorTest {
                 ShopeeSimulatorController.SEND_MESSAGE_PATH, "sai"))
                 .andExpect(jsonPath("$.error").value("error_sign"));
         assertThat(store.jdbc().queryForObject(
-                "SELECT COUNT(*) FROM message_shopee WHERE conversation_id = ?",
+                "SELECT COUNT(*) FROM tbl_shopee_message WHERE conversation_id = ?",
                 Integer.class, Long.parseLong(conversationId))).isEqualTo(2);
 
         mvc.perform(signed(post(ShopeeSimulatorController.SEND_MESSAGE_PATH)

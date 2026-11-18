@@ -11,14 +11,21 @@ import com.omniai.common.ChannelType;
 import com.omniai.conversation.ConversationRecorder;
 import com.omniai.conversation.TurnHistory;
 import com.omniai.policy.PolicyEngine;
+import com.omniai.policy.PolicyResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class MessageRouterTest {
 
@@ -58,6 +65,63 @@ class MessageRouterTest {
 
         assertThat(second).isEqualTo(first);
         assertThat(brainCalls.get()).isEqualTo(1);
+    }
+
+    @Test
+    void concurrentDuplicatesAskBrainOnceAndShareTheReply() throws Exception {
+        // Brain chậm: lượt đầu còn đang chờ Brain thì request trùng thứ hai đã tới (T-11.4).
+        CountDownLatch brainEntered = new CountDownLatch(1);
+        CountDownLatch releaseBrain = new CountDownLatch(1);
+        AtomicInteger calls = new AtomicInteger();
+        BrainClient slowBrain = (m, history) -> {
+            calls.incrementAndGet();
+            brainEntered.countDown();
+            try {
+                releaseBrain.await(5, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return new BrainResponse("Chào bạn", "test", List.of(), false);
+        };
+        RecordingRecorder recorder = new RecordingRecorder();
+        MessageRouter r = new MessageRouter(slowBrain, new PolicyEngine("../shared/policies"), recorder);
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            Future<BotReply> first = pool.submit(() -> r.handle(message(ChannelType.SHOPEE, "race-1")));
+            assertThat(brainEntered.await(5, TimeUnit.SECONDS)).isTrue();
+            Future<BotReply> second = pool.submit(() -> r.handle(message(ChannelType.SHOPEE, "race-1")));
+            // Cho request thứ hai kịp vào handle() trước khi Brain trả lời.
+            Thread.sleep(100);
+            assertThat(second.isDone()).isFalse();
+            releaseBrain.countDown();
+
+            assertThat(second.get(5, TimeUnit.SECONDS)).isEqualTo(first.get(5, TimeUnit.SECONDS));
+        } finally {
+            pool.shutdownNow();
+        }
+        assertThat(calls.get()).isEqualTo(1);
+        assertThat(recorder.calls).containsExactly("in:race-1", "out:race-1:handoff=false");
+    }
+
+    @Test
+    void failedTurnIsNotRememberedSoRetryIsProcessed() {
+        AtomicInteger applies = new AtomicInteger();
+        PolicyEngine flaky = new PolicyEngine("../shared/policies") {
+            @Override
+            public PolicyResult apply(ChannelType channel, String text) {
+                if (applies.incrementAndGet() == 1) {
+                    throw new IllegalStateException("policy nổ");
+                }
+                return super.apply(channel, text);
+            }
+        };
+        MessageRouter r = new MessageRouter(naiveBrain, flaky, ConversationRecorder.NOOP);
+
+        assertThatThrownBy(() -> r.handle(message(ChannelType.WEB, "m-retry"))).hasMessage("policy nổ");
+        BotReply retried = r.handle(message(ChannelType.WEB, "m-retry"));
+
+        assertThat(retried.finalText()).isNotBlank();
+        assertThat(brainCalls.get()).isEqualTo(2);
     }
 
     @Test

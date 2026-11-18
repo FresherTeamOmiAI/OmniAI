@@ -34,6 +34,9 @@ public class ConversationMessage {
 
     public enum Direction { IN, OUT }
 
+    /** Trạng thái gửi câu OUT ra kênh gửi async (V17, T-25.4). null = kênh đồng bộ hoặc tin IN. */
+    public enum DeliveryStatus { RETRYING, SENT, FAILED }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -62,6 +65,16 @@ public class ConversationMessage {
 
     @Column(nullable = false)
     private boolean handoff;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "delivery_status", length = 10)
+    private DeliveryStatus deliveryStatus;
+
+    @Column(name = "delivery_attempts", nullable = false)
+    private int deliveryAttempts;
+
+    @Column(name = "delivery_error", columnDefinition = "text")
+    private String deliveryError;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
