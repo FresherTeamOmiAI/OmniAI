@@ -272,7 +272,7 @@ function ProductTable({ token, onLogout, onUnauthorized }: TableProps) {
                   {openChannel && (
                     <tr className="sync-detail-row">
                       <td colSpan={columnCount}>
-                        <SyncDetail productId={p.id} channel={openChannel} rows={rows} onRetry={retry} onClose={() => setOpenSync(null)} />
+                        <SyncDetail product={p} channel={openChannel} rows={rows} onRetry={retry} onClose={() => setOpenSync(null)} />
                       </td>
                     </tr>
                   )}

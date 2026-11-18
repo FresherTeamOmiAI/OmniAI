@@ -1,9 +1,13 @@
 import { useState } from 'react'
+import { formatVnd } from '../../shared/lib/format'
+import type { Product } from '../../shared/types'
 import type { SyncAspect, SyncStatus, SyncView } from './api'
 
 // Trạng thái đồng bộ 1 sản phẩm ra từng sàn trên bảng admin (US-49, T-49.3). Owner: LucVT.
 // Ô trong bảng: mỗi kênh 1 nhãn gộp 3 phần (nội dung, giá, tồn). Bấm nhãn mở 1 hàng chi tiết rộng hết bảng
-// ngay dưới sản phẩm (SyncDetail): trạng thái từng phần, lỗi gần nhất, nút Thử lại.
+// ngay dưới sản phẩm (SyncDetail): trạng thái từng phần, giá trị đang có trên sàn, lỗi gần nhất, nút Thử lại.
+// Backend không lưu giá trị đã gửi; phần SYNCED nghĩa là sàn giữ đúng giá trị hiện tại của hub (hub đổi thì dòng
+// về PENDING), nên giá trị hiện ở đây lấy từ sản phẩm trên hub.
 
 const ASPECTS: { aspect: SyncAspect; label: string }[] = [
   { aspect: 'PRODUCT', label: 'Nội dung' },
@@ -74,15 +78,29 @@ export function SyncStatusCell({ productId, channels, rows, open, onToggle }: Ce
   )
 }
 
+/** Giá trị hub của 1 phần trên kênh: nội dung = ẩn/hiện, giá = giá của đúng kênh, tồn = tồn chung. */
+function hubValue(product: Product, channel: string, aspect: SyncAspect): string {
+  if (aspect === 'PRICE') return product.prices[channel] != null ? formatVnd(product.prices[channel]) : 'chưa có giá'
+  if (aspect === 'STOCK') return `${product.stock} sản phẩm`
+  return product.active ? 'đang hiện (tên, mô tả, ảnh, INCI)' : 'đã ẩn'
+}
+
+const VALUE_PREFIX: Record<SyncStatus, string> = {
+  SYNCED: 'Trên sàn',
+  PENDING: 'Sắp gửi',
+  FAILED: 'Chưa gửi được',
+}
+
 interface DetailProps {
-  productId: number
+  product: Product
   channel: SyncChannel
   rows: SyncView[]
   onRetry: (productId: number, channel: string, aspect: SyncAspect) => Promise<void>
   onClose: () => void
 }
 
-export function SyncDetail({ productId, channel, rows, onRetry, onClose }: DetailProps) {
+export function SyncDetail({ product, channel, rows, onRetry, onClose }: DetailProps) {
+  const productId = product.id
   const [retrying, setRetrying] = useState<SyncAspect | null>(null)
   const own = rows.filter((r) => r.channel === channel.code)
   const external = own.find((r) => r.externalId)?.externalId
@@ -120,6 +138,9 @@ export function SyncDetail({ productId, channel, rows, onRetry, onClose }: Detai
                     {row.status === 'PENDING' && row.attempts > 0 && (
                       <span className="muted"> · đã thử {row.attempts} lần, thử lại lúc {time(row.nextAttemptAt)}</span>
                     )}
+                  </span>
+                  <span className="sync-part-value">
+                    {VALUE_PREFIX[row.status]}: <strong>{hubValue(product, channel.code, aspect)}</strong>
                   </span>
                   {row.lastError && row.status !== 'SYNCED' && <span className="sync-error">{row.lastError}</span>}
                   {row.status === 'FAILED' && (

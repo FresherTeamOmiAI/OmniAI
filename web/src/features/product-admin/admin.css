@@ -52,6 +52,8 @@
 .sync-part-label { color: var(--color-muted); font-size: var(--text-xs); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
 .sync-part-failed .sync-part-status { color: var(--color-danger); font-weight: 600; }
 .sync-error { color: var(--color-danger); overflow-wrap: anywhere; }
+.sync-part-value { font-size: var(--text-sm); }
+.sync-part-value strong { font-variant-numeric: tabular-nums; }
 .sync-load-error { margin-bottom: var(--space-3); font-size: var(--text-sm); }
 
 /* Đăng nhập */
