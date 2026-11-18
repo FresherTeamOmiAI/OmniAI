@@ -6,7 +6,7 @@ import { CATEGORIES, SKIN_TYPES } from '../../shared/vocabulary'
 import { fetchProducts, STORE_PAGE_SIZE, type StoreQuery } from './api'
 import { Attribution } from './Attribution'
 import { ProductImage } from './ProductImage'
-import type { Product } from './types'
+import type { ProductCard } from './types'
 
 // Khoảng giá web (VND) cho bộ lọc. Giá trị = "min-max", bỏ trống một đầu = không giới hạn.
 const PRICE_RANGES = [
@@ -31,7 +31,7 @@ function toQuery(params: URLSearchParams): StoreQuery {
 
 interface Loaded {
   key: string
-  items: Product[]
+  items: ProductCard[]
   total: number
   error: string | null
 }

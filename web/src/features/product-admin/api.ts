@@ -58,3 +58,38 @@ export function updateProduct(token: string, id: number, input: ProductInput): P
 export function setProductActive(token: string, id: number, active: boolean): Promise<Product> {
   return call(token, `${BASE}/${id}/active`, { method: 'PATCH', body: { active } })
 }
+
+// ---- Đồng bộ sản phẩm ra sàn (US-49, T-49.3). API ở api-contracts.md, mục "Đồng bộ sản phẩm ra sàn". ----
+
+export type SyncAspect = 'PRODUCT' | 'PRICE' | 'STOCK'
+export type SyncStatus = 'PENDING' | 'SYNCED' | 'FAILED'
+
+/** Khớp backend sync/SyncView.java: 1 phần (nội dung / giá / tồn) của 1 sản phẩm trên 1 kênh. */
+export interface SyncView {
+  productId: number
+  channel: string
+  aspect: SyncAspect
+  status: SyncStatus
+  attempts: number
+  lastError: string | null
+  externalId: string | null
+  syncedAt: string | null
+  nextAttemptAt: string | null
+  updatedAt: string
+}
+
+/** Mã kênh có connector đồng bộ (vd. ["SHOPEE", "TIKTOK"]). Rỗng thì màn admin không hiện cột đồng bộ. */
+export function listSyncChannels(token: string): Promise<string[]> {
+  return call(token, '/api/admin/sync/channels')
+}
+
+/** Trạng thái của các sản phẩm trên 1 trang bảng (1–100 id). Sản phẩm/kênh chưa từng xếp hàng thì không có dòng. */
+export function listSyncStatus(token: string, productIds: number[]): Promise<SyncView[]> {
+  return call(token, `/api/admin/sync/products/by-ids?ids=${productIds.join(',')}`)
+}
+
+/** Đưa 1 phần về PENDING để gửi lại ở lượt quét kế (thường sau khi sửa lỗi dữ liệu). */
+export function retrySync(token: string, productId: number, channel: string, aspect: SyncAspect): Promise<SyncView> {
+  const path = `/api/admin/sync/products/${productId}/${encodeURIComponent(channel)}/retry?aspect=${aspect}`
+  return call(token, path, { method: 'POST' })
+}

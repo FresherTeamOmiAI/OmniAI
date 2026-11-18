@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -58,12 +59,31 @@ public class AdminSyncController {
         return PageResponse.of(service.list(parseStatus(status), normalize(channel), page, size));
     }
 
-    /** Đưa 1 dòng về PENDING để gửi lại ngay (thường sau khi admin sửa lỗi dữ liệu). */
+    /** Đưa 1 dòng về PENDING để gửi lại ngay (thường sau khi admin sửa lỗi dữ liệu). aspect mặc định PRODUCT. */
     @PostMapping("/products/{productId}/{channel}/retry")
-    public SyncView retry(@PathVariable Long productId, @PathVariable String channel) {
-        return service.retry(productId, normalize(channel)).map(SyncView::of)
+    public SyncView retry(@PathVariable Long productId, @PathVariable String channel,
+                          @RequestParam(defaultValue = "PRODUCT") String aspect) {
+        return service.retry(productId, normalize(channel), parseAspect(aspect)).map(SyncView::of)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Sản phẩm " + productId + " chưa có trạng thái đồng bộ trên " + channel));
+    }
+
+    public record LinkRequest(String externalId) {
+    }
+
+    /**
+     * Liên kết sản phẩm hub với mã sản phẩm đã có trên sàn (US-50): sau đó hub gửi giá, tồn hiện tại và mọi lần đổi
+     * giá/tồn sau này. Trả các dòng trạng thái của sản phẩm trên kênh đó.
+     */
+    @PostMapping("/products/{productId}/{channel}/link")
+    public List<SyncView> link(@PathVariable Long productId, @PathVariable String channel,
+                               @RequestBody LinkRequest body) {
+        try {
+            return service.link(productId, normalize(channel), body == null ? null : body.externalId()).stream()
+                    .map(SyncView::of).toList();
+        } catch (IllegalArgumentException e) {
+            throw bad(e.getMessage());
+        }
     }
 
     /** Xếp lại mọi sản phẩm của 1 kênh. */
@@ -84,6 +104,14 @@ public class AdminSyncController {
             return SyncStatus.valueOf(status.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
             throw bad("status phải là PENDING, SYNCED hoặc FAILED");
+        }
+    }
+
+    private static SyncAspect parseAspect(String aspect) {
+        try {
+            return SyncAspect.valueOf(aspect.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw bad("aspect phải là PRODUCT, PRICE hoặc STOCK");
         }
     }
 

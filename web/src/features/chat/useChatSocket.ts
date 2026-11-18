@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { wsUrl } from '../../shared/lib/http'
+import { useCustomerSession } from '../account'
 import type { BotReply, WsErrorReply } from '../../shared/types'
 
 export interface ChatLine {
@@ -23,7 +24,9 @@ function isErrorReply(data: unknown): data is WsErrorReply {
 }
 
 // Kết nối kênh WEB qua WebSocket /ws/chat. Có tự kết nối lại và báo trạng thái rõ ràng.
+// Đã đăng nhập (US-13) thì gửi JWT qua ?token= để backend gắn hội thoại vào tài khoản.
 export function useChatSocket() {
+  const token = useCustomerSession()?.token ?? null
   const [lines, setLines] = useState<ChatLine[]>([])
   const [status, setStatus] = useState<ChatStatus>('connecting')
   const [isPending, setIsPending] = useState(false)
@@ -55,7 +58,7 @@ export function useChatSocket() {
     }
 
     setStatus('connecting')
-    const socket = new WebSocket(wsUrl('/ws/chat'))
+    const socket = new WebSocket(wsUrl(token ? `/ws/chat?token=${encodeURIComponent(token)}` : '/ws/chat'))
     socketRef.current = socket
 
     socket.onopen = () => {
@@ -107,7 +110,7 @@ export function useChatSocket() {
         console.error('Lỗi giải mã phản hồi WebSocket:', err)
       }
     }
-  }, [clearReplyTimer])
+  }, [clearReplyTimer, token])
 
   useEffect(() => {
     connectRef.current = connect

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { Product } from '../../shared/types'
+import type { ProductCard } from '../../shared/types'
 
 export interface SuggestedSku {
   key: string
@@ -9,13 +9,13 @@ export interface SuggestedSku {
   price: number
   category: string | null
   imageUrl: string | null
-  product: Product | null
+  product: ProductCard | null
 }
 
 const PRODUCT_LINE = /^\d+\.\s+(.+?)\s+—\s+(.+?)\s+—\s+(\d{1,3}(?:\.\d{3})*)đ$/
 
 /** Tách các dòng "1. Thương hiệu — Tên — 289.000đ" thành thẻ SKU, phần chữ còn lại giữ làm lời nhắn. */
-export function splitSuggestion(text: string, products: Product[]): { items: SuggestedSku[]; note: string } {
+export function splitSuggestion(text: string, products: ProductCard[]): { items: SuggestedSku[]; note: string } {
   const items: SuggestedSku[] = []
   const seen = new Set<string>()
   const notes: string[] = []
@@ -56,7 +56,7 @@ export function splitSuggestion(text: string, products: Product[]): { items: Sug
 const TONES = 6
 
 /** Câu chữ tự do vẫn hiện ảnh nếu nhắc đúng tên sản phẩm trong catalog. */
-function productsMentioned(text: string, products: Product[], seen: Set<string>): SuggestedSku[] {
+function productsMentioned(text: string, products: ProductCard[], seen: Set<string>): SuggestedSku[] {
   const folded = text.toLocaleLowerCase('vi')
   const ranked = [...products].sort((a, b) => b.name.length - a.name.length)
   const found: SuggestedSku[] = []

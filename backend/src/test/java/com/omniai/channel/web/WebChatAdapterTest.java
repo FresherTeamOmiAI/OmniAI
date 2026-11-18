@@ -59,6 +59,32 @@ class WebChatAdapterTest {
     }
 
     @Test
+    void toCanonicalUsesCustomerIdWhenLoggedIn() {
+        WebChatInbound body = new WebChatInbound("m-login", "Mình da dầu");
+        CanonicalMessage msg = adapter.toCanonical(new WebChatAdapter.Inbound("sess-9", body, 42L));
+
+        assertThat(msg.channelUserId()).isEqualTo("42");
+        assertThat(msg.customerId()).isEqualTo(42L);
+        assertThat(msg.conversationId()).isEqualTo("web:c42");
+    }
+
+    @Test
+    void handleTextMessageReadsCustomerIdFromHandshakeAttributes() throws Exception {
+        when(session.getAttributes()).thenReturn(new java.util.HashMap<>(java.util.Map.of(WebChatAuthInterceptor.CUSTOMER_ID, 7L)));
+        when(router.handle(any(CanonicalMessage.class)))
+                .thenReturn(new BotReply("m-7", ChannelType.WEB, "Raw", "Dạ", List.of(), false, false));
+
+        adapter.handleTextMessage(session, new TextMessage("""
+                {"messageId": "m-7", "text": "Chào shop"}
+                """));
+
+        ArgumentCaptor<CanonicalMessage> captor = ArgumentCaptor.forClass(CanonicalMessage.class);
+        verify(router).handle(captor.capture());
+        assertThat(captor.getValue().customerId()).isEqualTo(7L);
+        assertThat(captor.getValue().conversationId()).isEqualTo("web:c7");
+    }
+
+    @Test
     void toCanonicalGeneratesUuidWhenMessageIdNullOrBlank() {
         WebChatInbound nullId = new WebChatInbound(null, "Hỏi giá kem");
         CanonicalMessage msg1 = adapter.toCanonical(new WebChatAdapter.Inbound("sess-2", nullId));

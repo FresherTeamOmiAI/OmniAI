@@ -23,17 +23,13 @@ ALLOWED_COLUMNS = {
 }
 MAX_ROWS = 100
 
-CATALOG_SQL = (
-    "SELECT brand, name, category, skin_types, skin_concerns, usage_time, "
-    "price_web, price_shopee, price_tiktok "
-    "FROM chatbot_catalog ORDER BY brand, name LIMIT 100"
-)
 SEARCH_SQL = (
     "SELECT sku, brand, name, category, skin_types, skin_concerns, usage_time, "
     "price_web, price_shopee, price_tiktok, description, CAST(embedding AS TEXT) AS embedding "
     "FROM chatbot_catalog_search ORDER BY sku LIMIT 100"
 )
-# View có hơn 100 sản phẩm active. sql_guard chặn một SELECT quá 100 dòng, nên RAG đọc lần lượt.
+# Câu SELECT duy nhất brain chạy (từ T-43.4 không đọc view chatbot_catalog nữa). View có hơn 100 sản phẩm active,
+# sql_guard chặn một SELECT quá 100 dòng, nên brain đọc lần lượt từng trang rồi nhớ trong bộ nhớ (rag/search.py).
 SEARCH_PAGE_SIZE = 100
 
 

@@ -1,18 +1,25 @@
-import { useCallback, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import { formatVnd } from '../../shared/lib/format'
 import { ApiError } from '../../shared/lib/http'
 import type { Page, Product, SalesChannel } from '../../shared/types'
-import { listProducts, listSalesChannels, setProductActive, type ListQuery } from './api'
+import {
+  listProducts, listSalesChannels, listSyncChannels, listSyncStatus, retrySync, setProductActive,
+  type ListQuery, type SyncAspect, type SyncView,
+} from './api'
 import { loadToken, saveToken } from './auth'
 import { LoginForm } from './LoginForm'
 import { ProductForm } from './ProductForm'
+import { SyncDetail, SyncStatusCell } from './SyncStatusCell'
 import { CATEGORIES, labelOf } from '../../shared/vocabulary'
 
 const PAGE_SIZE = 20
+/** Còn phần đang chờ gửi thì hỏi lại trạng thái sau chừng này (worker quét 1 s, AC US-49 ≤ 10 s). */
+const SYNC_POLL_MS = 3000
 
 type Editing = { mode: 'create' } | { mode: 'edit'; product: Product } | null
 
 // Admin > Sản phẩm (US-08, UC-20): danh sách gồm cả SKU ẩn, thêm, sửa, ẩn/hiện. Không có xoá (G-07). Owner: LucVT.
+// Cột "Đồng bộ sàn" (US-49, T-49.3): trạng thái đẩy sản phẩm ra từng sàn có connector, thử lại phần lỗi.
 export function ProductAdminPage() {
   const [token, setToken] = useState<string | null>(loadToken)
   const [loginNotice, setLoginNotice] = useState<string | null>(null)
@@ -61,6 +68,12 @@ function ProductTable({ token, onLogout, onUnauthorized }: TableProps) {
   const [toggling, setToggling] = useState<number | null>(null)
   // Cột giá và ô giá trong form sinh theo kênh bán (V13), không viết cứng 3 kênh.
   const [channels, setChannels] = useState<SalesChannel[]>([])
+  // Đồng bộ ra sàn (T-49.3): kênh có connector + trạng thái của các sản phẩm trên trang đang xem.
+  const [syncChannels, setSyncChannels] = useState<string[]>([])
+  const [sync, setSync] = useState<SyncView[]>([])
+  const [syncError, setSyncError] = useState<string | null>(null)
+  const [syncReload, setSyncReload] = useState(0)
+  const [openSync, setOpenSync] = useState<{ productId: number; channel: string } | null>(null)
 
   const key = `${JSON.stringify(query)}#${reload}`
   const loading = result?.key !== key
@@ -99,6 +112,57 @@ function ProductTable({ token, onLogout, onUnauthorized }: TableProps) {
     }
   }, [token, fail])
 
+  useEffect(() => {
+    let current = true
+    listSyncChannels(token)
+      .then((list) => current && setSyncChannels(list))
+      .catch((e) => current && fail(e))
+    return () => {
+      current = false
+    }
+  }, [token, fail])
+
+  // Trạng thái đồng bộ của trang đang xem. Còn phần PENDING thì tự hỏi lại, hết thì dừng.
+  const pageIds = data?.items.map((p) => p.id).join(',') ?? ''
+  useEffect(() => {
+    if (!pageIds || syncChannels.length === 0) return
+    let current = true
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const load = () =>
+      listSyncStatus(token, pageIds.split(',').map(Number))
+        .then((rows) => {
+          if (!current) return
+          setSync(rows)
+          setSyncError(null)
+          if (rows.some((r) => r.status === 'PENDING')) timer = setTimeout(load, SYNC_POLL_MS)
+        })
+        .catch((e) => {
+          if (!current) return
+          if (e instanceof ApiError && e.status === 401) return onUnauthorized()
+          setSyncError(`Không tải được trạng thái đồng bộ: ${(e as Error).message}`)
+        })
+    void load()
+    return () => {
+      current = false
+      clearTimeout(timer)
+    }
+  }, [token, pageIds, syncChannels.length, syncReload, onUnauthorized])
+
+  const retry = async (productId: number, channel: string, aspect: SyncAspect) => {
+    try {
+      await retrySync(token, productId, channel, aspect)
+      setStatus(`Đã xếp gửi lại sản phẩm #${productId} lên ${channelName(channel)}.`)
+      setError(null)
+      setSyncReload((n) => n + 1)
+    } catch (e) {
+      fail(e)
+    }
+  }
+
+  const channelName = (code: string) => channels.find((c) => c.code === code)?.name ?? code
+  const syncColumns = syncChannels.map((code) => ({ code, name: channelName(code) }))
+  const columnCount = 6 + channels.length + (syncColumns.length > 0 ? 1 : 0)
+
   const setData = (update: (page: Page<Product>) => Page<Product>) =>
     setResult((r) => (r?.page ? { ...r, page: update(r.page) } : r))
 
@@ -112,6 +176,7 @@ function ProductTable({ token, onLogout, onUnauthorized }: TableProps) {
     try {
       const saved = await setProductActive(token, p.id, !p.active)
       setData((d) => ({ ...d, items: d.items.map((x) => (x.id === saved.id ? saved : x)) }))
+      setSyncReload((n) => n + 1)
       setStatus(saved.active ? `Đã hiện ${saved.sku}: cửa hàng và AI thấy lại sản phẩm này.` : `Đã ẩn ${saved.sku}: cửa hàng không hiện, AI không gợi ý.`)
       setError(null)
     } catch (e) {
@@ -125,6 +190,7 @@ function ProductTable({ token, onLogout, onUnauthorized }: TableProps) {
     setEditing(null)
     setStatus(created ? `Đã thêm ${saved.sku}.` : `Đã lưu ${saved.sku}.`)
     setReload((n) => n + 1)
+    setSyncReload((n) => n + 1)
   }
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.size)) : 1
@@ -153,6 +219,7 @@ function ProductTable({ token, onLogout, onUnauthorized }: TableProps) {
 
       {status && <p className="notice" role="status">{status}</p>}
       {error && <p className="error" role="alert">{error}</p>}
+      {syncError && <p className="muted sync-load-error" role="status">{syncError}</p>}
 
       <div className="table-wrap">
         <table className={loading && data ? 'product-table is-loading' : 'product-table'} aria-busy={loading}>
@@ -164,34 +231,54 @@ function ProductTable({ token, onLogout, onUnauthorized }: TableProps) {
               {channels.map((c) => <th key={c.code} className="num">{c.owned ? 'Giá web' : c.name}</th>)}
               <th className="num">Tồn</th>
               <th>Trạng thái</th>
+              {syncColumns.length > 0 && <th>Đồng bộ sàn</th>}
               <th><span className="sr-only">Thao tác</span></th>
             </tr>
           </thead>
           <tbody>
             {data?.items.length === 0 && (
-              <tr><td colSpan={6 + channels.length} className="muted">Không có sản phẩm nào khớp.</td></tr>
+              <tr><td colSpan={columnCount} className="muted">Không có sản phẩm nào khớp.</td></tr>
             )}
-            {data?.items.map((p) => (
-              <tr key={p.id} className={p.active ? undefined : 'row-hidden'}>
-                <td><code>{p.sku}</code></td>
-                <td>
-                  <span className="cell-name">{p.name}</span>
-                  <span className="cell-sub">{p.brand}</span>
-                </td>
-                <td>{labelOf(CATEGORIES, p.category)}</td>
-                {channels.map((c) => (
-                  <td key={c.code} className="num">{p.prices[c.code] != null ? formatVnd(p.prices[c.code]) : <span className="muted">—</span>}</td>
-                ))}
-                <td className="num">{p.stock === 0 ? <span className="badge badge-warn">Hết</span> : p.stock}</td>
-                <td>{p.active ? <span className="badge badge-on">Đang bán</span> : <span className="badge badge-off">Đã ẩn</span>}</td>
-                <td className="row-actions">
-                  <button type="button" className="btn btn-sm" onClick={() => setEditing({ mode: 'edit', product: p })}>Sửa</button>
-                  <button type="button" className="btn btn-sm" disabled={toggling === p.id} onClick={() => toggleActive(p)}>
-                    {p.active ? 'Ẩn' : 'Hiện'}
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {data?.items.map((p) => {
+              const rows = sync.filter((r) => r.productId === p.id)
+              const openChannel = openSync?.productId === p.id ? syncColumns.find((c) => c.code === openSync.channel) : undefined
+              return (
+                <Fragment key={p.id}>
+                  <tr className={p.active ? undefined : 'row-hidden'}>
+                    <td><code>{p.sku}</code></td>
+                    <td>
+                      <span className="cell-name">{p.name}</span>
+                      <span className="cell-sub">{p.brand}</span>
+                    </td>
+                    <td>{labelOf(CATEGORIES, p.category)}</td>
+                    {channels.map((c) => (
+                      <td key={c.code} className="num">{p.prices[c.code] != null ? formatVnd(p.prices[c.code]) : <span className="muted">—</span>}</td>
+                    ))}
+                    <td className="num">{p.stock === 0 ? <span className="badge badge-warn">Hết</span> : p.stock}</td>
+                    <td>{p.active ? <span className="badge badge-on">Đang bán</span> : <span className="badge badge-off">Đã ẩn</span>}</td>
+                    {syncColumns.length > 0 && (
+                      <td>
+                        <SyncStatusCell productId={p.id} channels={syncColumns} rows={rows} open={openChannel?.code ?? null}
+                          onToggle={(channel) => setOpenSync((o) => (o?.productId === p.id && o.channel === channel ? null : { productId: p.id, channel }))} />
+                      </td>
+                    )}
+                    <td className="row-actions">
+                      <button type="button" className="btn btn-sm" onClick={() => setEditing({ mode: 'edit', product: p })}>Sửa</button>
+                      <button type="button" className="btn btn-sm" disabled={toggling === p.id} onClick={() => toggleActive(p)}>
+                        {p.active ? 'Ẩn' : 'Hiện'}
+                      </button>
+                    </td>
+                  </tr>
+                  {openChannel && (
+                    <tr className="sync-detail-row">
+                      <td colSpan={columnCount}>
+                        <SyncDetail product={p} channel={openChannel} rows={rows} onRetry={retry} onClose={() => setOpenSync(null)} />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              )
+            })}
           </tbody>
         </table>
       </div>

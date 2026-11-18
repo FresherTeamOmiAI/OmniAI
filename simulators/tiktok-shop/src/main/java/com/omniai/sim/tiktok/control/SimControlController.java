@@ -1,5 +1,8 @@
 package com.omniai.sim.tiktok.control;
 
+import com.omniai.sim.tiktok.product.ProductCatalog;
+import com.omniai.sim.tiktok.product.ProductModels;
+
 import com.omniai.sim.tiktok.auth.TokenStore;
 import com.omniai.sim.tiktok.cs.CsModels.Message;
 import com.omniai.sim.tiktok.cs.CustomerService;
@@ -38,14 +41,16 @@ public class SimControlController {
     private final WebhookRegistry registry;
     private final TokenStore tokens;
     private final Faults faults;
+    private final ProductCatalog products;
 
     public SimControlController(CustomerService cs, WebhookDispatcher webhooks, WebhookRegistry registry,
-                                TokenStore tokens, Faults faults) {
+                                TokenStore tokens, Faults faults, ProductCatalog products) {
         this.cs = cs;
         this.webhooks = webhooks;
         this.registry = registry;
         this.tokens = tokens;
         this.faults = faults;
+        this.products = products;
     }
 
     /** wait_ms > 0: chờ shop trả lời trong hội thoại đó tối đa wait_ms (bench dùng để đo độ trễ đầu-cuối). */
@@ -95,7 +100,13 @@ public class SimControlController {
         return webhooks.deliveries();
     }
 
-    /** Xóa hội thoại, token, webhook đã đăng ký, log giao và tắt mọi fault. */
+    /** Sản phẩm hub đã đẩy lên (Create/Edit Product, Update Price/Inventory), để đối chiếu với hub (US-50). */
+    @GetMapping("/products")
+    public List<ProductModels.StoredProduct> products() {
+        return products.all();
+    }
+
+    /** Xóa hội thoại, token, webhook đã đăng ký, sản phẩm, log giao và tắt mọi fault. */
     @PostMapping("/reset")
     public Map<String, Object> reset() {
         cs.clear();
@@ -103,6 +114,7 @@ public class SimControlController {
         registry.clear();
         webhooks.clear();
         faults.reset();
+        products.clear();
         return Map.of("reset", true);
     }
 

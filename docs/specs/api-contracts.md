@@ -1,6 +1,6 @@
 # Hợp đồng API
 
-> Cập nhật: 2026-11-18 · T-49.1 `/api/admin/sync/**` trạng thái đồng bộ sản phẩm ra sàn; T-14.2 lọc `/api/conversations` theo ngày, vi phạm, handoff; `ConversationView` thêm số liệu; T-25.4 `MessageView.deliveryStatus`, `deliveryAttempts`; 2026-11-13 · T-04.1 ghi chú JSON sau V15; T-09.3 `/api/orders`; T-09.2 bộ lọc `GET /api/products`; T-04.1 `prices` theo kênh, `GET /api/admin/sales-channels` (decisions #32); trước đó US-11 (T-11.2), US-25, T-47.1
+> Cập nhật: 2026-11-18 · T-49.3 sửa ghi chú `/api/admin/sync/channels` (đã có SHOPEE, TIKTOK); T-50.1–T-50.4 API Products của simulator TikTok, `aspect` và `/link` của đồng bộ; 2026-11-18 · T-49.1 `/api/admin/sync/**` trạng thái đồng bộ sản phẩm ra sàn; T-14.2 lọc `/api/conversations` theo ngày, vi phạm, handoff; `ConversationView` thêm số liệu; T-25.4 `MessageView.deliveryStatus`, `deliveryAttempts`; 2026-11-13 · T-04.1 ghi chú JSON sau V15; T-09.3 `/api/orders`; T-09.2 bộ lọc `GET /api/products`; T-04.1 `prices` theo kênh, `GET /api/admin/sales-channels` (decisions #32); trước đó US-11 (T-11.2), US-25, T-47.1
 > Nguồn: `backend/.../channel/simulator/*`, `channel/web/*`, `channel/tiktok/*`, `catalog/ProductController.java`, `catalog/AdminProductController.java`, `catalog/ProductRequest.java`, `conversation/ConversationController.java`, `brain/*`, `common/*`, `ai-brain/app/main.py`, `ai-brain/app/schemas.py`, `shared/schemas/canonical-message.schema.json`, `web/src/shared/types.ts`
 
 JSON phía backend dùng **camelCase**. Riêng hợp đồng backend → ai-brain dùng **snake_case**.
@@ -19,11 +19,23 @@ JSON phía backend dùng **camelCase**. Riêng hợp đồng backend → ai-brai
 | POST | `/api/v2/sellerchat/send_message` | `{to_id, message_type, content}` + chữ ký | `{response.message_id, conversation_id, content}` | Shop trả lời. Bản giả lập, xem [shopee.md](../channel-api/shopee.md). |
 | GET | `/api/v2/sellerchat/get_message` | query `conversation_id` + chữ ký | `{response.messages[]}` | Đọc tin trong một hội thoại. |
 | GET | `/api/v2/sellerchat/get_conversation_list` | query chữ ký | `{response.conversations[]}` | Danh sách hội thoại của shop. |
-| GET | `/api/products?skinType=&category=&minPrice=&maxPrice=&page=&size=&sort=` | | `PageResponse<Product>` = `{items, page, size, total}` | Chỉ trả sản phẩm `active=true`. Lọc tuỳ chọn, kết hợp AND (T-09.2): `skinType` 1 loại da (`oily, dry, combination, sensitive, normal`, khớp nguyên giá trị trong `skinTypes`); `category` 1 danh mục; `minPrice`/`maxPrice` theo **giá web** (`prices.WEB`, VND, gồm cả mốc). Không phân biệt hoa thường, bỏ trống = không lọc. Giá trị ngoài từ vựng, giá âm, `minPrice > maxPrice` thì `400` ProblemDetail có `errors[{field, message}]`; sai kiểu số thì `400`. Mặc định size 20. |
+| GET | `/api/products?skinType=&category=&minPrice=&maxPrice=&page=&size=&sort=` | | `PageResponse<ProductCard>` = `{items, page, size, total}`, `ProductCard` = `{id, sku, brand, name, category, skinTypes, imageUrl, prices, stock}` (từ T-43.1; INCI, mô tả, nguồn, barcode chỉ có ở `GET /api/products/{id}`) | Chỉ trả sản phẩm `active=true`. Lọc tuỳ chọn, kết hợp AND (T-09.2): `skinType` 1 loại da (`oily, dry, combination, sensitive, normal`, khớp nguyên giá trị trong `skinTypes`); `category` 1 danh mục; `minPrice`/`maxPrice` theo **giá web** (`prices.WEB`, VND, gồm cả mốc). Không phân biệt hoa thường, bỏ trống = không lọc. Giá trị ngoài từ vựng, giá âm, `minPrice > maxPrice` thì `400` ProblemDetail có `errors[{field, message}]`; sai kiểu số thì `400`. Mặc định size 20, sort `id`; `size` > 100 bị hạ về 100; sort chỉ theo `id`, `name`, `createdAt`, field khác `400` ở `errors[].field = sort` (US-43). JSON ≥ 1 KB nén gzip khi request có `Accept-Encoding: gzip`. |
 | GET | `/api/products/sku/{sku}` | | `{sku, brand, name, category, prices, stock}` hoặc 404 | Giá theo kênh và tồn của SKU đang bán (US-15). AI Brain gọi endpoint này. SKU ẩn hoặc không có thì 404. |
 | GET | `/api/products/{id}` | | `Product` hoặc 404 | Sản phẩm `active=false` cũng trả 404 (SRS G-06). |
-| WS | `/ws/chat` | text frame `{messageId, text}` | text frame `BotReply`, hoặc `{error:"invalid_message", messageId}` | Kênh WEB. Origin cho phép: `WEB_ALLOWED_ORIGINS`. JSON hỏng hoặc text rỗng/null thì server trả frame lỗi, không im lặng; `messageId` lấy từ tin gửi lên, là `null` nếu JSON hỏng. Session vẫn mở. Widget có timeout 12 s (lớn hơn `omniai.brain.timeout` 10 s): hết giờ thì báo "Shop đang bận". |
+| WS | `/ws/chat` | text frame `{messageId, text}` | text frame `BotReply`, hoặc `{error:"invalid_message", messageId}` | Kênh WEB. Origin cho phép: `WEB_ALLOWED_ORIGINS`. JSON hỏng hoặc text rỗng/null thì server trả frame lỗi, không im lặng; `messageId` lấy từ tin gửi lên, là `null` nếu JSON hỏng. Session vẫn mở. Widget có timeout 12 s (lớn hơn `omniai.brain.timeout` 10 s): hết giờ thì báo "Shop đang bận". **Đăng nhập (US-13):** mở `/ws/chat?token=<JWT>`; token hợp lệ thì `channelUserId` = customer id, hội thoại `web:c<customerId>` (nối lại vẫn cùng hội thoại), `customerId` vào `CanonicalMessage`. Thiếu/sai/hết hạn token thì vẫn nối như khách vãng lai (`channelUserId` = session id). |
 | GET | `/actuator/health`, `/actuator/info` | | | |
+
+## Đăng nhập người mua (US-13, T-13.1)
+
+Đăng ký = đăng nhập bằng email + OTP 6 số (SRS UC-07, NFR-08). Email được trim + viết thường. `/api/auth/**` mở công khai; `/api/me` cần `Authorization: Bearer <token>` (JWT HS256, `sub` = customer id, claim `email`, `iss=omniai`, hạn 7 ngày), thiếu/sai/hết hạn thì `401`. JWT **không** mở được `/api/admin/**` (admin vẫn Basic, decisions #39). Nguồn: `identity/AuthController.java`, `AuthExceptionHandler.java`.
+
+| Method | Path | Request | Response | Ghi chú |
+|---|---|---|---|---|
+| POST | `/api/auth/otp` | `{email*, consent*}` | `202 {expiresInSeconds: 300, resendAfterSeconds: 60}` | `consent` phải là `true` (đồng ý xử lý dữ liệu cá nhân). Mã gửi qua email (`OTP_SENDER=smtp`) hoặc in ra log backend (`log`, mặc định dev). Gửi mã mới thì mã cũ mất hiệu lực |
+| POST | `/api/auth/otp/verify` | `{email*, code*}` (`code` 6 chữ số) | `200 {token, expiresAt, customer: {id, email, displayName}, newCustomer}` | Đúng mã: tạo `customer` nếu chưa có, gắn `channel_identity` WEB (`linked_by=OTP`, `consent_at`). Mã dùng 1 lần |
+| GET | `/api/me` | Bearer | `{id, email, displayName}` | Khách không còn trong DB thì `401` |
+
+Lỗi là ProblemDetail có `code`: `400` sai dữ liệu (`errors[{field, message}]`), `401 otp_invalid` (kèm `attemptsLeft`), `401 otp_expired` (chưa gửi mã / hết 5 phút / đã dùng), `423 otp_locked` (sai 5 lần, khoá email 15 phút, chặn cả gửi mã), `429 otp_rate_limited` (gửi lại < 60 s hoặc đã 5 mã trong 1 giờ), `503 otp_send_failed` (SMTP lỗi). `423`/`429` có `retryAfterSeconds` và header `Retry-After`.
 
 ## Admin sản phẩm (`/api/admin/**`, US-08, T-08.1)
 
@@ -31,7 +43,7 @@ Cần header `Authorization: Basic` với `ADMIN_USERNAME`/`ADMIN_PASSWORD` (SRS
 
 | Method | Path | Request | Response | Ghi chú |
 |---|---|---|---|---|
-| GET | `/api/admin/products?q=&active=&page=&size=&sort=` | | `PageResponse<Product>` | **Gồm cả sản phẩm ẩn.** `q` tìm trong sku/tên (contains, không phân biệt hoa thường). `active` bỏ trống = tất cả. Mặc định size 20, sort `id`. Sort theo field lạ thì `400` |
+| GET | `/api/admin/products?q=&active=&page=&size=&sort=` | | `PageResponse<Product>` | **Gồm cả sản phẩm ẩn.** `q` tìm trong sku/tên (contains, không phân biệt hoa thường). `active` bỏ trống = tất cả. Mặc định size 20, sort `id`, tối đa 100/trang. Sort chỉ theo `id`, `name`, `createdAt`, field khác `400` |
 | GET | `/api/admin/products/{id}` | | `Product` | Kể cả sản phẩm ẩn. Không có thì `404` |
 | POST | `/api/admin/products` | `ProductRequest` | `201` + `Location`, `Product` | Trùng SKU thì `409`. `active` bỏ trống = `true` |
 | PUT | `/api/admin/products/{id}` | `ProductRequest` | `Product` | Sửa toàn bộ. `sku` phải giữ nguyên, khác thì `400`. `active` bỏ trống = giữ nguyên |
@@ -49,22 +61,23 @@ Cần Basic ADMIN. Màn admin ở T-49.3.
 
 | Method | Path | Response | Ghi chú |
 |---|---|---|---|
-| GET | `/api/admin/sync/channels` | `["SHOPEE", ...]` | Kênh có connector. S3 rỗng trên app thật (connector Shopee sau T-49.2) |
+| GET | `/api/admin/sync/channels` | `["SHOPEE", ...]` | Kênh có connector: `SHOPEE` (giá, tồn sau khi liên kết), `TIKTOK` (cần shop đã ủy quyền mới gửi). Màn admin sinh cột đồng bộ theo danh sách này (T-49.3) |
 | GET | `/api/admin/sync/products/by-ids?ids=1,2,3` | `[SyncView]` | 1–100 id, cho 1 trang bảng sản phẩm. Sản phẩm/kênh chưa từng xếp hàng thì không có dòng |
 | GET | `/api/admin/sync/products?status=&channel=&page=&size=` | `PageResponse<SyncView>` | Lọc `PENDING | SYNCED | FAILED` (không phân biệt hoa thường), mới cập nhật trước. `size` 1–100. Sai thì `400` |
 | POST | `/api/admin/sync/products/{productId}/{channel}/retry` | `SyncView` | Về `PENDING`, `attempts = 0`, gửi ở lượt quét kế. Chưa có dòng thì `404` |
 | POST | `/api/admin/sync/products/resync?channel=SHOPEE` | `{queued}` | Xếp lại mọi sản phẩm của kênh (kể cả nội dung không đổi). Kênh không có connector hoặc tạm ngừng thì `400` |
 
-- `SyncView = {productId, channel, status, attempts, lastError?, externalId?, syncedAt?, nextAttemptAt, updatedAt}`. `externalId` = mã sản phẩm phía sàn sau lần tạo đầu. `attempts` = số lần đã gửi cho bản đang chờ (SYNCED: số lần của lượt thành công).
-- Hợp đồng cho connector (`sync/ProductChannelConnector`): `push(ProductSnapshot, externalId)` tạo khi `externalId == null`, sửa khi có, trả mã phía sàn; ném `SyncException(retryable=false)` khi thử lại vô ích. `ProductSnapshot = {productId, channel, sku, name, brand, category, description, ingredientsInci, sizeMl, imageKeys[], imageUrls[], price (của kênh), stock, active}`.
+- `SyncView = {productId, channel, aspect: PRODUCT|PRICE|STOCK, status, attempts, lastError?, externalId?, syncedAt?, nextAttemptAt, updatedAt}`. `externalId` = mã sản phẩm phía sàn sau lần tạo đầu. `attempts` = số lần đã gửi cho bản đang chờ (SYNCED: số lần của lượt thành công).
+- `POST /api/admin/sync/products/{productId}/{channel}/link` body `{externalId}` (1–64 ký tự) → `[SyncView]` của sản phẩm trên kênh đó: liên kết với mã sản phẩm đã có trên sàn rồi xếp gửi giá, tồn (US-50). Kênh không có connector, sản phẩm không bán ở kênh: `400`. `.../retry` nhận thêm `?aspect=PRODUCT|PRICE|STOCK` (mặc định PRODUCT). `by-ids` trả tối đa 3 dòng / kênh.
+- Hợp đồng cho connector (`sync/ProductChannelConnector`): `aspects()`, `ready()`, `pushPrice(ProductSnapshot, externalId)`, `pushStock(...)` (US-50); `push(ProductSnapshot, externalId)` tạo khi `externalId == null`, sửa khi có, trả mã phía sàn; ném `SyncException(retryable=false)` khi thử lại vô ích. `ProductSnapshot = {productId, channel, sku, name, brand, category, description, ingredientsInci, sizeMl, imageKeys[], imageUrls[], price (của kênh), stock, active}`.
 
 ## Đơn hàng (`/api/orders`, T-09.3, SRS UC-06)
-Mở công khai như store (đơn S2 không gắn khách, không có dữ liệu cá nhân, decisions #34). Từ S3 đơn gắn khách đăng nhập thì phải khoá theo chủ đơn.
+Cần đăng nhập người mua: `Authorization: Bearer <JWT>` (cùng chuỗi filter với `/api/me`, decisions #40). Thiếu/sai/hết hạn token, Basic admin, hoặc token của khách đã bị xoá → `401`. Đơn gắn `customer_id` = `sub` của token (SRS G-04). Nguồn: `order/OrderController.java`, `OrderService.java`.
 
 | Method | Path | Body | Trả về | Ghi chú |
 |---|---|---|---|---|
 | POST | `/api/orders` | `{items: [{productId*, quantity*}]}` | `201` + `Location`, `OrderView` | Tạo đơn **DEMO** trên kênh WEB: không thanh toán, không giao, **không trừ tồn kho** (G-04). 1–20 dòng, `quantity` 1–10; dòng trùng `productId` được gộp (tổng vẫn <= 10). Sản phẩm không có / đang ẩn → `400` ở `items[i].productId`; hết hàng / không đủ hàng / tổng > 10 → `400` ở `items[i].quantity` |
-| GET | `/api/orders/{id}` | | `OrderView` | Không có thì `404` |
+| GET | `/api/orders/{id}` | | `OrderView` | Chỉ chủ đơn xem được. Không có, của khách khác, hoặc đơn S2 không gắn khách → `404` (không lộ đơn có tồn tại) |
 
 - `OrderView`: `id, status ("DEMO"), channel ("WEB"), items[{productId, sku, name, unitPrice, quantity, lineTotal}], total, createdAt, notice` (`notice` = "Đơn thử nghiệm: không thanh toán, không giao hàng."). `unitPrice`, `name`, `sku` là bản chụp lúc đặt.
 - Lỗi theo ProblemDetail như API sản phẩm: `400` có `errors[{field, message}]` (field dạng `items[0].quantity`), JSON hỏng `400`, `404`.
@@ -93,7 +106,9 @@ Hub nói chuyện với sàn theo **đúng hợp đồng TikTok Shop** (snake_ca
 | GET | `/api/admin/channels/tiktok/authorize` | Basic | `{authorizeUrl, stateExpiresAt}` | Mở `authorizeUrl` bằng trình duyệt để ủy quyền |
 | GET | `/api/admin/channels/tiktok/credentials` | Basic | `[CredentialView]` | `CredentialView = {shopId, shopName, status, accessExpiresAt, refreshExpiresAt, scopes}`, **không** trả token |
 
-Simulator (cổng 8090) có thêm API điều khiển `/sim/*` (không có trên sàn thật, JSON snake_case): `POST /sim/buyer/messages {buyer_user_id*, nickname?, text*, wait_ms?}` → `{conversation_id, message_id, tts_notification_id, new_conversation, reply?, reply_latency_ms?}`; `GET|POST /sim/faults` (`api_latency_ms, webhook_delay_ms, webhook_duplicate, sensitive_words[], revoked_scopes[], block_sending`); `POST /sim/tokens/expire?kind=access|refresh`; `GET /sim/deliveries`; `POST /sim/reset`.
+Simulator Products (US-50, scope `seller.product.write` / `.basic`, đi qua cổng ký như CS): `POST /product/202309/images/upload` (multipart `data` + `use_case`, ký không gồm body, không cần `shop_cipher`) → `{uri, url, height, width, use_case}`; `POST /product/202309/products` và `PUT /product/202509/products/{id}` → `{product_id, skus[{id, seller_sku}], warnings}`; `POST /product/202309/products/{id}/prices/update`, `/inventory/update`; `POST /product/202309/products/activate|deactivate`; `GET /product/202309/products/{id}`. Kiểm: `category_id` trong `sim.products.categories` (`12052023`), ảnh phải đã upload (`12052300`, thiếu `12052028`), giá VND nguyên dương (`12052073`, tiền tệ khác `12052084`), đúng 1 kho `sim.products.warehouse-id` (`12052097`), tồn 0–99.999 (`12052055`), `package_weight` > 0 (`12019011`), sản phẩm/SKU không có (`12052260`/`12052032`/`12052556`). `idempotency_key` trùng thì trả lại sản phẩm cũ.
+
+Simulator (cổng 8090) có thêm API điều khiển `/sim/*` (không có trên sàn thật, JSON snake_case): `POST /sim/buyer/messages {buyer_user_id*, nickname?, text*, wait_ms?}` → `{conversation_id, message_id, tts_notification_id, new_conversation, reply?, reply_latency_ms?}`; `GET|POST /sim/faults` (`api_latency_ms, webhook_delay_ms, webhook_duplicate, sensitive_words[], revoked_scopes[], block_sending`); `POST /sim/tokens/expire?kind=access|refresh`; `GET /sim/deliveries`; `GET /sim/products` (sản phẩm hub đã đẩy, US-50); `POST /sim/reset` (xoá cả sản phẩm).
 
 Simulator Shopee đã nhận giá, tồn kho, phát đơn và phát chat: [shopee.md](../channel-api/shopee.md). Hub nhận push tại `POST /api/channels/shopee/push` (chữ ký `callbackUrl|body`), áp luật Shopee rồi ghi tin trả lời vào simulator. Chat seller là bản giả lập vì trang Open Platform không cấp quyền đọc. Chưa có: tài khoản thật (US-13, S3), API đồng bộ hub ↔ kênh (trụ E, từ S3, xem [backend.md](backend.md)).
 

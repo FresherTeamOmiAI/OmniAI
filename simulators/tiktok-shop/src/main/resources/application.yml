@@ -27,6 +27,8 @@ sim:
     - seller.authorization.info
     - seller.customer_service
     - seller.shop.info
+    - seller.product.basic
+    - seller.product.write
   # Địa chỉ webhook mặc định khi chưa ai gọi Update Shop Webhook.
   default-webhook-address: ${TIKTOK_WEBHOOK_URL:http://localhost:8080/api/channels/tiktok/webhook}
   access-token-ttl: 7d
