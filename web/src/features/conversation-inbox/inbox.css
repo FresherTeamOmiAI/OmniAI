@@ -4,6 +4,9 @@
 .inbox-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .inbox-date { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); font-weight: 600; }
 .inbox-date input { min-height: var(--control-h-sm); }
+/* .admin-toolbar input (admin sản phẩm) cho ô nhập flex 1 1 260px; ô ngày và checkbox nằm trong label nên phải bỏ,
+   nếu không label rộng 360 px và tràn ngang ở màn 390 px. */
+.inbox-filters .inbox-date input, .inbox-filters .check input { flex: none; min-width: 0; }
 
 .badge-danger { border-color: var(--color-danger-border); background: var(--color-danger-soft); color: var(--color-danger); }
 

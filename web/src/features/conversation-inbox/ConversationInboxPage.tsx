@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { startTransition, useCallback, useEffect, useOptimistic, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { ApiError } from '../../shared/lib/http'
 import type { ChannelType, Page, PolicyViolation } from '../../shared/types'
@@ -79,6 +79,9 @@ interface InboxProps {
 function Inbox({ token, onLogout, onUnauthorized }: InboxProps) {
   const [params, setParams] = useSearchParams()
   const filter = readFilter(params)
+  // react-router đổi URL trong transition: control lấy giá trị từ URL sẽ nháy về giá trị cũ 1 nhịp sau khi bấm.
+  // useOptimistic cho chip, ô ngày, checkbox hiện ngay giá trị mới; danh sách vẫn tải theo URL.
+  const [shown, setShown] = useOptimistic(filter)
   const selectedId = Number(params.get('id')) || null
   const [result, setResult] = useState<{ key: string; page: Page<ConversationView> | null } | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -113,8 +116,13 @@ function Inbox({ token, onLogout, onUnauthorized }: InboxProps) {
     }
   }, [token, query, key, fail])
 
-  const update = (change: Partial<InboxFilter>, keepSelection = false) =>
-    setParams(toParams({ ...filter, page: 0, ...change }, keepSelection ? selectedId : null))
+  const update = (change: Partial<InboxFilter>, keepSelection = false) => {
+    const next = { ...filter, page: 0, ...change }
+    startTransition(() => {
+      setShown(next)
+      setParams(toParams(next, keepSelection ? selectedId : null))
+    })
+  }
   const select = (id: number | null) => setParams(toParams(filter, id))
   const filtered = Boolean(filter.channel || filter.from || filter.to || filter.hasViolation || filter.handoff)
   const totalPages = data ? Math.max(1, Math.ceil(data.total / LIST_SIZE)) : 1
@@ -133,29 +141,29 @@ function Inbox({ token, onLogout, onUnauthorized }: InboxProps) {
 
       <form className="admin-toolbar inbox-filters" onSubmit={(e) => e.preventDefault()} aria-label="Lọc hội thoại">
         <div className="inbox-chips" role="group" aria-label="Kênh">
-          <button type="button" className={filter.channel ? 'chip' : 'chip chip-active'} aria-pressed={!filter.channel} onClick={() => update({ channel: '' })}>
+          <button type="button" className={shown.channel ? 'chip' : 'chip chip-active'} aria-pressed={!shown.channel} onClick={() => update({ channel: '' })}>
             Mọi kênh
           </button>
           {CHANNELS.map((c) => (
-            <button key={c.code} type="button" className={filter.channel === c.code ? 'chip chip-active' : 'chip'} aria-pressed={filter.channel === c.code} onClick={() => update({ channel: c.code })}>
+            <button key={c.code} type="button" className={shown.channel === c.code ? 'chip chip-active' : 'chip'} aria-pressed={shown.channel === c.code} onClick={() => update({ channel: c.code })}>
               {c.label}
             </button>
           ))}
         </div>
         <label className="inbox-date">
           Từ ngày
-          <input type="date" value={filter.from} max={filter.to || undefined} onChange={(e) => update({ from: e.target.value })} />
+          <input type="date" value={shown.from} max={shown.to || undefined} onChange={(e) => update({ from: e.target.value })} />
         </label>
         <label className="inbox-date">
           Đến ngày
-          <input type="date" value={filter.to} min={filter.from || undefined} onChange={(e) => update({ to: e.target.value })} />
+          <input type="date" value={shown.to} min={shown.from || undefined} onChange={(e) => update({ to: e.target.value })} />
         </label>
         <label className="check">
-          <input type="checkbox" checked={filter.hasViolation} onChange={(e) => update({ hasViolation: e.target.checked })} />
+          <input type="checkbox" checked={shown.hasViolation} onChange={(e) => update({ hasViolation: e.target.checked })} />
           Có vi phạm
         </label>
         <label className="check">
-          <input type="checkbox" checked={filter.handoff} onChange={(e) => update({ handoff: e.target.checked })} />
+          <input type="checkbox" checked={shown.handoff} onChange={(e) => update({ handoff: e.target.checked })} />
           Cần nhân viên
         </label>
         {filtered && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setParams(new URLSearchParams())}>Bỏ lọc</button>}
