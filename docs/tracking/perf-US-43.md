@@ -90,5 +90,21 @@ Cùng máy, cùng dữ liệu (10.000 tin seed), cùng lệnh `perf.load_test` (
 - `size=500` trả 100 SP. Câu `UPDATE product_channel_sync` xuất hiện xen giữa khi đếm là worker đồng bộ chạy nền (T-49.1), không thuộc request.
 - Tiêu chí đặc tả mục 2 cho phần backend: ≤ 8 câu SQL/trang ✓, `size=500` ≤ 100 ✓, sort lạ 400 ✓, gzip ✓, p95 store/chi tiết/hội thoại < 300 ms ✓.
 
-### Sau T-43.4, T-43.3
+### Sau T-43.4 (ai-brain), đo 2026-11-18
+`perf.brain_db` (bản mới: `load_search_rows` + `search_product` + `catalog_snapshot`, 10–20 lượt mỗi trạng thái). **Lạnh** = cache vừa hết hạn, tức câu chat đầu tiên sau mỗi 120 s; **ấm** = mọi câu chat khác trong TTL.
+
+| Chỉ số | Trước (mỗi câu chat) | Sau, ấm | Sau, lạnh (1 lần / 120 s) |
+|---|---|---|---|
+| Câu SELECT tới DB | 5 | **0** | 4 (trang 100 SKU) |
+| Dòng đọc về | 464 | 0 | 364 |
+| Dòng sản phẩm trong prompt | 100 / 364 SKU | **≤ 8** (hoặc 3 gợi ý) | ≤ 8 |
+| DB p50 local | 219,7 ms | **0 ms** | 94,6 ms (p95 136) |
+| DB p50 Supabase | 10.876 ms | **0 ms** | **1.220 ms** (p95 3.113) |
+| Xếp hạng (cosine Python) | – | 0,4–0,8 ms | như ấm |
+
+- Tới pooler Supabase mỗi vòng mạng ~300 ms (`SELECT 1` + rollback = 614 ms). Cách cũ gửi `SET`, `SELECT`, `ROLLBACK` riêng: 4 trang = 3,5 s; gộp 1 lần gửi `BEGIN READ ONLY; SET LOCAL …; SELECT; COMMIT`: 0,8–1,2 s. Bỏ cột vector khỏi SELECT không đổi gì (3,5 s so với 3,5 s), nên vẫn đọc vector.
+- Chạy thật `/chat` (Gemini, Postgres local, 5 câu): log `db_ms=149` ở câu đầu (có mở kết nối), `db_ms=0` các câu sau, `rank_ms` 0–24, `llm_ms` 2,3–6,4 s. `NIVE-SUN-02` (SKU sau vị trí 100) được gợi ý và giữ đúng giá 201.000đ, trước đây giá này luôn bị `grounding.py` xoá.
+- Tiêu chí đặc tả mục 2 cho ai-brain: 10 câu chat trong TTL chỉ đọc DB 1 lần ✓ (pytest), không mở kết nối mới mỗi câu ✓, SKU vị trí > 100 giữ giá ✓.
+
+### Sau T-43.3
 _Chưa đo._
