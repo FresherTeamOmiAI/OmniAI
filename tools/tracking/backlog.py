@@ -8,12 +8,12 @@ PROJECT_START = date(2026, 11, 3)  # Thứ Ba
 PROJECT_END = date(2027, 2, 1)     # hết tuần đệm trước demo
 SPRINT_DAYS = 7
 
-# (tên, vai trò, capacity md/sprint)
+# (tên, vai trò, capacity md/sprint). Nâng ngày 18/11 sau review S2: S2 nhận 10/7,5/6,5/5 md vẫn làm được (decisions #37)
 MEMBERS = [
-    ("HungDQ", "PO + Lead · Policy engine, Bench, CI", 3),
-    ("TuTM", "Dev · Channel Gateway, đồng bộ hub ↔ kênh, simulator TikTok Shop", 5),
-    ("LucVT", "Dev · Identity, Customer, Catalog, Promotion, Order", 5),
-    ("ChienPX", "Dev · AI Brain (agent, RAG, luật mỹ phẩm), simulator Shopee", 5),
+    ("HungDQ", "PO + Lead · Policy engine, Bench, CI", 6),
+    ("TuTM", "Dev · Channel Gateway, đồng bộ hub ↔ kênh, simulator TikTok Shop", 10),
+    ("LucVT", "Dev · Identity, Customer, Catalog, Promotion, Order", 10),
+    ("ChienPX", "Dev · AI Brain (agent, RAG, luật mỹ phẩm), simulator Shopee", 10),
 ]
 MEMBER_NAMES = [m[0] for m in MEMBERS]
 
@@ -158,21 +158,32 @@ BACKLOG = [
        "Web Store", "WEB",
        [("Trang danh sách + chi tiết sản phẩm", "FE", L, 2, "Lọc 5 loại da đúng"),
         ("API lọc theo loại da, danh mục, khoảng giá", "BE", L, 1, "Test 6 tổ hợp lọc"),
-        ("Đặt hàng ảo (không thanh toán, không giao)", "BE", L, 1.5, "Đơn tạo ra có trạng thái DEMO, không gọi cổng thanh toán")]),
+        ("Đặt hàng ảo (không thanh toán, không giao)", "BE", L, 1.5, "Đơn tạo ra có trạng thái DEMO, không gọi cổng thanh toán"),
+        # Thêm 18/11 sau review S2 (docs/tracking/review-S2.md)
+        ("Chạy TC trình duyệt US-09 mục C, D trên giao diện mới, ghi kết quả", "Test", L, 0.5,
+         "TC-09-40..50 và TC-09-70..74 có dòng kết quả trong docs/testcases/US-09.md")]),
     us("US-10", "B", "Must have", "P0", 2, C, "Gợi ý sản phẩm bằng RAG",
        "Là người mua, tôi muốn hỏi \"kem chống nắng cho da dầu dưới 300k\" và được gợi ý đúng sản phẩm có trong shop.",
        "Given catalog 80 SKU\nWhen hỏi kèm ràng buộc loại da/giá\nThen top-3 gợi ý đều có thật trong catalog và đúng ràng buộc; không bịa tên sản phẩm; chỉ gợi ý sản phẩm active",
        "AI Brain", "All",
        [("Embedding catalog vào pgvector", "AI", C, 2, "Truy vấn mẫu trả về đúng sản phẩm"),
         ("Tool search_product cho agent", "AI", C, 1.5, "10 ca bench RAG pass"),
-        ("10 ca bench gợi ý sản phẩm", "Test", C, 0.5, "Có trong datasets/")]),
+        ("10 ca bench gợi ý sản phẩm", "Test", C, 0.5, "Có trong datasets/"),
+        # Thêm 18/11 sau review S2
+        ("RAG đọc giá 'triệu/tr', khoảng giá, 'tầm X'; chặn tên sản phẩm ngoài catalog trong câu LLM", "AI", C, 1,
+         "pytest: 'dưới 1 triệu' = 1.000.000đ, '1tr5' = 1.500.000đ, 'từ 200k đến 400k' là khoảng; "
+         "tên sản phẩm không có trong catalog không tới khách; rag.jsonl 10/10")]),
     us("US-11", "COMMON", "Must have", "P0", 2, T, "Lưu hội thoại mọi kênh",
        "Là admin, tôi muốn hội thoại ở mọi kênh được lưu để xem lại.",
        "Given khách chat ở bất kỳ kênh nào\nWhen tin vào/ra\nThen lưu đủ kênh, conversation_id, rawText, finalText, luật vi phạm",
        "Gateway/Adapter", "All",
        [("Schema + repository conversation/message", "BE", T, 1.5, "Migration Flyway chạy được trên Postgres (Testcontainers)"),
         ("API GET /api/conversations (lọc kênh, phân trang)", "API", T, 1, "Test lọc theo kênh"),
-        ("Test lưu tin khi AI Brain lỗi", "Test", T, 0.5, "Tin vẫn được lưu, handoff=true")]),
+        ("Test lưu tin khi AI Brain lỗi", "Test", T, 0.5, "Tin vẫn được lưu, handoff=true"),
+        # Thêm 18/11 sau review S2
+        ("MessageRouter chống trùng nguyên tử; PageResponse chuyển sang common; TC timeout 12 s và invalid_message", "BE", T, 0.5,
+         "Test: 2 request trùng gửi đồng thời chỉ gọi Brain 1 lần; conversation không import catalog; "
+         "docs/testcases/US-06.md có TC cho timeout 12 s và invalid_message")]),
     us("US-12", "A", "Must have", "P0", 2, H, "Bộ bench 50 ca",
        "Là Lead, tôi muốn có 50 ca bench để đo chất lượng mỗi lần đổi prompt/model.",
        "Given dataset 50 ca phủ >= 5 nhóm (sản phẩm, bẫy policy, mỹ phẩm, injection, đa kênh)\nWhen chạy python -m bench.run\nThen có báo cáo .md/.json theo kênh",
@@ -183,7 +194,12 @@ BACKLOG = [
         ("Tổng hợp tài liệu và phương pháp benchmark", "Doc", H, 0.5,
          "docs/bench/huong-dan-benchmark.md: quy trình, cách áp vào OmniAI, link đã mở kiểm tra"),
         ("Bỏ FakeProvider: brain và bench chạy LLM thật + database thật", "Bench", H, 0.5,
-         "Không còn LLM_PROVIDER=fake; pytest pass bằng stub trong tests/; bench chạy với Gemini + Postgres")]),
+         "Không còn LLM_PROVIDER=fake; pytest pass bằng stub trong tests/; bench chạy với Gemini + Postgres"),
+        # Thêm 18/11 sau review S2
+        ("Bench: sửa p95, tách độ trễ khỏi pass/fail, 'AI vi phạm' = n/a với kênh sàn, nhiều dataset 1 lần chạy, "
+         "lưu tóm tắt mỗi sprint", "Bench", H, 0.5,
+         "pytest: p95 theo nearest rank; báo cáo có cột chậm riêng; 1 lệnh chạy cả 5 dataset; "
+         "tóm tắt JSON mỗi sprint được commit")]),
     # Thêm 11/11 sau buổi họp với thầy: kênh sàn 100% simulator, kéo US-21 (S5) và US-25 (S6) về S2,
     # Shopee giao ChienPX, TikTok giao TuTM (decisions #22, #24)
     us("US-21", "A", "Must have", "P0", 2, C, "Kênh Shopee (simulator theo schema thật)",
@@ -196,7 +212,20 @@ BACKLOG = [
         ("Test adapter Shopee", "Test", C, 0.5, "5 ca bench kênh Shopee pass"),
         ("Đọc tài liệu API Shopee và TikTok Shop, viết bảng đối chiếu cho Shopee", "Spike", C, 1,
          "docs/channel-api/shopee.md: chat/CSKH, sản phẩm, giá, tồn kho, khuyến mãi, đơn hàng (kể cả xác nhận/hủy), "
-         "duyệt sản phẩm, đánh giá; có URL nguồn và ngày lấy")]),
+         "duyệt sản phẩm, đánh giá; có URL nguồn và ngày lấy"),
+        # Thêm 18/11 sau review S2: US-21 mở lại vì hub chưa gửi tin qua API của simulator (decisions #37)
+        ("Simulator Shopee bật/tắt bằng cấu hình, hub không cần DB shopee để khởi động; specs + decisions cho PR #254",
+         "BE", C, 0.5,
+         "Tắt simulator thì hub khởi động được khi không có DB shopee; profile supabase khởi động được; "
+         "backend.md, ai-brain.md, bench.md, overview.md khớp code"),
+        ("Hub gửi trả lời Shopee qua send_message có ký; nhận push trả 200 ngay rồi xử lý nền; simulator tự đẩy push, "
+         "có thử lại", "BE", C, 2,
+         "Test: Brain chậm 5 s vẫn ack push < 2 s; trả lời đi qua HTTP send_message, sai chữ ký thì simulator từ chối; "
+         "hub lỗi thì simulator thử lại 3 lần"),
+        ("Prompt kênh sàn lấy từ YAML từng kênh; bench trước/sau rawText; ghi kết quả 5 ca Shopee; TC US-21",
+         "AI", C, 1,
+         "Prompt TIKTOK cấm 'Shopee', không cấm 'TikTok'; tỉ lệ vi phạm rawText trước/sau và 5 ca shopee-flow "
+         "ghi trong docs/testcases/US-21.md")]),
     us("US-25", "A", "Must have", "P0", 2, T, "Kênh TikTok Shop (simulator theo schema thật)",
        "Là người mua trên TikTok Shop, tôi muốn được tư vấn ngay trong chat TikTok Shop.",
        "Given simulator TikTok Shop theo schema thật (webhook và API gửi tin chép từ tài liệu TikTok Shop, có kiểm chữ ký)\nWhen buyer gửi tin\nThen nhận phản hồi đã qua luật TikTok",
@@ -206,7 +235,15 @@ BACKLOG = [
         ("Test adapter TikTok", "Test", T, 0.5, "5 ca bench kênh TikTok pass"),
         ("Đọc tài liệu API TikTok Shop và Shopee, viết bảng đối chiếu cho TikTok Shop", "Spike", T, 1,
          "docs/channel-api/tiktok.md: chat/CSKH, sản phẩm, giá, tồn kho, khuyến mãi, đơn hàng (kể cả xác nhận/hủy), "
-         "duyệt sản phẩm, đánh giá; có URL nguồn và ngày lấy")]),
+         "duyệt sản phẩm, đánh giá; có URL nguồn và ngày lấy"),
+        # Thêm 18/11 sau review S2 (T-25.2 được chấp nhận 3/5, decisions #36)
+        ("TikTok: gửi lỗi sau khi đã trả 200 thì đánh dấu handoff và thử lại; handoff đúng như tiktok.md; "
+         "test hàng đợi đầy 503", "BE", T, 1.5,
+         "TiktokWebhookIT: gửi lỗi thì tin được lưu handoff=true và được thử lại; 45109001/không có quyền thì handoff; "
+         "hàng đợi đầy trả 503"),
+        ("Bảng đối chiếu tiktok.md: huỷ đơn, đánh giá, URL nguồn từng trang; sửa tham chiếu test/decisions cũ",
+         "Doc", T, 0.5,
+         "Mỗi nhóm API có URL trang riêng; có mục huỷ đơn và đánh giá (không có API thì ghi rõ kèm URL đã tra)")]),
     us("US-47", "B", "Must have", "P0", 2, L, "Dữ liệu sản phẩm thật kèm ảnh",
        "Là người mua, tôi muốn thấy sản phẩm thật có ảnh để việc tư vấn và demo giống thực tế.",
        "Given nguồn dữ liệu sản phẩm thật\nWhen kiểm tra bộ dữ liệu tìm được\nThen mỗi sản phẩm có tên, thương hiệu, giá, thành phần và ít nhất 1 ảnh mở được; ghi rõ nguồn và điều kiện sử dụng; nơi lưu ảnh (Supabase Storage hoặc local) được PO chốt và ghi vào decisions",
@@ -260,6 +297,30 @@ BACKLOG = [
          "Payload đúng mẫu trong tài liệu Shopee; sai chữ ký thì từ chối"),
         ("Trạng thái đồng bộ theo kênh trên màn admin sản phẩm", "FE", L, 1,
          "Thấy Đã đồng bộ / Đang chờ / Lỗi theo từng kênh")]),
+    # Kéo từ S10 về S3 ngày 18/11 sau review S2: chat widget tải cả catalog mỗi lần mở trang, ai-brain đọc lại DB
+    # mỗi câu chat. LucVT làm trọn cả widget, backend, ai-brain (decisions #37, docs/tracking/dac-ta-hieu-nang-catalog.md)
+    us("US-43", "COMMON", "Should have", "P1", 3, L, "Tối ưu hiệu năng dữ liệu",
+       "Là người mua, tôi muốn trang store và bot phản hồi nhanh khi dữ liệu nhiều.",
+       "Given 300 SKU, 10.000 tin nhắn\nWhen tải store và hỏi bot\nThen API p95 < 300ms",
+       "Catalog", "All",
+       [("Index, tối ưu query", "BE", L, 2, "So sánh trước/sau"),
+        ("Load test", "Test", L, 1, "Báo cáo p95"),
+        # Thêm 18/11
+        ("Chat widget không tải cả catalog: brain trả SKU gợi ý, backend gắn ảnh và id", "FE", L, 1,
+         "Mở store: widget không gọi /api/products; thẻ gợi ý có ảnh, SKU, link /products/:id; api-contracts.md cập nhật"),
+        ("ai-brain: pool kết nối, cache catalog theo TTL, đọc đủ SKU, chịu được giá NULL", "AI", L, 1,
+         "pytest: 10 lượt chat trong TTL chỉ đọc DB 1 lần; SKU ở vị trí > 100 giữ đúng giá; giá NULL không làm /chat lỗi")]),
+    # Thêm 18/11 sau review S2: làm mới giao diện theo design system (HungDQ nhờ Claude làm)
+    us("US-56", "COMMON", "Should have", "P1", 3, H, "Giao diện web thống nhất theo design system",
+       "Là người mua và admin, tôi muốn giao diện web rõ ràng, dễ đọc, nhất quán ở mọi trang để dùng và demo dễ hơn.",
+       "Given mở mọi trang web\nWhen xem trên desktop và màn 390 px\nThen cùng một bộ token màu, chữ, khoảng cách; "
+       "chữ đạt tương phản AA; có trạng thái đang tải, rỗng, lỗi; widget chat không che giá và nút Đặt thử",
+       "Web Store", "WEB",
+       [("Design system: token màu, chữ, khoảng cách, chuyển động (ui-ux-pro-max + emil-design-eng)", "UI", H, 0.5,
+         "docs/specs/design-system.md; chữ ≥ 4,5:1, viền ô nhập và focus ≥ 3:1 (script kiểm)"),
+        ("Áp design system cho store, chi tiết, chat widget, admin, trang thử luật", "FE", H, 1.5,
+         "npm run build + lint pass; TC US-06, US-08 mục D, US-09 mục C, D vẫn đạt; 390 px không tràn ngang; "
+         "không còn mã màu ngoài tokens.css")]),
     # ---------------- Sprint 4 ----------------
     us("US-17", "A", "Must have", "P0", 4, T, "Kênh Telegram (hủy 11/11, decisions #22)",
        "Là người mua, tôi muốn chat với shop qua Telegram và nhận cùng chất lượng tư vấn như trên web.",
@@ -482,12 +543,7 @@ BACKLOG = [
        "Gateway/Adapter", "All",
        [("Đo latency, token, chi phí", "BE", T, 2, "Số liệu khớp log"),
         ("Biểu đồ trên admin", "FE", T, 1, "Lọc theo kênh")]),
-    us("US-43", "COMMON", "Should have", "P1", 10, L, "Tối ưu hiệu năng dữ liệu",
-       "Là người mua, tôi muốn trang store và bot phản hồi nhanh khi dữ liệu nhiều.",
-       "Given 300 SKU, 10.000 tin nhắn\nWhen tải store và hỏi bot\nThen API p95 < 300ms",
-       "Catalog", "All",
-       [("Index, tối ưu query", "BE", L, 2, "So sánh trước/sau"),
-        ("Load test", "Test", L, 1, "Báo cáo p95")]),
+    # US-43 (Tối ưu hiệu năng dữ liệu) đã kéo về S3 ngày 18/11, xem khối Sprint 3.
     us("US-44", "B", "Should have", "P1", 10, C, "Tối ưu prompt theo bench",
        "Là PO, tôi muốn chất lượng tư vấn tăng dựa trên số liệu bench, không theo cảm tính.",
        "Given báo cáo bench S9\nWhen tối ưu prompt/tool\nThen pass rate tăng, vi phạm ở rawText giảm, không ca nào tụt",
