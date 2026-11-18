@@ -48,12 +48,25 @@ public record ProductSnapshot(
                 p.getStock(), p.isActive());
     }
 
+    /** Hash của phần {@code aspect}: PRODUCT = {@link #contentHash()}, PRICE = giá của kênh, STOCK = tồn kho. */
+    public String hashOf(SyncAspect aspect) {
+        return switch (aspect) {
+            case PRODUCT -> contentHash();
+            case PRICE -> sha256(List.of(channel, sku, String.valueOf(price)));
+            case STOCK -> sha256(List.of(channel, sku, Integer.toString(stock)));
+        };
+    }
+
     /** SHA-256 (hex) của nội dung US-49. Hai snapshot cùng hash thì sàn không cần nhận lại. */
     public String contentHash() {
-        StringBuilder sb = new StringBuilder();
-        for (Object field : List.of(channel, sku, String.valueOf(name), String.valueOf(brand), String.valueOf(category),
+        return sha256(List.of(channel, sku, String.valueOf(name), String.valueOf(brand), String.valueOf(category),
                 String.valueOf(description), String.valueOf(ingredientsInci), String.valueOf(sizeMl),
-                String.join("\n", imageKeys), Boolean.toString(active))) {
+                String.join("\n", imageKeys), Boolean.toString(active)));
+    }
+
+    private static String sha256(List<String> fields) {
+        StringBuilder sb = new StringBuilder();
+        for (String field : fields) {
             sb.append(field).append('\u0000');
         }
         try {

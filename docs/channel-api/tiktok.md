@@ -1,6 +1,6 @@
 # TikTok Shop: bảng đối chiếu API cho simulator và đồng bộ hub ↔ kênh
 
-> Cập nhật: 2026-11-18 · T-25.5 (một phần): URL từng trang có sẵn, mục 7.1 huỷ đơn / trả hàng, 7.2 đánh giá, sửa tên test; T-25.4 mục 6, 9: thử lại và handoff khi gửi lỗi; 2026-11-11 · commit 0821a35 · Owner: TuTM · T-25.3 (US-25)
+> Cập nhật: 2026-11-18 · US-50 simulator nhận Products (mục 7); 2026-11-18 · T-25.4 mục 6, 9: thử lại và handoff khi gửi lỗi; 2026-11-11 · commit 0821a35 · Owner: TuTM · T-25.3 (US-25)
 > DTO chi tiết từng API (request, response, mã lỗi): [tiktok-dto.md](tiktok-dto.md), sinh bằng `tools/channel-api/extract_tiktok_dto.py`.
 
 ## 1. Nguồn và độ tin cậy
@@ -115,7 +115,7 @@ Scope cần cấp: `seller.authorization.info`, `seller.customer_service`; từ 
 
 ## 7. Danh sách API
 
-Cột "Sim S2": ✅ = simulator có code ở S2. Các API khác chỉ ghi DTO, code theo US ở cột cuối.
+Cột "Sim S2": ✅ = simulator có code (S2; Products ở S4, US-50: Edit chưa có Partial Edit, Activate/Deactivate chưa có Delete/Recover). Các API khác chỉ ghi DTO, code theo US ở cột cuối.
 
 | Nhóm | API | Method + path | Scope | Đi/Về | Sim S2 | US |
 |---|---|---|---|---|---|---|
@@ -132,15 +132,15 @@ Cột "Sim S2": ✅ = simulator có code ở S2. Các API khác chỉ ghi DTO, c
 | Customer Service | Upload Image for Buyer Messages | `POST /customer_service/202309/images/upload` | seller.customer_service | Đi | | 47 |
 | Customer Service | Get/Update Agent Settings | `GET`/`PUT /customer_service/202309/agents/settings` | seller.customer_service | | | 14 |
 | Products | Search Products | `POST /product/202502/products/search` | seller.product.basic | Về: trạng thái duyệt | | 49, 54 |
-| Products | Get Product | `GET /product/202309/products/{id}` | seller.product.basic | Về | | 49, 54 |
-| Products | Create Product | `POST /product/202309/products` (có `idempotency_key`) | seller.product.write | Đi: sản phẩm | | 49 |
-| Products | Edit / Partial Edit Product | `PUT /product/202509/products/{id}`, `POST .../partial_edit` | seller.product.write | Đi | | 49 |
-| Products | Update Inventory | `POST /product/202309/products/{id}/inventory/update` | seller.product.write | Đi: tồn kho | | 50 |
-| Products | Update Price | `POST /product/202309/products/{id}/prices/update` | seller.product.write | Đi: giá | | 50 |
+| Products | Get Product | `GET /product/202309/products/{id}` | seller.product.basic | Về | ✅ (S4) | 49, 54 |
+| Products | Create Product | `POST /product/202309/products` (có `idempotency_key`) | seller.product.write | Đi: sản phẩm | ✅ (S4) | 49 |
+| Products | Edit / Partial Edit Product | `PUT /product/202509/products/{id}`, `POST .../partial_edit` | seller.product.write | Đi | ✅ (S4) | 49 |
+| Products | Update Inventory | `POST /product/202309/products/{id}/inventory/update` | seller.product.write | Đi: tồn kho | ✅ (S4) | 50 |
+| Products | Update Price | `POST /product/202309/products/{id}/prices/update` | seller.product.write | Đi: giá | ✅ (S4) | 50 |
 | Products | Inventory Search | `POST /product/202309/inventory/search` | seller.product.basic | Về: đối soát tồn kho | | 50 |
-| Products | Activate / Deactivate / Delete / Recover | `POST /product/202309/products/activate`, `/deactivate`, `DELETE /product/202309/products`, `POST .../recover` | seller.product.basic/delete | Đi: ẩn/hiện | | 49 |
+| Products | Activate / Deactivate / Delete / Recover | `POST /product/202309/products/activate`, `/deactivate`, `DELETE /product/202309/products`, `POST .../recover` | seller.product.basic/delete | Đi: ẩn/hiện | ✅ (S4) | 49 |
 | Products | Get Categories / Category Attributes / Category Rules / Brands / Recommend Category | `GET /product/202309/categories...`, `GET /product/202309/brands`, `POST /product/202309/categories/recommend` | seller.product.basic | | | 49 |
-| Products | Upload Product Image | `POST /product/202309/images/upload` | seller.product.basic | Đi: ảnh | | 47, 49 |
+| Products | Upload Product Image | `POST /product/202309/images/upload` | seller.product.basic | Đi: ảnh | ✅ (S4) | 47, 49 |
 | Orders | Get Order List | `POST /order/202309/orders/search` | seller.order.info | Về: đơn hàng | | 51 |
 | Orders | Get Order Detail | `GET /order/202507/orders?ids=` | seller.order.info | Về | | 51 |
 | Orders | Get Order Price Details | `GET /order/202407/orders/{id}/price_detail` | seller.order.info | Về | | 51 |

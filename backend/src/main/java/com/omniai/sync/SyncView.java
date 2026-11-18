@@ -9,6 +9,7 @@ import java.time.Instant;
 public record SyncView(
         Long productId,
         String channel,
+        SyncAspect aspect,
         SyncStatus status,
         int attempts,
         String lastError,
@@ -18,7 +19,7 @@ public record SyncView(
         Instant updatedAt) {
 
     static SyncView of(ProductSyncState s) {
-        return new SyncView(s.getId().getProductId(), s.getId().getChannel(), s.getStatus(), s.getAttempts(),
+        return new SyncView(s.getId().getProductId(), s.getId().getChannel(), s.getId().getAspect(), s.getStatus(), s.getAttempts(),
                 s.getLastError(), s.getExternalId(), s.getSyncedAt(), s.getNextAttemptAt(), s.getUpdatedAt());
     }
 }

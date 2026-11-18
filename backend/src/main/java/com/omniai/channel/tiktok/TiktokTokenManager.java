@@ -132,6 +132,14 @@ public class TiktokTokenManager {
         }
     }
 
+    /** Shop TikTok đang ACTIVE đầu tiên (demo có 1 shop). Rỗng nếu chưa ủy quyền hoặc đã bị gỡ. */
+    public java.util.Optional<String> activeShopId() {
+        return repository.findByChannelOrderByShopId(ChannelType.TIKTOK).stream()
+                .filter(c -> c.getStatus() == ChannelCredential.Status.ACTIVE)
+                .map(ChannelCredential::getShopId)
+                .findFirst();
+    }
+
     public void markStatus(String shopId, ChannelCredential.Status status) {
         repository.findByChannelAndShopId(ChannelType.TIKTOK, shopId).ifPresent(c -> {
             c.setStatus(status);

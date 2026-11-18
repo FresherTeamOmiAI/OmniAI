@@ -106,6 +106,31 @@ public class TiktokApi {
         }
     }
 
+    /**
+     * Gọi API multipart/form-data (Upload Product Image): ký chỉ trên path + query, không gồm body, không có
+     * shop_cipher (docv2). File ở part {@code data}, các trường khác là part chữ.
+     */
+    public <T> T upload(String path, byte[] data, String fileName, Map<String, String> fields, String accessToken,
+                        Class<T> dataType) {
+        Map<String, String> query = new LinkedHashMap<>();
+        query.put("app_key", props.appKey());
+        query.put("timestamp", Long.toString(clock.instant().getEpochSecond()));
+        query.put("sign", TiktokSigner.signRequest(path, query, null, props.appSecret()));
+        org.springframework.util.LinkedMultiValueMap<String, Object> form = new org.springframework.util.LinkedMultiValueMap<>();
+        form.add("data", new org.springframework.core.io.ByteArrayResource(data) {
+            @Override
+            public String getFilename() {
+                return fileName;
+            }
+        });
+        fields.forEach(form::add);
+        Raw raw = rest.post().uri(uri(path, query)).contentType(MediaType.MULTIPART_FORM_DATA)
+                .header(ACCESS_TOKEN_HEADER, accessToken).body(form)
+                .exchange((request, response) -> new Raw(response.getStatusCode().value(),
+                        new String(response.getBody().readAllBytes(), StandardCharsets.UTF_8)));
+        return TiktokModels.JSON.treeToValue(unwrap(raw), dataType);
+    }
+
     private record Raw(int status, String body) {
     }
 

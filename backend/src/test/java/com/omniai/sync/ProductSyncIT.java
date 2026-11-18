@@ -9,6 +9,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.MediaType;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -27,8 +29,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.is;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -41,21 +47,54 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * kiểm từng lượt. Sản phẩm tạo qua {@link ProductService} thật, nên đi đúng đường sự kiện ProductChanged.
  */
 @SpringBootTest(properties = {"omniai.sync.enabled=false", "omniai.sync.max-attempts=4",
-        "omniai.sync.retry-backoff=1ms"})
+        "omniai.sync.retry-backoff=1ms", "omniai.tiktok.products.enabled=false",
+        "omniai.channels.shopee.sync-enabled=false"})
 @AutoConfigureMockMvc
 @Import({TestcontainersConfig.class, ProductSyncIT.Connectors.class})
 class ProductSyncIT {
 
     /** Connector giả: mỗi lần push lấy 1 kết quả trong {@code script} (null = thành công), ghi lại mọi lần gọi. */
     static class ScriptedConnector implements ProductChannelConnector {
+        final String channel;
         final List<ProductSnapshot> pushes = Collections.synchronizedList(new ArrayList<>());
         final List<String> externalIds = Collections.synchronizedList(new ArrayList<>());
+        final List<String> prices = Collections.synchronizedList(new ArrayList<>());
+        final List<String> stocks = Collections.synchronizedList(new ArrayList<>());
         final Deque<RuntimeException> script = new ArrayDeque<>();
         RuntimeException always;
+        volatile boolean ready = true;
+        volatile Set<SyncAspect> aspects = ALL;
+
+        static final Set<SyncAspect> ALL = Set.of(SyncAspect.PRODUCT, SyncAspect.PRICE, SyncAspect.STOCK);
+
+        ScriptedConnector(String channel) {
+            this.channel = channel;
+        }
 
         @Override
         public String channel() {
-            return "SHOPEE";
+            return channel;
+        }
+
+        @Override
+        public Set<SyncAspect> aspects() {
+            return aspects;
+        }
+
+        @Override
+        public boolean ready() {
+            return ready;
+        }
+
+        /** Ghi "externalId=giá" để kiểm đúng sản phẩm, đúng giá của kênh. */
+        @Override
+        public synchronized void pushPrice(ProductSnapshot product, String externalId) {
+            prices.add(externalId + "=" + product.price());
+        }
+
+        @Override
+        public synchronized void pushStock(ProductSnapshot product, String externalId) {
+            stocks.add(externalId + "=" + product.stock());
         }
 
         @Override
@@ -75,8 +114,12 @@ class ProductSyncIT {
         synchronized void reset() {
             pushes.clear();
             externalIds.clear();
+            prices.clear();
+            stocks.clear();
             script.clear();
             always = null;
+            ready = true;
+            aspects = ALL;
         }
     }
 
@@ -84,7 +127,12 @@ class ProductSyncIT {
     static class Connectors {
         @Bean
         ScriptedConnector shopeeConnector() {
-            return new ScriptedConnector();
+            return new ScriptedConnector("SHOPEE");
+        }
+
+        @Bean
+        ScriptedConnector tiktokConnector() {
+            return new ScriptedConnector("TIKTOK");
         }
     }
 
@@ -95,7 +143,11 @@ class ProductSyncIT {
     @Autowired
     ProductSyncRepository states;
     @Autowired
+    @Qualifier("shopeeConnector")
     ScriptedConnector shopee;
+    @Autowired
+    @Qualifier("tiktokConnector")
+    ScriptedConnector tiktok;
     @Autowired
     JdbcTemplate jdbc;
     @Autowired
@@ -109,6 +161,7 @@ class ProductSyncIT {
     @BeforeEach
     void setUp() {
         shopee.reset();
+        tiktok.reset();
         // Dòng còn sót của test khác (nếu có) không được chen vào lượt quét.
         jdbc.update("UPDATE product_channel_sync SET status = 'SYNCED' WHERE status = 'PENDING'");
     }
@@ -142,7 +195,11 @@ class ProductSyncIT {
     }
 
     private ProductSyncState state(Product p, String channel) {
-        return states.findById(new ProductSyncState.Key(p.getId(), channel)).orElse(null);
+        return state(p, channel, SyncAspect.PRODUCT);
+    }
+
+    private ProductSyncState state(Product p, String channel, SyncAspect aspect) {
+        return states.findById(new ProductSyncState.Key(p.getId(), channel, aspect)).orElse(null);
     }
 
     /** Chạy worker tới khi không còn gì đến hạn (tối đa {@code max} lượt). Backoff test là 1 ms. */
@@ -159,15 +216,18 @@ class ProductSyncIT {
 
     @Test
     void creatingProductQueuesOnlyChannelsWithConnector() {
+        tiktok.ready = false; // vd. shop TikTok chưa ủy quyền
         Product p = create("Serum đồng bộ A");
 
         ProductSyncState shopeeState = state(p, "SHOPEE");
         assertThat(shopeeState).isNotNull();
         assertThat(shopeeState.getStatus()).isEqualTo(SyncStatus.PENDING);
         assertThat(shopeeState.getAttempts()).isZero();
-        // WEB là kênh của shop, TIKTOK chưa có connector (US-50)
+        // WEB là kênh của shop; TIKTOK có connector nhưng chưa sẵn sàng. Giá/tồn chưa xếp vì sàn chưa có sản phẩm
         assertThat(state(p, "WEB")).isNull();
         assertThat(state(p, "TIKTOK")).isNull();
+        assertThat(state(p, "SHOPEE", SyncAspect.PRICE)).isNull();
+        assertThat(state(p, "SHOPEE", SyncAspect.STOCK)).isNull();
     }
 
     @Test
@@ -181,6 +241,7 @@ class ProductSyncIT {
 
     @Test
     void failsTwiceThenSucceeds() throws Exception {
+        tiktok.ready = false; // chỉ đếm lượt của Shopee
         Product p = create("Serum đồng bộ B");
         shopee.script.add(new IllegalStateException("Shopee 500"));
         shopee.script.add(new IllegalStateException("timeout"));
@@ -259,6 +320,72 @@ class ProductSyncIT {
         assertThat(shopee.pushes.get(1).active()).isFalse();
     }
 
+    // ---------- T-50.2: giá theo kênh, tồn kho mọi kênh ----------
+
+    @Test
+    void priceChangeGoesOnlyToItsChannelAndStockChangeToEveryChannel() throws Exception {
+        Product p = create("Serum giá tồn");
+        drain(5);
+        // Lần tạo đã mang giá, tồn: không gửi riêng nữa
+        assertThat(shopee.pushes).hasSize(1);
+        assertThat(tiktok.pushes).hasSize(1);
+        assertThat(shopee.prices).isEmpty();
+        assertThat(tiktok.stocks).isEmpty();
+        assertThat(state(p, "SHOPEE", SyncAspect.PRICE).getStatus()).isEqualTo(SyncStatus.SYNCED);
+        assertThat(state(p, "TIKTOK", SyncAspect.STOCK).getStatus()).isEqualTo(SyncStatus.SYNCED);
+
+        // Đổi giá Shopee: chỉ Shopee nhận, đúng giá Shopee, không đẩy lại nội dung
+        ProductRequest shopeePrice = request(p.getSku(), "Serum giá tồn", null);
+        shopeePrice.prices().put("SHOPEE", 199_000L);
+        productService.update(p.getId(), shopeePrice);
+        drain(5);
+        assertThat(shopee.prices).containsExactly("item-" + p.getId() + "=199000");
+        assertThat(tiktok.prices).isEmpty();
+        assertThat(shopee.pushes).hasSize(1);
+        assertThat(tiktok.pushes).hasSize(1);
+
+        // Đổi tồn: cả hai sàn nhận
+        ProductRequest stock = request(p.getSku(), "Serum giá tồn", null);
+        stock.prices().put("SHOPEE", 199_000L);
+        productService.update(p.getId(), new ProductRequest(stock.sku(), stock.name(), stock.brand(), stock.category(),
+                stock.skinTypes(), stock.skinConcerns(), stock.usageTime(), stock.description(), stock.ingredientsInci(),
+                stock.sizeMl(), stock.paoMonths(), stock.prices(), 3, null));
+        drain(5);
+        assertThat(shopee.stocks).containsExactly("item-" + p.getId() + "=3");
+        assertThat(tiktok.stocks).containsExactly("item-" + p.getId() + "=3");
+        assertThat(shopee.prices).hasSize(1);
+        assertThat(tiktok.prices).isEmpty();
+    }
+
+    @Test
+    void channelWithoutProductApiSendsPriceStockOnlyAfterAdminLinksListing() throws Exception {
+        shopee.aspects = Set.of(SyncAspect.PRICE, SyncAspect.STOCK); // như Shopee thật lúc này: chưa có add_item
+        tiktok.ready = false;
+        Product p = create("Serum đã đăng tay trên Shopee");
+        assertThat(state(p, "SHOPEE")).isNull();
+        assertThat(state(p, "SHOPEE", SyncAspect.PRICE)).isNull();
+
+        mvc.perform(post("/api/admin/sync/products/" + p.getId() + "/shopee/link").with(httpBasic("admin", "admin"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"externalId\":\"880011\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.aspect == 'PRODUCT')].externalId").value("880011"))
+                .andExpect(jsonPath("$[?(@.aspect == 'PRICE')].status").value("PENDING"));
+        drain(5);
+        assertThat(shopee.prices).containsExactly("880011=260000");
+        assertThat(shopee.stocks).containsExactly("880011=10");
+        assertThat(shopee.pushes).isEmpty();
+
+        ProductRequest cheaper = request(p.getSku(), "Serum đã đăng tay trên Shopee", null);
+        cheaper.prices().put("SHOPEE", 255_000L);
+        productService.update(p.getId(), cheaper);
+        drain(5);
+        assertThat(shopee.prices).containsExactly("880011=260000", "880011=255000");
+
+        mvc.perform(post("/api/admin/sync/products/" + p.getId() + "/web/link").with(httpBasic("admin", "admin"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"externalId\":\"1\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
     // ---------- hết lượt, lỗi không thử lại, admin ----------
 
     @Test
@@ -310,15 +437,15 @@ class ProductSyncIT {
         mvc.perform(get("/api/admin/sync/products/by-ids").param("ids", p.getId().toString())
                         .with(httpBasic("admin", "admin")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].channel").value("SHOPEE"))
-                .andExpect(jsonPath("$[0].status").value("PENDING"));
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[*].aspect", everyItem(is("PRODUCT"))))
+                .andExpect(jsonPath("$[*].status", everyItem(is("PENDING"))));
         mvc.perform(get("/api/admin/sync/channels").with(httpBasic("admin", "admin")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0]").value("SHOPEE"));
+                .andExpect(jsonPath("$", contains("SHOPEE", "TIKTOK")));
         mvc.perform(post("/api/admin/sync/products/999999999/SHOPEE/retry").with(httpBasic("admin", "admin")))
                 .andExpect(status().isNotFound());
-        mvc.perform(post("/api/admin/sync/products/resync").param("channel", "TIKTOK").with(httpBasic("admin", "admin")))
+        mvc.perform(post("/api/admin/sync/products/resync").param("channel", "WEB").with(httpBasic("admin", "admin")))
                 .andExpect(status().isBadRequest());
         mvc.perform(get("/api/admin/sync/products").param("status", "DONE").with(httpBasic("admin", "admin")))
                 .andExpect(status().isBadRequest());

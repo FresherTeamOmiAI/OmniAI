@@ -12,6 +12,10 @@ public class ShopeeChannelProperties {
     private String partnerKey = "test-partner-key";
     private long shopId = 10001L;
     private String accessToken = "test-access-token";
+    /** Host Open API Shopee hub gọi ra (giá, tồn; US-50). Simulator nằm ngay trong backend nên mặc định là hub. */
+    private String apiBaseUrl = "http://127.0.0.1:8080";
+    /** Tắt thì không có connector giá/tồn SHOPEE trong khung đồng bộ. */
+    private boolean syncEnabled = true;
     /** URL hub sẽ nhận push đơn. Dùng để ký, chưa gọi mạng nếu để trống. */
     private String pushCallbackUrl = "http://127.0.0.1:8080/api/channels/shopee/push";
     /** Postgres của simulator. Supabase dùng database postgres; local/test vẫn dùng database shopee. */
@@ -47,6 +51,22 @@ public class ShopeeChannelProperties {
 
     public void setAccessToken(String accessToken) {
         this.accessToken = accessToken;
+    }
+
+    public String getApiBaseUrl() {
+        return apiBaseUrl;
+    }
+
+    public void setApiBaseUrl(String apiBaseUrl) {
+        this.apiBaseUrl = apiBaseUrl;
+    }
+
+    public boolean isSyncEnabled() {
+        return syncEnabled;
+    }
+
+    public void setSyncEnabled(boolean syncEnabled) {
+        this.syncEnabled = syncEnabled;
     }
 
     public String getPushCallbackUrl() {

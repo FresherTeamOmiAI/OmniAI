@@ -76,6 +76,35 @@ class TiktokApiTest {
     }
 
     @Test
+    void uploadIsMultipartSignedWithoutBodyAndWithoutShopCipher() {
+        String path = "/product/202309/images/upload";
+        Map<String, String> query = new LinkedHashMap<>();
+        query.put("app_key", "app");
+        query.put("timestamp", Long.toString(NOW.getEpochSecond()));
+        String sign = TiktokSigner.signRequest(path, query, null, "secret");
+        URI expected = UriComponentsBuilder.fromUriString("http://sim" + path)
+                .queryParam("app_key", "app").queryParam("timestamp", NOW.getEpochSecond())
+                .queryParam("sign", sign).build().toUri();
+
+        server.expect(requestTo(expected))
+                .andExpect(method(HttpMethod.POST))
+                .andExpect(header("x-tts-access-token", "TOKEN"))
+                .andExpect(org.springframework.test.web.client.match.MockRestRequestMatchers.content()
+                        .contentTypeCompatibleWith(MediaType.MULTIPART_FORM_DATA))
+                .andExpect(org.springframework.test.web.client.match.MockRestRequestMatchers.content()
+                        .string(org.hamcrest.Matchers.allOf(
+                                org.hamcrest.Matchers.containsString("name=\"data\"; filename=\"a.webp\""),
+                                org.hamcrest.Matchers.containsString("name=\"use_case\""))))
+                .andRespond(withSuccess(ok("{\"uri\":\"tos-x/1\",\"url\":\"u\",\"height\":720,\"width\":720,"
+                        + "\"use_case\":\"MAIN_IMAGE\"}"), MediaType.APPLICATION_JSON));
+
+        TiktokModels.UploadedImage image = api.upload(path, new byte[]{1, 2}, "a.webp", Map.of("use_case", "MAIN_IMAGE"),
+                "TOKEN", TiktokModels.UploadedImage.class);
+        assertThat(image.uri()).isEqualTo("tos-x/1");
+        server.verify();
+    }
+
+    @Test
     void businessErrorKeepsCodeAndRequestId() {
         server.expect(method(HttpMethod.POST)).andRespond(withSuccess(
                 "{\"code\":45101002,\"message\":\"Invalid params.\",\"request_id\":\"REQ42\",\"data\":{}}",
