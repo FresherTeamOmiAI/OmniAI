@@ -1,6 +1,6 @@
 # Trạng thái hiện tại
 
-> Cập nhật: 2026-11-18 · T-11.4 chống trùng nguyên tử ở `MessageRouter`; review S2 ([../tracking/review-S2.md](../tracking/review-S2.md)): sửa các dòng cũ, thêm nợ kỹ thuật tìm được, US-43 kéo về S3 (decisions #36, #37); 2026-11-13 · T-04.1 V15 chuẩn hoá bảng product; T-09.3 đặt hàng ảo, US-09 đủ 3 task; T-09.1 trang chi tiết + bộ lọc web; T-09.2 API lọc store; T-04.1 tách giá theo kênh khỏi `product` (V13, decisions #32); T-47.3 profile `supabase` cho Postgres trên Supabase (decisions #33); 2026-11-12 · T-09.1 store phân trang 20 SKU/trang (chưa có trang chi tiết); US-11 lưu hội thoại mọi kênh (T-11.1–T-11.3); T-47.1 catalog thật 366 SKU trong DB, 366 ảnh đã lên Supabase (decisions #27, #30); US-25 kênh TikTok Shop qua simulator (T-25.1–T-25.3), chạy thử với Gemini + Postman; trước đó: T-06.8 timeout widget, lập lại kế hoạch (decisions #22–#24) · Sprint hiện tại: **S3 (17–23/11/2026)**
+> Cập nhật: 2026-11-18 · T-25.4 TikTok gửi lỗi sau 200 thì thử lại, hết lượt thì handoff (V16); T-11.4 chống trùng nguyên tử ở `MessageRouter`; review S2 ([../tracking/review-S2.md](../tracking/review-S2.md)): sửa các dòng cũ, thêm nợ kỹ thuật tìm được, US-43 kéo về S3 (decisions #36, #37); 2026-11-13 · T-04.1 V15 chuẩn hoá bảng product; T-09.3 đặt hàng ảo, US-09 đủ 3 task; T-09.1 trang chi tiết + bộ lọc web; T-09.2 API lọc store; T-04.1 tách giá theo kênh khỏi `product` (V13, decisions #32); T-47.3 profile `supabase` cho Postgres trên Supabase (decisions #33); 2026-11-12 · T-09.1 store phân trang 20 SKU/trang (chưa có trang chi tiết); US-11 lưu hội thoại mọi kênh (T-11.1–T-11.3); T-47.1 catalog thật 366 SKU trong DB, 366 ảnh đã lên Supabase (decisions #27, #30); US-25 kênh TikTok Shop qua simulator (T-25.1–T-25.3), chạy thử với Gemini + Postman; trước đó: T-06.8 timeout widget, lập lại kế hoạch (decisions #22–#24) · Sprint hiện tại: **S3 (17–23/11/2026)**
 
 Bảng này cho biết cái gì đã chạy được, cái gì mới là khung, cái gì chưa có. Agent đọc file này **trước khi** đi tìm code để khỏi tìm thứ chưa tồn tại. Kế hoạch chi tiết: `tools/tracking/backlog.py` và GitHub Issues (milestone Sprint 0–12).
 
@@ -47,8 +47,8 @@ Chú thích: **Done** = chạy được, có test · **Khung** = có code tối 
 ## Lỗ hổng / nợ kỹ thuật đã biết
 - Idempotency chỉ nằm trong bộ nhớ, sẽ mất khi restart và sai khi chạy nhiều instance (S7 chuyển Redis). Chống trùng webhook TikTok (`tts_notification_id`, `message_id`) cũng vậy.
 - TikTok: thuật toán ký, chữ ký webhook, số `type` webhook, API token và mã lỗi 105xxx/106xxx/36009004/36009006 là giả định, chờ đối chiếu docv2 (docs/channel-api/tiktok.md mục 1). Token trong `channel_credential` lưu dạng rõ.
-- Webhook TikTok lỗi sau khi đã trả 200 thì chỉ log, DB vẫn ghi là đã trả lời, khách mất tin (T-25.4, S3; dead-letter ở US-29).
-- Hội thoại: DB lỗi lúc lưu thì chỉ log, mất bản ghi lượt đó. TikTok báo `45101006` thì hub gửi `fallback_message` nhưng DB vẫn ghi `finalText` ban đầu. Chưa có xóa/ẩn dữ liệu hội thoại theo yêu cầu khách (BVDLCN, US-30).
+- TikTok gửi tin lỗi sau khi đã trả 200: đã thử lại và handoff (T-25.4), nhưng lượt thử lại chỉ nằm trong bộ nhớ: tắt app thì câu đó kẹt ở `RETRYING`. Send Message không có idempotency key nên timeout mà sàn thực ra đã nhận thì thử lại có thể làm khách nhận 2 tin. Dead-letter bền ở US-29. Lỗi khi gọi Brain/Policy (trước khi có câu trả lời) vẫn chỉ log.
+- Hội thoại: DB lỗi lúc lưu thì chỉ log, mất bản ghi lượt đó. Chưa có xóa/ẩn dữ liệu hội thoại theo yêu cầu khách (BVDLCN, US-30).
 - Backend/ai-brain không tự đọc `.env` (script `.bat` nạp hộ, IDE thì phải tự cấu hình).
 - Chưa có `mvnw`, mỗi máy phải tự cài Maven.
 - Widget chat: nối lại WebSocket thì `channelUserId` đổi theo session mới (tài khoản web ở US-13).
