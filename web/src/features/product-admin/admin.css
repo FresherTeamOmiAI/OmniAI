@@ -1,0 +1,77 @@
+/* Admin > Sản phẩm (features/product-admin, LucVT): đăng nhập, bảng, dialog thêm/sửa. Token ở shared/ui/tokens.css. */
+
+.admin-header { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin-bottom: var(--space-2); }
+.admin-header h1 { margin-right: auto; }
+.admin-intro { max-width: 70ch; margin-bottom: var(--space-5); color: var(--color-muted); }
+.admin-toolbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-bottom: var(--space-4); padding: var(--space-3);
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg);
+}
+.admin-toolbar input { flex: 1 1 260px; }
+.admin-toolbar .toolbar-count { margin-left: auto; color: var(--color-muted); font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
+.admin .notice, .admin > .error { margin-bottom: var(--space-4); }
+
+/* Bảng sản phẩm */
+.product-table { min-width: 900px; }
+.product-table td { vertical-align: middle; }
+.product-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.product-table code { color: var(--color-muted); font-size: var(--text-xs); white-space: nowrap; }
+.cell-name { font-weight: 600; }
+.cell-sub { display: block; color: var(--color-muted); font-size: var(--text-xs); }
+.row-hidden td { background: var(--color-surface-2); color: var(--color-muted); }
+.row-actions { text-align: right; white-space: nowrap; }
+.row-actions .btn + .btn { margin-left: var(--space-2); }
+
+/* Đăng nhập */
+.login-form {
+  display: grid; gap: var(--space-4); max-width: 420px; margin: var(--space-10) auto; padding: var(--space-8);
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-md);
+}
+.login-form h1 { font-size: var(--text-2xl); }
+.login-form label { display: grid; gap: var(--space-1); font-size: var(--text-sm); font-weight: 600; }
+.login-form .btn { width: 100%; }
+
+/* Dialog thêm/sửa: hiện ra nhẹ từ dưới lên, giữ ở giữa màn hình (modal không neo theo nút) */
+.product-dialog {
+  width: min(760px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 0;
+  background: var(--color-surface); color: var(--color-text);
+  border: 1px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+  transition: opacity var(--dur-slow) var(--ease-out), transform var(--dur-slow) var(--ease-out);
+}
+@starting-style {
+  .product-dialog[open] { opacity: 0; transform: translateY(8px) scale(0.98); }
+}
+.product-dialog::backdrop { background: var(--color-backdrop); }
+.product-dialog form { display: flex; flex-direction: column; max-height: calc(100dvh - 34px); }
+.dialog-header, .dialog-footer { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-4) var(--space-6); }
+.dialog-header { border-bottom: 1px solid var(--color-border); }
+.dialog-header h2 { margin-right: auto; font-size: var(--text-xl); }
+.dialog-footer { justify-content: flex-end; background: var(--color-surface-2); border-top: 1px solid var(--color-border); }
+.dialog-body { display: grid; gap: var(--space-5); overflow-y: auto; padding: var(--space-5) var(--space-6); }
+.form-message {
+  margin: 0; padding: var(--space-3) var(--space-4); border: 1px solid var(--color-danger-border); border-radius: var(--radius-md);
+  background: var(--color-danger-soft); color: var(--color-danger); font-weight: 500;
+}
+
+/* Lưới ô nhập: giá tự xuống dòng thay vì ép 4 cột */
+.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4) var(--space-5); }
+.form-grid-4 { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+.field { display: grid; align-content: start; gap: var(--space-1); min-width: 0; }
+.field > label, .field > legend, .price-group > legend { font-size: var(--text-sm); font-weight: 600; }
+.field-wide { grid-column: 1 / -1; }
+.field small { font-size: var(--text-xs); }
+.field :where(input:not([type="checkbox"], [type="radio"]), select, textarea) { width: 100%; }
+.field-invalid input, .field-invalid select, .field-invalid textarea { border-color: var(--color-danger); }
+.field-error { color: var(--color-danger); font-weight: 500; }
+fieldset.field, .price-group { min-width: 0; margin: 0; padding: 0; border: 0; }
+.price-group > p { margin: var(--space-1) 0 var(--space-3); font-size: var(--text-sm); }
+.check-list { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); padding: var(--space-1) 0; }
+.check { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 32px; font-size: var(--text-sm); white-space: nowrap; }
+.check input { flex-shrink: 0; }
+.checks.field-invalid .check-list { outline: 1px solid var(--color-danger); outline-offset: 4px; border-radius: 4px; }
+
+@media (max-width: 640px) {
+  .form-grid { grid-template-columns: 1fr; }
+  .dialog-header, .dialog-footer, .dialog-body { padding-inline: var(--space-4); }
+  .login-form { padding: var(--space-6); }
+}

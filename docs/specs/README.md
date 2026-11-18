@@ -21,7 +21,7 @@ Specs không chép lại code. Khi spec và code mâu thuẫn thì **code là ch
 | Phương pháp benchmark, tài liệu tham khảo | [../bench/huong-dan-benchmark.md](../bench/huong-dan-benchmark.md) |
 | Simulator sàn, đồng bộ hub ↔ kênh (ChienPX: Shopee, TuTM: TikTok Shop) | [backend.md](backend.md) (mục "Kênh sàn", "Đồng bộ hub ↔ kênh"), [api-contracts.md](api-contracts.md), [../channel-api/tiktok.md](../channel-api/tiktok.md) (API TikTok, DTO ở `tiktok-dto.md`) |
 | Test case nghiệm thu theo US (PO) | [../testcases/](../testcases/) |
-| Giao diện web | [web.md](web.md), [api-contracts.md](api-contracts.md) |
+| Giao diện web | [web.md](web.md), [design-system.md](design-system.md), [api-contracts.md](api-contracts.md) |
 | Migration / bảng DB | [data-model.md](data-model.md) |
 | Tại sao lại chọn X | [decisions.md](decisions.md) |
 | Cách chạy, cổng, biến môi trường | [overview.md](overview.md) (mục Chạy) |
