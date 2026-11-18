@@ -143,19 +143,22 @@ def test_tiktok_dataset_has_five_cases():
     assert {c["channel"] for c in cases} == {"TIKTOK"} and {c["transport"] for c in cases} == {"tiktok"}
 
 
-def test_shopee_push_reply_becomes_final_text():
+def test_shopee_push_reply_becomes_final_text(monkeypatch):
     calls = []
+
+    def sim_post(url, **kwargs):
+        calls.append(url)
+        return FakeResponse({"raw_body": "{\"code\":10}", "authorization": "abc"})
 
     class Client:
         def post(self, url, **kwargs):
             calls.append(url)
-            if url.endswith("/webchat"):
-                return FakeResponse({"raw_body": "{\"code\":10}", "authorization": "abc"})
             return FakeResponse({"error": "", "final_text": "Dạ kem chống nắng kiềm dầu ạ"})
 
-    reply, _ = run.send_shopee(Client(), {"id": "SHP-T", "text": "hi"}, FALLBACKS)
+    monkeypatch.setattr(run.httpx, "post", sim_post)
+    reply, _ = run.send_shopee(Client(), "http://sim:8091/", {"id": "SHP-T", "text": "hi"}, FALLBACKS)
 
-    assert calls == ["/api/simulator/shopee/webchat", "/api/channels/shopee/push"]
+    assert calls == ["http://sim:8091/api/simulator/shopee/webchat", "/api/channels/shopee/push"]
     assert reply["finalText"] == "Dạ kem chống nắng kiềm dầu ạ"
     assert reply["blocked"] is False
 

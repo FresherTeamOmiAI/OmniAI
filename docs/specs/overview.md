@@ -1,7 +1,7 @@
 # Tổng quan hệ thống
 
-> Cập nhật: 2026-11-18 · bonus: simulator TikTok có trang `/ui`; 2026-11-18 · T-43.4 biến `CATALOG_CACHE_TTL_SECONDS` của ai-brain; profile `supabase` không ghi đè mật khẩu `chatbot_reader` (decisions #43); T-49.1 biến `SYNC_ENABLED`; 2026-11-13 · profile `supabase` cho Postgres trên Supabase (decisions #33); trước đó 2026-11-11 · commit 0f3d600
-> Nguồn: `README.md`, `docker-compose.yml`, `.env.example`, `simulators/tiktok-shop/src/main/resources/application.yml`, `backend/src/main/resources/application.yml`, `web/vite.config.ts`, `tools/systembat/`
+> Cập nhật: 2026-11-18 · T-21.5, T-21.6 simulator Shopee tách ra `simulators/shopee` (:8091, trang `/ui`); 2026-11-18 · bonus: simulator TikTok có trang `/ui`; 2026-11-18 · T-43.4 biến `CATALOG_CACHE_TTL_SECONDS` của ai-brain; profile `supabase` không ghi đè mật khẩu `chatbot_reader` (decisions #43); T-49.1 biến `SYNC_ENABLED`; 2026-11-13 · profile `supabase` cho Postgres trên Supabase (decisions #33); trước đó 2026-11-11 · commit 0f3d600
+> Nguồn: `README.md`, `docker-compose.yml`, `.env.example`, `simulators/tiktok-shop/src/main/resources/application.yml`, `simulators/shopee/src/main/resources/application.yml`, `backend/src/main/resources/application.yml`, `web/vite.config.ts`, `tools/systembat/`
 
 ## Mục tiêu
 Hub omnichannel cho shop mỹ phẩm kèm trợ lý tư vấn, theo nguyên tắc **"một bộ não, nhiều luật kênh"**. Hub giữ dữ liệu gốc, đẩy ra các kênh và gom dữ liệu từ các kênh về (decisions #23). Có 5 trụ (epic): A simulator kênh sàn & luật kênh + bench, B chuyên gia mỹ phẩm, C danh tính & bộ nhớ xuyên kênh, D săn sale, E đồng bộ dữ liệu hub ↔ kênh. Kênh: WEB, SHOPEE, TIKTOK; hai sàn chạy 100% bằng simulator theo schema thật (decisions #22). Shop là bản demo: không thanh toán, không giao hàng. Kế hoạch 13 sprint (S0 bắt đầu 03/11/2026, từ S2 mỗi sprint kéo lên 1 tuần, S12 kết thúc 25/01/2027, sau đó 1 tuần đệm; decisions #24), backlog nằm trong `tools/tracking/backlog.py`.
@@ -20,6 +20,9 @@ Bench gọi /api/simulator và chấm lại finalText bằng chính bộ YAML đ
 TikTok Shop (US-25): simulator :8090 --webhook ký--> /api/channels/tiktok/webhook (trả 200 ngay)
   -> hàng đợi -> TiktokChatAdapter -> MessageRouter -> Send Message (ký, token từ channel_credential) -> simulator
 
+Shopee (US-21): simulator :8091 --push code 10 ký--> /api/channels/shopee/push (xử lý đồng bộ, body trả final_text)
+  -> ShopeeChatAdapter -> MessageRouter -> v2.sellerchat.send_message (ký) -> simulator
+
 Dữ liệu 2 chiều hub <-> sàn (trụ E, chưa có code, bảng US ở backend.md):
   ĐI  hub -> sàn : sản phẩm, giá theo kênh, tồn kho, khuyến mãi, trạng thái xử lý đơn
   VỀ  sàn -> hub : hội thoại CSKH, đơn hàng, trạng thái duyệt/vi phạm sản phẩm, đánh giá
@@ -31,9 +34,10 @@ Dữ liệu 2 chiều hub <-> sàn (trụ E, chưa có code, bảng US ở backe
 |---|---|---|---|
 | `backend/` `com.omniai.channel`, `common`, admin inbox, đồng bộ hub ↔ kênh, simulator TikTok Shop | Spring Boot 4.1, Java 21 | TuTM | [backend.md](backend.md) |
 | `simulators/tiktok-shop/` (app riêng, decisions #28) | Spring Boot 4.1, Java 21 | TuTM | [backend.md](backend.md), [../channel-api/tiktok.md](../channel-api/tiktok.md) |
+| `simulators/shopee/` (app riêng, decisions #44) | Spring Boot 4.1, Java 21, Postgres (database `shopee`) | ChienPX | [backend.md](backend.md), [../channel-api/shopee.md](../channel-api/shopee.md) |
 | `backend/` `policy`, `bench/`, CI, `tools/` | Java / Python | HungDQ | [policy.md](policy.md), [bench.md](bench.md) |
 | `backend/` `catalog`, `customer`, `identity`, `order`, `promotion`, web store | Java | LucVT | [data-model.md](data-model.md) |
-| `ai-brain/`; simulator Shopee (trong `backend/`) | FastAPI, Python 3.11; Java | ChienPX | [ai-brain.md](ai-brain.md), [backend.md](backend.md) |
+| `ai-brain/` | FastAPI, Python 3.11 | ChienPX | [ai-brain.md](ai-brain.md), [backend.md](backend.md) |
 | `web/` | React 19 + Vite 8 + TS, react-router 7 | ai làm phần nào tự làm UI phần đó | [web.md](web.md) |
 | `shared/policies/`, `shared/schemas/` | YAML, JSON Schema | HungDQ | [policy.md](policy.md), [api-contracts.md](api-contracts.md) |
 | `shared/catalog/`, `tools/catalog/` | Catalog thật 366 SKU (`products.csv`, sinh từ `real/selection.csv`) + `obf_fetch.py`/`obf_annotate.py` lấy dữ liệu Open Beauty Facts + validator + script sinh migration + `upload_images.py` đẩy ảnh lên Supabase (Python; `obf_fetch.py build` cần Pillow, `tools/catalog/requirements.txt`) | LucVT | [data-model.md](data-model.md), [../catalog/du-lieu-san-pham-that.md](../catalog/du-lieu-san-pham-that.md) |
@@ -46,6 +50,7 @@ Dữ liệu 2 chiều hub <-> sàn (trụ E, chưa có code, bảng US ở backe
 | Backend | 8080 (`PORT`) | `/actuator/health` |
 | AI Brain | 8000 | `/health` |
 | Simulator TikTok Shop | 8090 (`TIKTOK_SIM_PORT`) | UI kiểm tra `/ui`, `/sim/faults`, `/sim/deliveries` |
+| Simulator Shopee | 8091 (`SHOPEE_SIM_PORT`) | UI kiểm tra `/ui` (chat, giá/tồn, đơn, log API, push) |
 | Postgres 16 + pgvector | 5432 | user/pass/db `omniai` |
 | Redis | 6379 | (chưa dùng, dự kiến S7) |
 | RabbitMQ | 5672, UI 15672 | (chưa dùng, dự kiến S7) |
@@ -59,16 +64,17 @@ Dữ liệu 2 chiều hub <-> sàn (trụ E, chưa có code, bảng US ở backe
 - Backend còn đọc `CHATBOT_DB_PASSWORD` để bật đăng nhập cho role `chatbot_reader` lúc khởi động. DB local: đặt lại mật khẩu mỗi lần khởi động. Profile `supabase` (DB dùng chung): role đã LOGIN thì **không** ghi đè; mọi người dùng `CHATBOT_DB_PASSWORD`/`CHATBOT_DB_URL` của chủ project (LucVT) (decisions #43).
 - Kênh sàn (khóa test để simulator ký webhook và adapter kiểm chữ ký, US-21, US-25): `SHOPEE_PARTNER_ID/KEY`, `TIKTOK_APP_KEY/SECRET` (mặc định `omniai-test-app`/`omniai-test-secret`, simulator và backend phải trùng nhau).
 - TikTok Shop: `TIKTOK_SIM_PORT` (8090), `TIKTOK_SIM_URL` (backend gọi simulator), `TIKTOK_WEBHOOK_URL`, `TIKTOK_REDIRECT_URI` (simulator gọi về hub).
+- Shopee: `SHOPEE_SIM_PORT` (8091), `SHOPEE_SIM_URL` (backend gọi simulator), `SHOPEE_PUSH_CALLBACK_URL` (simulator đẩy push về hub; nằm trong chữ ký nên hai bên phải trùng), `SHOPEE_SHOP_ID`, `SHOPEE_ACCESS_TOKEN`. `SHOPEE_DB_URL/USERNAME/PASSWORD` chỉ simulator dùng: hub khởi động không cần DB `shopee` (T-21.5).
 - Backend và ai-brain **không tự đọc `.env`**: script trong `tools/systembat` nạp hộ, còn IDE thì phải tự cấu hình. Default trong `application.yml` đã khớp `.env.example`.
 
 ## Chạy (Windows)
 Chi tiết trong `tools/systembat/README.md`:
 - Lần đầu: `tools\systembat\setup.bat`
 - Chạy tất cả: `run-all.bat`. Tắt: `stop-all.bat`.
-- Chạy từng phần: `infra-up.bat`, `run-brain.bat`, `run-backend.bat`, `run-tiktok-sim.bat`, `run-web.bat`.
+- Chạy từng phần: `infra-up.bat`, `run-brain.bat`, `run-backend.bat`, `run-tiktok-sim.bat`, `run-shopee-sim.bat` (cần `infra-up.bat`), `run-web.bat`.
 - Ủy quyền TikTok (1 lần, token lưu DB): `GET http://localhost:8080/api/admin/channels/tiktok/authorize` (Basic admin) → mở `authorizeUrl` → bấm Đồng ý. Simulator restart thì token cũ mất hiệu lực, phải ủy quyền lại.
 - Test: `test-all.bat`. Backend test cần Docker (Testcontainers).
-- Bench: `run-bench.bat`, cần backend + brain đang chạy, tức là cần `LLM_API_KEY` và tốn quota LLM thật. Ca TikTok (`--dataset datasets\tiktok-flow.jsonl`) cần thêm simulator và shop đã ủy quyền.
+- Bench: `run-bench.bat`, cần backend + brain đang chạy, tức là cần `LLM_API_KEY` và tốn quota LLM thật. Ca TikTok (`--dataset datasets\tiktok-flow.jsonl`) cần thêm simulator và shop đã ủy quyền. Ca Shopee (`datasets\shopee-flow.jsonl`) cần thêm simulator Shopee (`--shopee-sim-url`, mặc định `SHOPEE_SIM_URL`).
 
 Lệnh tay (macOS/Linux) xem `README.md` gốc.
 

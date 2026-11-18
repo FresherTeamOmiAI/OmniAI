@@ -1,5 +1,9 @@
-package com.omniai.channel.shopee;
+package com.omniai.sim.shopee.api;
 
+import com.omniai.sim.shopee.SimProperties;
+import com.omniai.sim.shopee.common.ShopeeSign;
+import com.omniai.sim.shopee.push.PushDispatcher;
+import com.omniai.sim.shopee.store.ShopeeStore;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,12 +26,14 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Simulator Shopee theo schema Open Platform v2. Owner: ChienPX. T-50.3, T-51.1.
+ * Simulator Shopee theo schema Open Platform v2. Owner: ChienPX. T-50.3, T-51.1, T-21.6.
  * Không gọi API sàn thật. Hub gửi giá/tồn vào đúng path của Shopee; simulator phát đơn bằng push code 3
  * rồi trả chi tiết đơn khi hub gọi get_order_detail. Chat shop là bản giả lập: trang seller chat bị khóa quyền.
+ * Hai endpoint phát ({@code /api/simulator/shopee/orders}, {@code /webchat}) luôn trả raw body + chữ ký; gửi kèm
+ * {@code "deliver": true} thì simulator tự POST push tới hub ({@link PushDispatcher}).
  */
 @RestController
-public class ShopeeSimulatorController {
+public class OpenApiController {
 
     static final String PRICE_PATH = "/api/v2/product/update_price";
     static final String STOCK_PATH = "/api/v2/product/update_stock";
@@ -39,14 +45,16 @@ public class ShopeeSimulatorController {
     private static final int CHAT_PAGE_DEFAULT = 25;
     private static final int CHAT_PAGE_MAX = 60;
 
-    private final ShopeeChannelProperties properties;
-    private final ShopeeSimulatorStore store;
+    private final SimProperties properties;
+    private final ShopeeStore store;
     private final JsonMapper json;
+    private final PushDispatcher pushes;
 
-    public ShopeeSimulatorController(ShopeeChannelProperties properties, ShopeeSimulatorStore store, JsonMapper json) {
+    public OpenApiController(SimProperties properties, ShopeeStore store, JsonMapper json, PushDispatcher pushes) {
         this.properties = properties;
         this.store = store;
         this.json = json;
+        this.pushes = pushes;
     }
 
     @PostMapping(value = PRICE_PATH, consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -151,7 +159,7 @@ public class ShopeeSimulatorController {
         long now = Instant.now().getEpochSecond();
         String orderSn = "26" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase();
         int daysToShip = body.has("days_to_ship") ? (int) requiredLong(body, "days_to_ship") : 0;
-        ShopeeSimulatorStore.OrderLine line = new ShopeeSimulatorStore.OrderLine(
+        ShopeeStore.OrderLine line = new ShopeeStore.OrderLine(
                 requiredLong(body, "item_id"),
                 requiredText(body, "item_sku"),
                 requiredText(body, "item_name"),
@@ -160,7 +168,7 @@ public class ShopeeSimulatorController {
                 body.path("model_name").asString(""),
                 body.path("model_sku").asString(""));
         String status = body.path("status").asString("READY_TO_SHIP");
-        ShopeeSimulatorStore.Order order = new ShopeeSimulatorStore.Order(
+        ShopeeStore.Order order = new ShopeeStore.Order(
                 orderSn, status, now, body.path("cod").asBoolean(false), body.path("message_to_seller").asString(""),
                 daysToShip, now + daysToShip * 86400L, line);
 
@@ -172,20 +180,21 @@ public class ShopeeSimulatorController {
         data.put("update_time", now);
         ObjectNode push = json.createObjectNode();
         push.set("data", data);
-        push.put("shop_id", properties.getShopId());
+        push.put("shop_id", properties.shopId());
         push.put("code", 3);
         push.put("timestamp", now);
         String raw = json.writeValueAsString(push);
-        String authorization = ShopeeSign.push(properties.getPushCallbackUrl(), raw, properties.getPartnerKey());
-        store.saveOrder(properties.getShopId(), order,
-                new ShopeeSimulatorStore.Push(orderSn, properties.getPushCallbackUrl(), raw, authorization));
+        String authorization = ShopeeSign.push(properties.pushCallbackUrl(), raw, properties.partnerKey());
+        store.saveOrder(properties.shopId(), order,
+                new ShopeeStore.Push(orderSn, properties.pushCallbackUrl(), raw, authorization));
 
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("order_sn", orderSn);
-        response.put("callback_url", properties.getPushCallbackUrl());
+        response.put("callback_url", properties.pushCallbackUrl());
         response.put("authorization", authorization);
         response.put("raw_body", raw);
         response.put("body", json.readValue(raw, Map.class));
+        response.put("delivered_by_simulator", deliver(body, 3, orderSn, raw, authorization));
         return response;
     }
 
@@ -203,11 +212,23 @@ public class ShopeeSimulatorController {
         }
         String contentJson = chatContentJson(messageType, body);
         long now = Instant.now().getEpochSecond();
-        ShopeeSimulatorStore.StoredMessage message = store.appendMessage(
-                properties.getShopId(), buyerId, buyerName, true,
-                buyerId, buyerName, properties.getShopId(), "",
+        ShopeeStore.StoredMessage message = store.appendMessage(
+                properties.shopId(), buyerId, buyerName, true,
+                buyerId, buyerName, properties.shopId(), "",
                 messageType, contentJson, "user_chat", now);
-        return signedWebchat(message, now);
+        Map<String, Object> response = signedWebchat(message, now);
+        response.put("delivered_by_simulator", deliver(body, 10, message.messageId(),
+                (String) response.get("raw_body"), (String) response.get("authorization")));
+        return response;
+    }
+
+    /** {@code "deliver": true} trong body thì đẩy push tới hub, bất đồng bộ. */
+    private boolean deliver(JsonNode body, int code, String ref, String raw, String authorization) {
+        if (!body.path("deliver").asBoolean(false)) {
+            return false;
+        }
+        pushes.dispatch(code, ref, raw, authorization);
+        return true;
     }
 
     /** Shop trả lời khách. Bản giả lập của v2.sellerchat.send_message. */
@@ -231,7 +252,7 @@ public class ShopeeSimulatorController {
         String contentJson = chatContentJson(messageType, content);
         long now = Instant.now().getEpochSecond();
         String buyerName = store.buyerName(shopId, buyerId);
-        ShopeeSimulatorStore.StoredMessage message = store.appendMessage(
+        ShopeeStore.StoredMessage message = store.appendMessage(
                 shopId, buyerId, "", false,
                 shopId, "", buyerId, buyerName,
                 messageType, contentJson, "normal", now);
@@ -264,7 +285,7 @@ public class ShopeeSimulatorController {
         int size = pageSize(pageSize);
         int skip = offset(offset);
         List<Map<String, Object>> messages = new ArrayList<>();
-        for (ShopeeSimulatorStore.StoredMessage message : store.messages(conversationId, size, skip)) {
+        for (ShopeeStore.StoredMessage message : store.messages(conversationId, size, skip)) {
             messages.add(messageBody(message));
         }
         int next = skip + messages.size();
@@ -289,7 +310,7 @@ public class ShopeeSimulatorController {
             return error("error_param", "Wrong parameters, detail: direction.");
         }
         List<Map<String, Object>> conversations = new ArrayList<>();
-        for (ShopeeSimulatorStore.StoredConversation conversation : store.conversations(shopId, pageSize(pageSize))) {
+        for (ShopeeStore.StoredConversation conversation : store.conversations(shopId, pageSize(pageSize))) {
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("conversation_id", conversation.conversationId());
             row.put("to_id", conversation.toId());
@@ -323,12 +344,12 @@ public class ShopeeSimulatorController {
     }
 
     @GetMapping("/api/simulator/shopee/items/{itemId}")
-    public ShopeeSimulatorStore.Item item(@PathVariable long itemId) {
+    public ShopeeStore.Item item(@PathVariable long itemId) {
         return store.item(itemId).orElseThrow(() -> new IllegalArgumentException("Shopee chưa nhận item " + itemId));
     }
 
-    private Map<String, Object> orderBody(ShopeeSimulatorStore.Order order, Set<String> optional) {
-        ShopeeSimulatorStore.OrderLine line = order.line();
+    private Map<String, Object> orderBody(ShopeeStore.Order order, Set<String> optional) {
+        ShopeeStore.OrderLine line = order.line();
         Map<String, Object> detail = new LinkedHashMap<>();
         detail.put("order_sn", order.orderSn());
         detail.put("region", "VN");
@@ -359,10 +380,10 @@ public class ShopeeSimulatorController {
         return detail;
     }
 
-    private Map<String, Object> signedWebchat(ShopeeSimulatorStore.StoredMessage message, long now) {
+    private Map<String, Object> signedWebchat(ShopeeStore.StoredMessage message, long now) {
         ObjectNode content = json.createObjectNode();
         content.put("message_id", message.messageId());
-        content.put("shop_id", properties.getShopId());
+        content.put("shop_id", properties.shopId());
         content.put("request_id", UUID.randomUUID().toString());
         content.put("from_id", message.fromId());
         content.put("from_user_name", message.fromUserName());
@@ -385,7 +406,7 @@ public class ShopeeSimulatorController {
         content.put("sub_account_id", 0);
         content.put("sub_account_name", 0);
         content.put("business_type", 0);
-        content.put("to_shop_id", properties.getShopId());
+        content.put("to_shop_id", properties.shopId());
         content.put("from_shop_id", 0);
         content.put("status", message.status());
 
@@ -396,25 +417,25 @@ public class ShopeeSimulatorController {
         ObjectNode push = json.createObjectNode();
         push.put("msg_id", "");
         push.set("data", data);
-        push.put("shop_id", properties.getShopId());
+        push.put("shop_id", properties.shopId());
         push.put("code", 10);
         push.put("timestamp", now);
         String raw = json.writeValueAsString(push);
-        String authorization = ShopeeSign.push(properties.getPushCallbackUrl(), raw, properties.getPartnerKey());
-        store.saveWebchatPush(message.messageId(), properties.getShopId(), properties.getPushCallbackUrl(), raw,
+        String authorization = ShopeeSign.push(properties.pushCallbackUrl(), raw, properties.partnerKey());
+        store.saveWebchatPush(message.messageId(), properties.shopId(), properties.pushCallbackUrl(), raw,
                 authorization, now);
 
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("message_id", message.messageId());
         response.put("conversation_id", message.conversationId());
-        response.put("callback_url", properties.getPushCallbackUrl());
+        response.put("callback_url", properties.pushCallbackUrl());
         response.put("authorization", authorization);
         response.put("raw_body", raw);
         response.put("body", json.readValue(raw, Map.class));
         return response;
     }
 
-    private Map<String, Object> messageBody(ShopeeSimulatorStore.StoredMessage message) {
+    private Map<String, Object> messageBody(ShopeeStore.StoredMessage message) {
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("message_id", message.messageId());
         row.put("from_id", message.fromId());
@@ -486,20 +507,20 @@ public class ShopeeSimulatorController {
     private Map<String, Object> reject(String path, long partnerId, long timestamp, String accessToken, long shopId,
                                         String sign) {
         long now = Instant.now().getEpochSecond();
-        if (!properties.getAccessToken().equals(accessToken)) {
+        if (!properties.accessToken().equals(accessToken)) {
             return error("error_auth", "Invalid access_token.");
         }
-        if (shopId != properties.getShopId()) {
+        if (shopId != properties.shopId()) {
             return error("error_param_shop_id_not_found", "Shop_id is not found.");
         }
-        if (partnerId != properties.getPartnerId()) {
+        if (partnerId != properties.partnerId()) {
             return error("error_auth", "Invalid partner_id.");
         }
         if (Math.abs(now - timestamp) > SIGN_WINDOW_SECONDS) {
             return error("error_param", "Wrong parameters, detail: timestamp expired.");
         }
         String expected = ShopeeSign.api(Long.toString(partnerId), path, timestamp, accessToken, Long.toString(shopId),
-                properties.getPartnerKey());
+                properties.partnerKey());
         if (!ShopeeSign.equals(expected, sign)) {
             return error("error_sign", "Wrong sign.");
         }

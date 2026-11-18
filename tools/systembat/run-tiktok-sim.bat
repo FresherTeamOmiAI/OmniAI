@@ -4,7 +4,7 @@ rem Khoa app (TIKTOK_APP_KEY/SECRET) phai trung voi backend: ca hai cung doc tu 
 setlocal
 call "%~dp0_env.bat"
 title OmniAI - TikTok Sim
-cd /d "%ROOT%\simulators	iktok-shop"
+cd /d "%ROOT%\simulators\tiktok-shop"
 if not defined TIKTOK_SIM_PORT set "TIKTOK_SIM_PORT=8090"
 echo TikTok Shop simulator: http://localhost:%TIKTOK_SIM_PORT%/ui  (log webhook: /sim/deliveries)
 call mvn spring-boot:run

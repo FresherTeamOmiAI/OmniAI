@@ -11,12 +11,13 @@ Mỗi dòng dataset (JSONL):
 transport: "simulator" (mặc định) gọi POST /api/simulator/{channel}/messages;
            "ws" gửi qua WebSocket /ws/chat giống chat widget (chỉ dùng cho kênh WEB);
            "tiktok" đóng vai buyer trên simulator TikTok Shop, hub nhận webhook đã ký;
-           "shopee" phát webchat_push rồi POST push đã ký vào /api/channels/shopee/push.
+           "shopee" phát webchat_push trên simulator Shopee (:8091) rồi POST push đã ký vào /api/channels/shopee/push.
 must_not_match: finalText không được khớp regex này (không phân biệt hoa thường), vd. số giá tự bịa.
 """
 
 import argparse
 import json
+import os
 import re
 import sys
 import time
@@ -84,13 +85,14 @@ def send_tiktok(sim_url: str, case: dict, message_id: str, fallbacks: dict[str, 
     return {"finalText": final_text, "blocked": blocked, "violations": []}, latency_ms
 
 
-def send_shopee(client: httpx.Client, case: dict, fallbacks: dict[str, str]) -> tuple[dict, int]:
-    """Khách nhắn trên simulator Shopee, hub nhận push đã ký rồi trả câu đã qua luật.
+def send_shopee(client: httpx.Client, sim_url: str, case: dict, fallbacks: dict[str, str]) -> tuple[dict, int]:
+    """Khách nhắn trên simulator Shopee, hub nhận push đã ký rồi trả câu đã qua luật (và gửi send_message về simulator).
 
+    Bench tự POST push (simulator không đẩy vì không có "deliver") để đọc final_text ngay trong response.
     Chỉ thấy finalText. blocked khi câu đó trùng fallback của kênh Shopee.
     """
     started = time.perf_counter()
-    emitted = client.post("/api/simulator/shopee/webchat", json={
+    emitted = httpx.post(f"{sim_url.rstrip('/')}/api/simulator/shopee/webchat", timeout=TIMEOUT_S, json={
         "from_id": int(time.time_ns() % 1_000_000_000) + 20,
         "from_user_name": f"bench {case['id']}",
         "text": case["text"],
@@ -144,7 +146,7 @@ def grade(policies, case: dict, reply: dict, latency_ms: int) -> dict:
 
 
 def run_case(client: httpx.Client, policies, case: dict, tiktok_sim_url: str = "http://localhost:8090",
-             fallbacks: dict[str, str] | None = None) -> dict:
+             fallbacks: dict[str, str] | None = None, shopee_sim_url: str = "http://localhost:8091") -> dict:
     transport = case.get("transport", "simulator")
     message_id = f"bench-{case['id']}-{time.time_ns()}"
     if transport == "ws":
@@ -158,7 +160,7 @@ def run_case(client: httpx.Client, policies, case: dict, tiktok_sim_url: str = "
     elif transport == "shopee":
         if case["channel"] != "SHOPEE":
             raise ValueError(f"{case['id']}: transport 'shopee' chỉ dùng cho kênh SHOPEE")
-        reply, latency_ms = send_shopee(client, case, fallbacks or load_fallbacks())
+        reply, latency_ms = send_shopee(client, shopee_sim_url, case, fallbacks or load_fallbacks())
     elif transport == "simulator":
         reply, latency_ms = send_simulator(client, case, message_id)
     else:
@@ -210,6 +212,8 @@ def main() -> int:
     parser.add_argument("--out", default=str(ROOT / "reports"))
     parser.add_argument("--tiktok-sim-url", default="http://localhost:8090",
                         help="simulator TikTok Shop, dùng cho ca transport=tiktok")
+    parser.add_argument("--shopee-sim-url", default=os.environ.get("SHOPEE_SIM_URL", "http://localhost:8091"),
+                        help="simulator Shopee, dùng cho ca transport=shopee")
     args = parser.parse_args()
 
     policies = load_policies()
@@ -219,7 +223,7 @@ def main() -> int:
     results = []
     with httpx.Client(base_url=args.base_url, timeout=TIMEOUT_S) as client:
         for i, case in enumerate(cases, 1):
-            result = run_case(client, policies, case, args.tiktok_sim_url, fallbacks)
+            result = run_case(client, policies, case, args.tiktok_sim_url, fallbacks, args.shopee_sim_url)
             results.append(result)
             # In tiến độ từng ca: với LLM thật mỗi ca mất vài giây, không in thì cửa sổ trông như bị treo.
             status = "PASS" if result["passed"] else "FAIL"

@@ -76,7 +76,7 @@ omniai:
   auth:
     jwt-secret: ${JWT_SECRET:omniai-dev-jwt-secret-change-me-32bytes!}
     token-ttl: 7d
-  # Khóa test của simulator Shopee. Không dùng khóa sàn thật.
+  # Khóa test của simulator Shopee, phải trùng với simulators/shopee. Không dùng khóa sàn thật.
   channels:
     shopee:
       partner-id: ${SHOPEE_PARTNER_ID:2000001}
@@ -84,10 +84,8 @@ omniai:
       shop-id: ${SHOPEE_SHOP_ID:10001}
       access-token: ${SHOPEE_ACCESS_TOKEN:test-access-token}
       push-callback-url: ${SHOPEE_PUSH_CALLBACK_URL:http://127.0.0.1:8080/api/channels/shopee/push}
-      datasource:
-        url: ${SHOPEE_DB_URL:jdbc:postgresql://localhost:5432/shopee}
-        username: ${SHOPEE_DB_USERNAME:omniai}
-        password: ${SHOPEE_DB_PASSWORD:omniai}
+      # Simulator simulators/shopee (app riêng, DB shopee của riêng nó). Hub không cần DB shopee để khởi động.
+      api-base-url: ${SHOPEE_SIM_URL:http://localhost:8091}
   # Kênh TikTok Shop (US-25). S2 trỏ tới simulator simulators/tiktok-shop (decisions #22, #28).
   # Khóa app phải trùng với simulator; giá trị mặc định là khóa test, không phải bí mật.
   tiktok:

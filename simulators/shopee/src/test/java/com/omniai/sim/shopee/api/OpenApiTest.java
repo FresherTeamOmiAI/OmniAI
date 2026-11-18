@@ -1,6 +1,9 @@
-package com.omniai.channel.shopee;
+package com.omniai.sim.shopee.api;
 
-import com.omniai.TestcontainersConfig;
+import com.omniai.sim.shopee.SimProperties;
+import com.omniai.sim.shopee.TestcontainersConfig;
+import com.omniai.sim.shopee.common.ShopeeSign;
+import com.omniai.sim.shopee.store.ShopeeStore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,7 +11,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -29,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(TestcontainersConfig.class)
-class ShopeeSimulatorTest {
+class OpenApiTest {
 
     private static final long ITEM_ID = 1L;
     private static final long HUB_PRICE_SHOPEE = 299_000L;
@@ -38,60 +40,54 @@ class ShopeeSimulatorTest {
     @Autowired
     MockMvc mvc;
     @Autowired
-    ShopeeChannelProperties shopee;
+    SimProperties shopee;
     @Autowired
-    ShopeeSimulatorStore store;
+    ShopeeStore store;
     @Autowired
     JsonMapper json;
 
     @BeforeEach
     void emptyShopeeTables() {
-        JdbcTemplate jdbc = store.jdbc();
-        jdbc.execute("""
-                TRUNCATE TABLE tbl_shopee_webchat_push, tbl_shopee_message, tbl_shopee_conversation,
-                               tbl_shopee_push, tbl_shopee_order_item, tbl_shopee_order,
-                               tbl_shopee_seller_stock, tbl_shopee_price_list, tbl_shopee_item
-                RESTART IDENTITY CASCADE
-                """);
+        store.reset();
     }
 
     @Test
     void priceAndStockMatchHubAndWrongSignIsRejected() throws Exception {
-        mvc.perform(signed(post(ShopeeSimulatorController.PRICE_PATH)
+        mvc.perform(signed(post(OpenApiController.PRICE_PATH)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"item_id":%d,"price_list":[{"model_id":0,"original_price":%d}]}
                                 """.formatted(ITEM_ID, HUB_PRICE_SHOPEE)),
-                ShopeeSimulatorController.PRICE_PATH))
+                OpenApiController.PRICE_PATH))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.error").value(""))
                 .andExpect(jsonPath("$.warning").value(""))
                 .andExpect(jsonPath("$.response.success_list[0].original_price").value(HUB_PRICE_SHOPEE));
 
-        mvc.perform(signed(post(ShopeeSimulatorController.STOCK_PATH)
+        mvc.perform(signed(post(OpenApiController.STOCK_PATH)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"item_id":%d,"stock_list":[{"model_id":0,"seller_stock":[{"stock":%d}]}]}
                                 """.formatted(ITEM_ID, HUB_STOCK)),
-                ShopeeSimulatorController.STOCK_PATH))
+                OpenApiController.STOCK_PATH))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.response.success_list[0].stock").value(HUB_STOCK));
 
         mvc.perform(get("/api/simulator/shopee/items/" + ITEM_ID))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.originalPrice").value(HUB_PRICE_SHOPEE))
+                .andExpect(jsonPath("$.original_price").value(HUB_PRICE_SHOPEE))
                 .andExpect(jsonPath("$.stock").value(HUB_STOCK));
 
-        mvc.perform(signed(post(ShopeeSimulatorController.PRICE_PATH)
+        mvc.perform(signed(post(OpenApiController.PRICE_PATH)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"item_id":%d,"price_list":[{"model_id":0,"original_price":1}]}
                                 """.formatted(ITEM_ID)),
-                ShopeeSimulatorController.PRICE_PATH, "sai"))
+                OpenApiController.PRICE_PATH, "sai"))
                 .andExpect(jsonPath("$.error").value("error_sign"));
 
         mvc.perform(get("/api/simulator/shopee/items/" + ITEM_ID))
-                .andExpect(jsonPath("$.originalPrice").value(HUB_PRICE_SHOPEE));
+                .andExpect(jsonPath("$.original_price").value(HUB_PRICE_SHOPEE));
 
         assertThat(store.jdbc().queryForObject(
                 "SELECT original_price FROM tbl_shopee_price_list WHERE item_id = ? AND model_id = 0",
@@ -119,7 +115,7 @@ class ShopeeSimulatorTest {
         String raw = body.get("raw_body").asString();
         String authorization = body.get("authorization").asString();
         assertThat(body.get("body").get("data").get("ordersn").asString()).isEqualTo(orderSn);
-        assertThat(authorization).isEqualTo(ShopeeSign.push(shopee.getPushCallbackUrl(), raw, shopee.getPartnerKey()));
+        assertThat(authorization).isEqualTo(ShopeeSign.push(shopee.pushCallbackUrl(), raw, shopee.partnerKey()));
         assertThat(body.get("body").has("data")).isTrue();
         assertThat(body.get("body").has("shop_id")).isTrue();
         assertThat(body.get("body").has("code")).isTrue();
@@ -128,10 +124,10 @@ class ShopeeSimulatorTest {
         assertThat(body.get("body").get("data").has("status")).isTrue();
         assertThat(body.get("body").get("data").has("update_time")).isTrue();
 
-        mvc.perform(signed(get(ShopeeSimulatorController.ORDER_DETAIL_PATH)
+        mvc.perform(signed(get(OpenApiController.ORDER_DETAIL_PATH)
                         .param("order_sn_list", orderSn)
                         .param("response_optional_fields", "item_list,total_amount"),
-                ShopeeSimulatorController.ORDER_DETAIL_PATH))
+                OpenApiController.ORDER_DETAIL_PATH))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.response.order_list[0].order_sn").value(orderSn))
                 .andExpect(jsonPath("$.response.order_list[0].currency").value("VND"))
@@ -148,9 +144,9 @@ class ShopeeSimulatorTest {
         assertThat(store.jdbc().queryForObject(
                 "SELECT code FROM tbl_shopee_push WHERE order_sn = ?", Integer.class, orderSn)).isEqualTo(3);
 
-        mvc.perform(signed(get(ShopeeSimulatorController.ORDER_DETAIL_PATH)
+        mvc.perform(signed(get(OpenApiController.ORDER_DETAIL_PATH)
                         .param("order_sn_list", orderSn),
-                ShopeeSimulatorController.ORDER_DETAIL_PATH, "sai"))
+                OpenApiController.ORDER_DETAIL_PATH, "sai"))
                 .andExpect(jsonPath("$.error").value("error_sign"));
     }
 
@@ -167,7 +163,7 @@ class ShopeeSimulatorTest {
                 .andExpect(jsonPath("$.body.data.type").value("message"))
                 .andExpect(jsonPath("$.body.data.region").value("VN"))
                 .andExpect(jsonPath("$.body.data.content.from_id").value(165105353))
-                .andExpect(jsonPath("$.body.data.content.to_id").value((int) shopee.getShopId()))
+                .andExpect(jsonPath("$.body.data.content.to_id").value((int) shopee.shopId()))
                 .andExpect(jsonPath("$.body.data.content.message_type").value("text"))
                 .andExpect(jsonPath("$.body.data.content.content.text").value("Đơn của tôi đang ở đâu?"))
                 .andExpect(jsonPath("$.body.data.content.region").value("VN"))
@@ -177,21 +173,21 @@ class ShopeeSimulatorTest {
                 .andExpect(jsonPath("$.body.data.content.sub_account_name").value(0))
                 .andExpect(jsonPath("$.body.data.content.business_type").value(0))
                 .andExpect(jsonPath("$.body.data.content.status").value("user_chat"))
-                .andExpect(jsonPath("$.body.data.content.to_shop_id").value((int) shopee.getShopId()))
+                .andExpect(jsonPath("$.body.data.content.to_shop_id").value((int) shopee.shopId()))
                 .andExpect(jsonPath("$.body.data.content.from_shop_id").value(0))
-                .andExpect(jsonPath("$.body.shop_id").value((int) shopee.getShopId()))
+                .andExpect(jsonPath("$.body.shop_id").value((int) shopee.shopId()))
                 .andReturn();
         JsonNode body = json.readTree(emitted.getResponse().getContentAsString());
         String raw = body.get("raw_body").asString();
         String conversationId = body.get("conversation_id").asString();
         assertThat(body.get("authorization").asString())
-                .isEqualTo(ShopeeSign.push(shopee.getPushCallbackUrl(), raw, shopee.getPartnerKey()));
+                .isEqualTo(ShopeeSign.push(shopee.pushCallbackUrl(), raw, shopee.partnerKey()));
         assertThat(store.jdbc().queryForObject(
                 "SELECT code FROM tbl_shopee_webchat_push WHERE message_id = ?",
                 Integer.class, Long.parseLong(body.get("message_id").asString()))).isEqualTo(10);
 
-        mvc.perform(signed(get(ShopeeSimulatorController.CONVERSATION_LIST_PATH),
-                ShopeeSimulatorController.CONVERSATION_LIST_PATH))
+        mvc.perform(signed(get(OpenApiController.CONVERSATION_LIST_PATH),
+                OpenApiController.CONVERSATION_LIST_PATH))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.error").value(""))
                 .andExpect(jsonPath("$.response.conversations[0].conversation_id").value(conversationId))
@@ -200,54 +196,54 @@ class ShopeeSimulatorTest {
                 .andExpect(jsonPath("$.response.conversations[0].unread_count").value(1))
                 .andExpect(jsonPath("$.response.conversations[0].latest_message_content.text").value("Đơn của tôi đang ở đâu?"));
 
-        mvc.perform(signed(get(ShopeeSimulatorController.GET_MESSAGE_PATH)
+        mvc.perform(signed(get(OpenApiController.GET_MESSAGE_PATH)
                         .param("conversation_id", conversationId),
-                ShopeeSimulatorController.GET_MESSAGE_PATH))
+                OpenApiController.GET_MESSAGE_PATH))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.response.messages[0].content.text").value("Đơn của tôi đang ở đâu?"))
                 .andExpect(jsonPath("$.response.messages[0].status").value("user_chat"))
                 .andExpect(jsonPath("$.response.page_result.next_offset").value(""));
 
-        mvc.perform(signed(post(ShopeeSimulatorController.SEND_MESSAGE_PATH)
+        mvc.perform(signed(post(OpenApiController.SEND_MESSAGE_PATH)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"to_id":165105353,"message_type":"text","content":{"text":"Đơn đang được chuẩn bị"}}
                                 """),
-                ShopeeSimulatorController.SEND_MESSAGE_PATH))
+                OpenApiController.SEND_MESSAGE_PATH))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.error").value(""))
                 .andExpect(jsonPath("$.response.conversation_id").value(conversationId))
                 .andExpect(jsonPath("$.response.message_type").value("text"))
                 .andExpect(jsonPath("$.response.content.text").value("Đơn đang được chuẩn bị"));
 
-        mvc.perform(signed(get(ShopeeSimulatorController.GET_MESSAGE_PATH)
+        mvc.perform(signed(get(OpenApiController.GET_MESSAGE_PATH)
                         .param("conversation_id", conversationId),
-                ShopeeSimulatorController.GET_MESSAGE_PATH))
+                OpenApiController.GET_MESSAGE_PATH))
                 .andExpect(jsonPath("$.response.messages.length()").value(2))
-                .andExpect(jsonPath("$.response.messages[1].from_id").value((int) shopee.getShopId()))
+                .andExpect(jsonPath("$.response.messages[1].from_id").value((int) shopee.shopId()))
                 .andExpect(jsonPath("$.response.messages[1].status").value("normal"));
 
-        mvc.perform(signed(get(ShopeeSimulatorController.CONVERSATION_LIST_PATH),
-                ShopeeSimulatorController.CONVERSATION_LIST_PATH))
+        mvc.perform(signed(get(OpenApiController.CONVERSATION_LIST_PATH),
+                OpenApiController.CONVERSATION_LIST_PATH))
                 .andExpect(jsonPath("$.response.conversations[0].unread_count").value(0));
 
-        mvc.perform(signed(post(ShopeeSimulatorController.SEND_MESSAGE_PATH)
+        mvc.perform(signed(post(OpenApiController.SEND_MESSAGE_PATH)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"to_id":165105353,"message_type":"text","content":{"text":"không được lưu"}}
                                 """),
-                ShopeeSimulatorController.SEND_MESSAGE_PATH, "sai"))
+                OpenApiController.SEND_MESSAGE_PATH, "sai"))
                 .andExpect(jsonPath("$.error").value("error_sign"));
         assertThat(store.jdbc().queryForObject(
                 "SELECT COUNT(*) FROM tbl_shopee_message WHERE conversation_id = ?",
                 Integer.class, Long.parseLong(conversationId))).isEqualTo(2);
 
-        mvc.perform(signed(post(ShopeeSimulatorController.SEND_MESSAGE_PATH)
+        mvc.perform(signed(post(OpenApiController.SEND_MESSAGE_PATH)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"to_id":165105353,"message_type":"order","content":{"order_sn":"KHONG-CO"}}
                                 """),
-                ShopeeSimulatorController.SEND_MESSAGE_PATH))
+                OpenApiController.SEND_MESSAGE_PATH))
                 .andExpect(jsonPath("$.error").value("error_param"));
     }
 
@@ -258,13 +254,13 @@ class ShopeeSimulatorTest {
     private MockHttpServletRequestBuilder signed(MockHttpServletRequestBuilder request, String path, String signOverride) {
         long timestamp = Instant.now().getEpochSecond();
         String sign = signOverride != null ? signOverride : ShopeeSign.api(
-                Long.toString(shopee.getPartnerId()), path, timestamp, shopee.getAccessToken(),
-                Long.toString(shopee.getShopId()), shopee.getPartnerKey());
+                Long.toString(shopee.partnerId()), path, timestamp, shopee.accessToken(),
+                Long.toString(shopee.shopId()), shopee.partnerKey());
         return request
-                .param("partner_id", Long.toString(shopee.getPartnerId()))
+                .param("partner_id", Long.toString(shopee.partnerId()))
                 .param("timestamp", Long.toString(timestamp))
-                .param("access_token", shopee.getAccessToken())
-                .param("shop_id", Long.toString(shopee.getShopId()))
+                .param("access_token", shopee.accessToken())
+                .param("shop_id", Long.toString(shopee.shopId()))
                 .param("sign", sign);
     }
 }

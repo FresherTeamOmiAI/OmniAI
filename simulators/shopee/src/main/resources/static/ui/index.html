@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shopee Simulator</title>
+  <link rel="stylesheet" href="ui.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo" aria-hidden="true">S</span>
+    <div>
+      <div class="brand-title">Shopee <span class="muted">Simulator</span></div>
+      <div class="brand-sub" id="shopLine">đang tải…</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span class="pill" id="pushPill" title="Kết quả push gần nhất simulator gửi tới hub">Push: ?</span>
+    <label class="switch" title="Tự tải lại mỗi 2 giây">
+      <input type="checkbox" id="autoRefresh" checked>
+      <span>Tự cập nhật</span>
+    </label>
+    <span class="dot" id="liveDot" title="Kết nối tới simulator"></span>
+  </div>
+</header>
+
+<nav class="tabs" role="tablist">
+  <button role="tab" data-tab="chat" class="active">Chat <span class="badge" id="cntChat">0</span></button>
+  <button role="tab" data-tab="items">Sản phẩm <span class="badge" id="cntItems">0</span></button>
+  <button role="tab" data-tab="orders">Đơn hàng <span class="badge" id="cntOrders">0</span></button>
+  <button role="tab" data-tab="calls">API hub gọi <span class="badge" id="cntCalls">0</span></button>
+  <button role="tab" data-tab="pushes">Push <span class="badge" id="cntPushes">0</span></button>
+  <button role="tab" data-tab="control">Điều khiển</button>
+</nav>
+
+<main>
+  <!-- ================= Chat ================= -->
+  <section class="tab-panel active" id="tab-chat">
+    <div class="chat">
+      <aside class="conv-list">
+        <div class="conv-head">
+          <strong>Hội thoại</strong>
+          <button class="btn small" id="newBuyerBtn" type="button">+ Buyer mới</button>
+        </div>
+        <ul id="convList"></ul>
+        <p class="empty" id="convEmpty">Chưa có hội thoại. Bấm "+ Buyer mới" rồi gửi tin đầu tiên.</p>
+      </aside>
+      <div class="thread">
+        <div class="thread-head">
+          <div>
+            <strong id="threadTitle">Chọn một hội thoại</strong>
+            <div class="muted small" id="threadMeta"></div>
+          </div>
+        </div>
+        <div class="messages" id="messages"></div>
+        <form class="composer" id="composer" autocomplete="off">
+          <div class="composer-row buyer-fields">
+            <label>from_id (buyer) <input id="buyerId" type="number" min="1" step="1" required></label>
+            <label>from_user_name <input id="buyerName" maxlength="64" required></label>
+            <label>message_type
+              <select id="msgType">
+                <option value="text">text</option>
+                <option value="item">item</option>
+                <option value="order">order</option>
+              </select>
+            </label>
+          </div>
+          <div class="samples" id="samples"></div>
+          <div class="composer-row">
+            <textarea id="buyerText" rows="2" maxlength="2000" placeholder="Nhập tin của buyer… (Enter để gửi, Shift+Enter xuống dòng)"></textarea>
+            <select id="itemPick" class="hidden" aria-label="item_id"></select>
+            <select id="orderPick" class="hidden" aria-label="order_sn"></select>
+            <button class="btn primary" type="submit" id="sendBtn">Gửi</button>
+          </div>
+          <div class="composer-row between">
+            <label class="check" title="Bỏ chọn: simulator chỉ tạo tin và trả raw body + chữ ký, không gọi hub">
+              <input type="checkbox" id="deliverChat" checked> Đẩy push code 10 tới hub
+            </label>
+            <span class="muted small" id="sendStatus"></span>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= Sản phẩm ================= -->
+  <section class="tab-panel" id="tab-items">
+    <div class="toolbar">
+      <input type="search" id="itemSearch" placeholder="Tìm theo item_id, item_sku, tên…">
+      <span class="muted small" id="itemSummary"></span>
+    </div>
+    <table class="table" id="itemTable">
+      <thead><tr><th>item_id</th><th>item_sku</th><th>Tên</th><th>original_price</th><th>stock</th><th>model</th><th>Trạng thái</th><th>Cập nhật</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <p class="empty" id="itemEmpty">Hub chưa đẩy giá/tồn nào. Liên kết <code>item_id</code> ở hub (<code>POST /api/admin/sync/products/{id}/SHOPEE/link</code>) rồi sửa giá hoặc tồn.</p>
+  </section>
+
+  <!-- ================= Đơn hàng ================= -->
+  <section class="tab-panel" id="tab-orders">
+    <div class="card">
+      <h3>Phát đơn mới (push code 3)</h3>
+      <form id="orderForm" class="form-grid four" autocomplete="off">
+        <label class="span2">Điền từ item đã có
+          <select id="orderItemPick"><option value="">(nhập tay)</option></select>
+        </label>
+        <label>item_id <input name="item_id" type="number" min="1" required></label>
+        <label>item_sku <input name="item_sku" required maxlength="100"></label>
+        <label class="span2">item_name <input name="item_name" required maxlength="255"></label>
+        <label>quantity <input name="quantity" type="number" min="1" value="1" required></label>
+        <label>price (VND) <input name="price" type="number" min="0" step="1000" required></label>
+        <label>status
+          <select name="status">
+            <option>READY_TO_SHIP</option><option>UNPAID</option><option>PROCESSED</option>
+            <option>SHIPPED</option><option>COMPLETED</option><option>CANCELLED</option>
+          </select>
+        </label>
+        <label>days_to_ship <input name="days_to_ship" type="number" min="0" value="2"></label>
+        <label class="span2">message_to_seller <input name="message_to_seller" maxlength="500"></label>
+        <label class="check"><input type="checkbox" name="cod"> COD</label>
+        <label class="check"><input type="checkbox" name="deliver" checked> Đẩy push tới hub</label>
+        <div class="span4 row">
+          <button class="btn primary" type="submit">Phát đơn</button>
+          <span class="muted small" id="orderStatus"></span>
+        </div>
+      </form>
+    </div>
+    <table class="table" id="orderTable">
+      <thead><tr><th>order_sn</th><th>Trạng thái</th><th>Hàng</th><th>SL</th><th>total_amount</th><th>COD</th><th>Tạo lúc</th><th>Push</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <p class="empty" id="orderEmpty">Chưa có đơn nào.</p>
+  </section>
+
+  <!-- ================= API calls ================= -->
+  <section class="tab-panel" id="tab-calls">
+    <div class="toolbar">
+      <select id="callGroup">
+        <option value="">Mọi nhóm API</option>
+        <option value="/api/v2/product/">product</option>
+        <option value="/api/v2/order/">order</option>
+        <option value="/api/v2/sellerchat/">sellerchat</option>
+      </select>
+      <label class="check"><input type="checkbox" id="callErrors"> Chỉ lỗi</label>
+      <input type="search" id="callSearch" placeholder="Lọc theo path / nội dung…">
+      <button class="btn small" id="clearCalls" type="button">Xóa log</button>
+    </div>
+    <table class="table" id="callTable">
+      <thead><tr><th>Giờ</th><th>Method</th><th>Path</th><th>HTTP</th><th>error</th><th>message</th><th>ms</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <p class="empty" id="callEmpty">Chưa có request nào từ hub.</p>
+  </section>
+
+  <!-- ================= Push ================= -->
+  <section class="tab-panel" id="tab-pushes">
+    <p class="muted small">Push simulator đã gửi tới hub (mới nhất trước). Hub không trả 2xx thì simulator gửi lại, tối đa 3 lần. Bấm một dòng để xem body hub trả về.</p>
+    <table class="table" id="pushTable">
+      <thead><tr><th>Giờ</th><th>code</th><th>ref</th><th>Kết quả</th><th>final_text</th><th>Các lần gửi</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <p class="empty" id="pushEmpty">Chưa gửi push nào.</p>
+  </section>
+
+  <!-- ================= Điều khiển ================= -->
+  <section class="tab-panel" id="tab-control">
+    <div class="cards">
+      <div class="card">
+        <h3>Shop</h3>
+        <dl class="kv" id="shopInfo"></dl>
+      </div>
+      <div class="card">
+        <h3>Nối với hub</h3>
+        <ul class="small steps">
+          <li>Khóa <code>SHOPEE_PARTNER_ID/KEY</code>, <code>SHOPEE_SHOP_ID</code>, <code>SHOPEE_ACCESS_TOKEN</code> phải trùng giữa simulator và backend (cả hai đọc <code>.env</code>).</li>
+          <li>Hub gọi simulator qua <code>SHOPEE_SIM_URL</code> (mặc định <code>http://localhost:8091</code>).</li>
+          <li>Giá/tồn: liên kết <code>item_id</code> ở <code>POST /api/admin/sync/products/{id}/SHOPEE/link</code> (Basic admin), sau đó sửa sản phẩm trên hub.</li>
+          <li>Chat: buyer gửi tin ở tab Chat → push code 10 → hub trả lời qua <code>v2.sellerchat.send_message</code>.</li>
+        </ul>
+      </div>
+      <div class="card danger">
+        <h3>Reset simulator</h3>
+        <p class="muted small">Xóa item, giá, tồn, đơn, hội thoại (mọi bảng <code>tbl_shopee_*</code>) cùng log API và log push. Khóa test giữ nguyên.</p>
+        <button class="btn danger" type="button" id="resetBtn">Reset toàn bộ</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<dialog id="detail">
+  <form method="dialog" class="dialog-head">
+    <strong id="detailTitle"></strong>
+    <button class="btn small" value="close">Đóng</button>
+  </form>
+  <div id="detailBody"></div>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="ui.js"></script>
+</body>
+</html>

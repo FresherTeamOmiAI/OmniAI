@@ -19,24 +19,26 @@ import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/** Hub nhận push Shopee: kiểm chữ ký, qua luật kênh, trả lời bằng send_message (T-21.6). */
 class ShopeePushTest {
 
     private static final String CALLBACK = "http://127.0.0.1:8080/api/channels/shopee/push";
     private static final String KEY = "test-partner-key";
 
     private final JsonMapper json = JsonMapper.builder().build();
-    private final ShopeeSimulatorStore store = mock(ShopeeSimulatorStore.class);
+    private final ShopeeChatClient chat = mock(ShopeeChatClient.class);
     private final Clock clock = Clock.fixed(Instant.ofEpochSecond(1_700_000_000), ZoneOffset.UTC);
     private MockMvc mvc;
 
@@ -49,7 +51,7 @@ class ShopeePushTest {
         properties.setPartnerKey(KEY);
         properties.setPushCallbackUrl(CALLBACK);
         ShopeePushController controller = new ShopeePushController(
-                properties, new ShopeePushProcessor(router, store), clock);
+                properties, new ShopeePushProcessor(router, chat), clock);
         mvc = MockMvcBuilders.standaloneSetup(controller).build();
     }
 
@@ -64,8 +66,7 @@ class ShopeePushTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error").value("error_sign"));
 
-        verify(store, never()).appendMessage(anyLong(), anyLong(), anyString(), anyBoolean(),
-                anyLong(), anyString(), anyLong(), anyString(), anyString(), anyString(), anyString(), anyLong());
+        verify(chat, never()).sendText(anyLong(), anyString());
     }
 
     @Test
@@ -79,9 +80,27 @@ class ShopeePushTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.final_text").value("Xem tại [đã ẩn] nhé"));
 
-        verify(store).appendMessage(anyLong(), anyLong(), anyString(), org.mockito.ArgumentMatchers.eq(false),
-                anyLong(), anyString(), anyLong(), anyString(), org.mockito.ArgumentMatchers.eq("text"),
-                org.mockito.ArgumentMatchers.contains("đã ẩn"), org.mockito.ArgumentMatchers.eq("normal"), anyLong());
+        verify(chat).sendText(eq(165105353L), eq("Xem tại [đã ẩn] nhé"));
+    }
+
+    @Test
+    void failedSendMessageReturns500SoSimulatorRetries() throws Exception {
+        String body = buyerPush("m-retry", "Còn hàng không?");
+        String sign = ShopeeSign.push(CALLBACK, body, KEY);
+        when(chat.sendText(anyLong(), anyString()))
+                .thenThrow(new ShopeeApiClient.ShopeeApiException("io", "simulator tắt", true))
+                .thenReturn("42");
+
+        mvc.perform(post("/api/channels/shopee/push").header("Authorization", sign)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.error").value("process_failed"));
+        mvc.perform(post("/api/channels/shopee/push").header("Authorization", sign)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.final_text").exists());
+
+        verify(chat, times(2)).sendText(eq(165105353L), anyString());
     }
 
     @Test
@@ -130,8 +149,7 @@ class ShopeePushTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.final_text").doesNotExist());
 
-        verify(store, times(1)).appendMessage(anyLong(), anyLong(), anyString(), anyBoolean(),
-                anyLong(), anyString(), anyLong(), anyString(), anyString(), anyString(), anyString(), anyLong());
+        verify(chat, times(1)).sendText(anyLong(), anyString());
     }
 
     private MockMvc mvcWithBrain(String reply) {
@@ -141,7 +159,7 @@ class ShopeePushTest {
         properties.setPartnerKey(KEY);
         properties.setPushCallbackUrl(CALLBACK);
         return MockMvcBuilders.standaloneSetup(new ShopeePushController(
-                properties, new ShopeePushProcessor(router, store), clock)).build();
+                properties, new ShopeePushProcessor(router, chat), clock)).build();
     }
 
     private String buyerPush(String messageId, String text) {
