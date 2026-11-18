@@ -1,11 +1,11 @@
-# OmniAI – Trợ lý tư vấn mỹ phẩm đa kênh
+# OmniAI – Hub omnichannel và trợ lý tư vấn mỹ phẩm đa kênh
 
-**Một bộ não, nhiều luật kênh.** Một AI Brain dùng chung tư vấn cho người mua mỹ phẩm trên web của shop, Telegram, Shopee và TikTok Shop. Mỗi kênh có bộ luật riêng: ví dụ trên Shopee bot không được gửi link, không đưa số điện thoại, không nhắc kênh khác. Khi khách đồng ý liên kết tài khoản, bot nhớ khách xuyên kênh. Chất lượng của bot được đo bằng **bench**.
+**Một bộ não, nhiều luật kênh.** OmniAI là hub của shop mỹ phẩm: dữ liệu gốc (sản phẩm, giá, tồn kho, khuyến mãi) được đẩy từ hub ra các kênh, còn hội thoại, đơn hàng, đánh giá ở các kênh được gom về hub. Một AI Brain dùng chung tư vấn cho người mua trên web của shop, Shopee và TikTok Shop (hai sàn chạy bằng simulator theo schema thật). Mỗi kênh có bộ luật riêng: ví dụ trên Shopee bot không được gửi link, không đưa số điện thoại, không nhắc kênh khác. Khi khách đồng ý liên kết tài khoản, bot nhớ khách xuyên kênh. Chất lượng của bot được đo bằng **bench**.
 
 - Đề xuất & phản biện: [docs/de-xuat-OmniAI.md](docs/de-xuat-OmniAI.md)
 - Kế hoạch, sprint backlog, bug log: [docs/tracking/OmniAI_Project_Tracking.xlsx](docs/tracking/OmniAI_Project_Tracking.xlsx)
 
-> Cửa hàng trong dự án là **bản demo**: thương hiệu hư cấu, không bán, không thanh toán, không giao hàng thật.
+> Cửa hàng trong dự án là **bản demo**: không bán, không thanh toán, không giao hàng thật. Shopee và TikTok Shop là **giả lập**, không nối API thật của sàn.
 
 ## Bài toán
 
@@ -19,25 +19,26 @@
 **Giải pháp: "Một bộ não, nhiều luật kênh".**
 - **Adapter** cho mỗi kênh chuyển tin nhắn về một định dạng chung. **Policy engine** áp luật của kênh, chặn hoặc viết lại câu trả lời trước khi gửi cho khách.
 - **AI Brain dùng chung:** RAG trên catalog, luật thành phần cố định (ví dụ retinol với AHA, khi mang thai), tư vấn săn sale theo kênh.
-- **Liên kết danh tính có sự đồng ý của khách:** mã OMNI-xxxx, deep-link, mã đơn hàng. Hệ thống chỉ gợi ý gộp tài khoản, khách xác nhận mới gộp.
-- **Bench** đo theo từng kênh: tỉ lệ vi phạm luật, tỉ lệ bịa số, độ nhớ khi đổi kênh, độ trễ. Đây là đóng góp chính của dự án.
+- **Liên kết danh tính có sự đồng ý của khách:** mã OMNI-xxxx, mã đơn hàng. Hệ thống chỉ gợi ý gộp tài khoản, khách xác nhận mới gộp.
+- **Đồng bộ 2 chiều giữa hub và sàn:** đi gồm sản phẩm, giá theo kênh, tồn kho, khuyến mãi, trạng thái xử lý đơn; về gồm hội thoại chăm sóc khách hàng, đơn hàng, trạng thái duyệt sản phẩm, đánh giá. Nội dung đẩy ra sàn cũng phải qua luật của kênh.
+- **Bench** đo theo từng kênh: tỉ lệ vi phạm luật, tỉ lệ bịa số, độ nhớ khi đổi kênh, độ trễ. Đây là đóng góp chính của dự án. Phương pháp: [docs/bench/huong-dan-benchmark.md](docs/bench/huong-dan-benchmark.md).
 
 ## Team
 
 | Thành viên | Vai trò | Phụ trách code |
 |---|---|---|
 | **HungDQ** | PO + Lead | `backend/.../policy`, `bench/`, CI, `tools/tracking` |
-| **TuTM** | Dev | `backend/.../channel` (Gateway, adapter Web/Telegram/Shopee/TikTok, simulator), admin inbox |
+| **TuTM** | Dev | `backend/.../channel` (Gateway, adapter Web, simulator TikTok Shop, đồng bộ hub ↔ kênh), admin inbox |
 | **LucVT** | Dev | `backend/.../identity`, `customer`, `catalog`, `promotion`, `order`, web store |
-| **ChienPX** | Dev | `ai-brain/` (agent, RAG, luật mỹ phẩm, bộ nhớ) |
+| **ChienPX** | Dev | `ai-brain/` (agent, RAG, luật mỹ phẩm, bộ nhớ), simulator Shopee |
 
 Mỗi người tự làm giao diện (`web/`) cho phần của mình.
 
 ## Kiến trúc
 
 ```
-[Web widget]  [Telegram]  [Shopee]  [TikTok Shop]  [Simulator]
-      \            |          |           |            /
+[Web widget]   [Shopee simulator]   [TikTok Shop simulator]   [Simulator chung]
+      \               |                    |                   /
        ---------- Channel adapter -> CanonicalMessage ----------      backend (Spring Boot 4, Java 21)
                               |
                        MessageRouter (idempotency)
@@ -49,6 +50,9 @@ Mỗi người tự làm giao diện (`web/`) cho phần của mình.
                   BotReply { rawText, finalText, violations }
                               |
                      trả về đúng kênh  ·  bench chấm lại finalText bằng cùng bộ YAML
+
+Dữ liệu 2 chiều (từ S3):  hub --sản phẩm, giá, tồn kho, khuyến mãi, trạng thái đơn--> Shopee, TikTok Shop
+                          hub <--hội thoại CSKH, đơn hàng, duyệt sản phẩm, đánh giá--  Shopee, TikTok Shop
 ```
 
 Hạ tầng (`docker-compose.yml`): PostgreSQL 16 + pgvector, Redis, RabbitMQ.
@@ -57,12 +61,12 @@ Hạ tầng (`docker-compose.yml`): PostgreSQL 16 + pgvector, Redis, RabbitMQ.
 
 ```
 backend/      Spring Boot modular monolith: channel, policy, brain, catalog, customer, identity, promotion, order
-ai-brain/     FastAPI: /chat, LLMProvider (fake mặc định), agent, rules/ingredients.py
+ai-brain/     FastAPI: /chat, LLMProvider (gemini mặc định, groq dự phòng), agent, rules/ingredients.py
 bench/        Bench chạy qua API simulator, chấm lại theo shared/policies
 web/          React + Vite + TS, modular theo feature (app/, shared/, features/): store, chat, thử luật kênh
-shared/       policies/*.yaml (luật kênh, dùng chung Java + Python), schemas/ (CanonicalMessage)
+shared/       policies/*.yaml (luật kênh, dùng chung Java + Python), schemas/ (CanonicalMessage), catalog/ (80 SKU dạng CSV)
 docs/         đề xuất, file tracking Excel, specs/ (bản đồ hệ thống cho người và agent)
-tools/        tracking/ (sinh Excel, đồng bộ GitHub), systembat/ (script .bat chạy dự án), agent/ (hook kiểm tra specs)
+tools/        tracking/ (sinh Excel, đồng bộ GitHub), systembat/ (script .bat chạy dự án), agent/ (hook kiểm tra specs), catalog/ (kiểm tra file catalog)
 ```
 
 ## Cài đặt
@@ -70,11 +74,11 @@ tools/        tracking/ (sinh Excel, đồng bộ GitHub), systembat/ (script .b
 Cần: **JDK 21**, **Maven 3.9+**, **Python 3.11+**, **Node.js 20.19+**, **Docker Desktop** (bắt buộc: Postgres khi chạy app, Testcontainers khi chạy test).
 
 ```bash
-cp .env.example .env          # sửa nếu cần; giá trị mặc định đã chạy được
+cp .env.example .env          # BẮT BUỘC điền LLM_API_KEY (Google AI Studio hoặc Groq); các giá trị khác chạy được ngay
 docker compose up -d          # postgres, redis, rabbitmq
 ```
 
-Backend không tự đọc file `.env`. Giá trị mặc định trong `application.yml` đã khớp `.env.example`. Muốn đổi thì đặt biến môi trường hoặc cấu hình trong IDE.
+AI Brain chỉ chạy LLM thật và đọc catalog từ Postgres thật: thiếu `LLM_API_KEY` hoặc `CHATBOT_DB_URL` thì brain không khởi động. Backend không tự đọc file `.env`. Giá trị mặc định trong `application.yml` đã khớp `.env.example`. Muốn đổi thì đặt biến môi trường hoặc cấu hình trong IDE.
 
 ### Chạy nhanh trên Windows (không cần gõ lệnh)
 
@@ -108,7 +112,7 @@ cd web
 npm install
 npm run dev
 ```
-Mở http://localhost:5173 để vào cửa hàng có chat widget. Mở http://localhost:5173/admin/policy để vào trang "Thử luật kênh": gửi 1 câu vào 4 kênh và so sánh câu AI nói với câu khách nhận.
+Mở http://localhost:5173 để vào cửa hàng có chat widget. Mở http://localhost:5173/admin/policy để vào trang "Thử luật kênh": gửi 1 câu vào 3 kênh và so sánh câu AI nói với câu khách nhận.
 
 **4. Bench**
 ```bash
@@ -123,7 +127,7 @@ python -m bench.run              # cần backend + ai-brain đang chạy; báo c
 
 ```bash
 cd backend  && mvn test                      # PolicyEngine, MessageRouter, khởi động Spring trên Postgres thật (Testcontainers, cần Docker)
-cd ai-brain && .venv\Scripts\python -m pytest
+cd ai-brain && .venv\Scripts\python -m pytest       # dùng stub trong tests/, không gọi LLM, không cần key
 cd bench    && .venv\Scripts\python -m pytest
 cd web      && npm run build
 ```
@@ -153,8 +157,8 @@ Trước khi sửa code, đọc [docs/specs/](docs/specs/README.md): hợp đồ
 
 ## Quy ước Git
 
-- Nhánh: `main` (bản ổn định, demo, gắn tag), `dev` (tích hợp), nhánh tạm `<type>/<mã>-<mô-tả>` tách từ `dev`, ví dụ `feature/us-17-telegram`. Chi tiết: [docs/TEAM_GIT_WORKFLOW.md](docs/TEAM_GIT_WORKFLOW.md).
-- Commit theo Conventional Commits, kèm mã task trong file tracking: `feat(channel): telegram webhook adapter [T-17.1]`, `fix(policy): ...`, `test(bench): ...`, `docs: ...`.
+- Nhánh: `main` (bản ổn định, demo, gắn tag), `dev` (tích hợp), nhánh tạm `<type>/<mã>-<mô-tả>` tách từ `dev`, ví dụ `feature/t-21-1-shopee-simulator`. Chi tiết: [docs/TEAM_GIT_WORKFLOW.md](docs/TEAM_GIT_WORKFLOW.md).
+- Commit theo Conventional Commits, kèm mã task trong file tracking: `feat(channel): shopee simulator adapter [T-21.1]`, `fix(policy): ...`, `test(bench): ...`, `docs: ...`.
 - Merge vào `dev` qua Pull Request (không push thẳng lên `main`/`dev`), cần **1 người review**; test và bench phải pass.
 - Không commit `.env`, API key, `node_modules`, `.venv`, `target`.
 - File Excel tracking: đưa lên Google Drive/OneDrive để cả team sửa cùng lúc. Bản trong repo là baseline, chỉ HungDQ commit file này.

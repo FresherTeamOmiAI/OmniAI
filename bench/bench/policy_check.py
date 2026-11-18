@@ -35,3 +35,9 @@ def _rules(doc: dict) -> list[Rule]:
 def violations(policies: dict[str, list[Rule]], channel: str, text: str) -> list[str]:
     """Danh sách id luật mà câu trả lời cuối vẫn vi phạm (mong đợi: rỗng)."""
     return [rule.id for rule in policies[channel] if rule.pattern.search(text)]
+
+
+def load_fallbacks(policy_dir: Path = DEFAULT_POLICY_DIR) -> dict[str, str]:
+    """fallback_message của từng kênh: khách nhận đúng câu này nghĩa là policy đã chặn cả câu (blocked)."""
+    docs = [yaml.safe_load(p.read_text(encoding="utf-8")) for p in sorted(policy_dir.glob("*.yaml"))]
+    return {d["channel"]: (d.get("fallback_message") or "").strip() for d in docs if d["channel"] != "*"}

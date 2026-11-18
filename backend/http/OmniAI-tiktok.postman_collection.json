@@ -1,0 +1,2062 @@
+{
+  "info": {
+    "name": "OmniAI - Kênh TikTok Shop qua simulator (US-25)",
+    "description": "Test tay kênh TikTok Shop: hub (backend :8080) ↔ simulator TikTok Shop (:8090). Hướng dẫn và bảng TC: docs/testcases/US-25.md. Cần chạy brain, backend, simulator (run-all.bat). Chạy cả collection theo thứ tự bằng Collection Runner: request sau dùng biến do request trước lưu (state, conversation_id, access_token, shop_cipher). Mục 0 reset simulator nên mục 1 phải ủy quyền lại.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "noauth"
+  },
+  "variable": [
+    {
+      "key": "hub_url",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "sim_url",
+      "value": "http://localhost:8090"
+    },
+    {
+      "key": "admin_user",
+      "value": "admin"
+    },
+    {
+      "key": "admin_pass",
+      "value": "admin"
+    },
+    {
+      "key": "app_key",
+      "value": "omniai-test-app"
+    },
+    {
+      "key": "app_secret",
+      "value": "omniai-test-secret"
+    },
+    {
+      "key": "state",
+      "value": ""
+    },
+    {
+      "key": "auth_code",
+      "value": ""
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "refresh_token",
+      "value": ""
+    },
+    {
+      "key": "shop_cipher",
+      "value": ""
+    },
+    {
+      "key": "conversation_id",
+      "value": ""
+    },
+    {
+      "key": "timestamp",
+      "value": ""
+    },
+    {
+      "key": "sign",
+      "value": ""
+    },
+    {
+      "key": "notification_id",
+      "value": ""
+    },
+    {
+      "key": "message_id",
+      "value": ""
+    },
+    {
+      "key": "now",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Chuẩn bị",
+      "item": [
+        {
+          "name": "Backend đang chạy",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{hub_url}}/actuator/health",
+              "host": [
+                "{{hub_url}}"
+              ],
+              "path": [
+                "actuator",
+                "health"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('backend UP', () => pm.expect(pm.response.json().status).to.eql('UP'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Sim] Reset simulator",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{sim_url}}/sim/reset",
+              "host": [
+                "{{sim_url}}"
+              ],
+              "path": [
+                "sim",
+                "reset"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Xóa hội thoại, token, webhook đã đăng ký và tắt mọi fault. Sau bước này hub phải ủy quyền lại (mục 1)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('reset', () => pm.expect(pm.response.json().reset).to.be.true);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Ủy quyền OAuth2 (seller → hub)",
+      "item": [
+        {
+          "name": "[Hub] Lấy URL ủy quyền",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{hub_url}}/api/admin/channels/tiktok/authorize",
+              "host": [
+                "{{hub_url}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "channels",
+                "tiktok",
+                "authorize"
+              ]
+            },
+            "auth": {
+              "type": "basic",
+              "basic": [
+                {
+                  "key": "username",
+                  "value": "{{admin_user}}",
+                  "type": "string"
+                },
+                {
+                  "key": "password",
+                  "value": "{{admin_pass}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json();",
+                  "pm.test('có authorizeUrl', () => pm.expect(d.authorizeUrl).to.include('/oauth/authorize'));",
+                  "pm.collectionVariables.set('state', d.authorizeUrl.match(/[?&]state=([^&]+)/)[1]);",
+                  "console.log('Mở bằng trình duyệt nếu muốn bấm tay:', d.authorizeUrl);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Sim] Seller bấm Đồng ý → redirect về hub",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{sim_url}}/oauth/authorize/approve?app_key={{app_key}}&state={{state}}",
+              "host": [
+                "{{sim_url}}"
+              ],
+              "path": [
+                "oauth",
+                "authorize",
+                "approve"
+              ],
+              "query": [
+                {
+                  "key": "app_key",
+                  "value": "{{app_key}}"
+                },
+                {
+                  "key": "state",
+                  "value": "{{state}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Postman tự đi theo redirect 302 về /api/channels/tiktok/oauth/callback của hub. Hub đổi code lấy token, gọi Get Authorized Shops, lưu channel_credential, đăng ký webhook."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json();",
+                  "pm.test('hub lưu credential ACTIVE', () => pm.expect(d.shops[0].status).to.eql('ACTIVE'));",
+                  "pm.test('không trả token ra ngoài', () => pm.expect(d.shops[0]).to.not.have.property('accessToken'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Hub] Xem credential",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{hub_url}}/api/admin/channels/tiktok/credentials",
+              "host": [
+                "{{hub_url}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "channels",
+                "tiktok",
+                "credentials"
+              ]
+            },
+            "auth": {
+              "type": "basic",
+              "basic": [
+                {
+                  "key": "username",
+                  "value": "{{admin_user}}",
+                  "type": "string"
+                },
+                {
+                  "key": "password",
+                  "value": "{{admin_pass}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('1 shop ACTIVE', () => pm.expect(pm.response.json()[0].status).to.eql('ACTIVE'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Hub] Callback với state giả bị từ chối",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{hub_url}}/api/channels/tiktok/oauth/callback?code=x&state=forged",
+              "host": [
+                "{{hub_url}}"
+              ],
+              "path": [
+                "api",
+                "channels",
+                "tiktok",
+                "oauth",
+                "callback"
+              ],
+              "query": [
+                {
+                  "key": "code",
+                  "value": "x"
+                },
+                {
+                  "key": "state",
+                  "value": "forged"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 invalid_state', () => { pm.response.to.have.status(400); pm.expect(pm.response.json().error).to.eql('invalid_state'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Buyer chat (sàn → hub → sàn)",
+      "item": [
+        {
+          "name": "[Sim] Buyer hỏi sản phẩm",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{sim_url}}/sim/buyer/messages",
+              "host": [
+                "{{sim_url}}"
+              ],
+              "path": [
+                "sim",
+                "buyer",
+                "messages"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"buyer_user_id\": \"postman-buyer-1\",\n  \"nickname\": \"Khách Postman\",\n  \"text\": \"Shop ơi, da dầu nên dùng kem chống nắng nào ạ?\",\n  \"wait_ms\": 20000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Bench TTK-001. Độ trễ chủ yếu là Gemini (decisions #21)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json();",
+                  "pm.test('shop trả lời (qua webhook → hub → Send Message)', () => pm.expect(d.reply, 'không có reply: backend/brain có chạy và shop đã ủy quyền?').to.be.an('object'));",
+                  "pm.test('tin trả lời do bot gửi (ROBOT)', () => pm.expect(d.reply.sender.role).to.eql('ROBOT'));",
+                  "pm.collectionVariables.set('conversation_id', d.conversation_id);",
+                  "console.log('Bot trả lời:', JSON.parse(d.reply.content).content, '| độ trễ', d.reply_latency_ms, 'ms');",
+                  "pm.test('có nhắc chống nắng', () => pm.expect(JSON.parse(pm.response.json().reply.content).content.toLowerCase()).to.include('chống nắng'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Sim] Buyer xin link (bẫy luật TIKTOK)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{sim_url}}/sim/buyer/messages",
+              "host": [
+                "{{sim_url}}"
+              ],
+              "path": [
+                "sim",
+                "buyer",
+                "messages"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"buyer_user_id\": \"postman-buyer-2\",\n  \"nickname\": \"Khách Postman\",\n  \"text\": \"Gửi mình link website của shop đi\",\n  \"wait_ms\": 20000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json();",
+                  "pm.test('shop trả lời (qua webhook → hub → Send Message)', () => pm.expect(d.reply, 'không có reply: backend/brain có chạy và shop đã ủy quyền?').to.be.an('object'));",
+                  "pm.test('tin trả lời do bot gửi (ROBOT)', () => pm.expect(d.reply.sender.role).to.eql('ROBOT'));",
+                  "pm.collectionVariables.set('conversation_id', d.conversation_id);",
+                  "console.log('Bot trả lời:', JSON.parse(d.reply.content).content, '| độ trễ', d.reply_latency_ms, 'ms');",
+                  "const text = JSON.parse(pm.response.json().reply.content).content;",
+                  "pm.test('không có link/website trong câu khách nhận', () => pm.expect(text).to.not.match(/https?:\\/\\/|www\\.|website|trang web/i));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Sim] Log giao webhook",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{sim_url}}/sim/deliveries",
+              "host": [
+                "{{sim_url}}"
+              ],
+              "path": [
+                "sim",
+                "deliveries"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Mỗi tin của buyer và của bot đều có 1 webhook NEW_MESSAGE (sàn thật cũng vậy); hub bỏ qua tin của bot."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const all = pm.response.json();",
+                  "pm.test('mọi webhook đã giao', () => all.forEach(d => pm.expect(d.delivered, d.event_type).to.be.true));",
+                  "pm.test('hub trả 200 trong < 3 s', () => all.forEach(d => d.attempts.forEach(a => pm.expect(a.latency_ms).to.be.below(3000))));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Open API như app thật (có ký)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Ký request như app thật (docs/channel-api/tiktok.md mục 3, thuật toán chưa đối chiếu docv2):",
+              "// secret + path + key/value query đã sắp xếp (trừ sign, access_token) + body + secret, HMAC-SHA256, hex.",
+              "const cj = require('crypto-js');",
+              "const secret = pm.collectionVariables.get('app_secret');",
+              "pm.collectionVariables.set('timestamp', Math.floor(Date.now() / 1000).toString());",
+              "const query = {};",
+              "pm.request.url.query.each(p => {",
+              "    if (!p.disabled && p.key !== 'sign' && p.key !== 'access_token') {",
+              "        query[p.key] = pm.variables.replaceIn(p.value || '');",
+              "    }",
+              "});",
+              "const path = '/' + pm.request.url.path.map(s => pm.variables.replaceIn(s)).join('/');",
+              "let base = path + Object.keys(query).sort().map(k => k + query[k]).join('');",
+              "if (pm.request.body && pm.request.body.mode === 'raw' && pm.request.body.raw) {",
+              "    base += pm.variables.replaceIn(pm.request.body.raw);",
+              "}",
+              "pm.collectionVariables.set('sign', cj.HmacSHA256(secret + base + secret, secret).toString(cj.enc.Hex));"
+            ]
+          }
+        }
+      ],
+      "item": [
+        {
+          "name": "[Sim] Seller đồng ý (không redirect, lấy code cho Postman)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{sim_url}}/oauth/authorize/approve?app_key={{app_key}}&state=postman",
+              "host": [
+                "{{sim_url}}"
+              ],
+              "path": [
+                "oauth",
+                "authorize",
+                "approve"
+              ],
+              "query": [
+                {
+                  "key": "app_key",
+                  "value": "{{app_key}}"
+                },
+                {
+                  "key": "state",
+                  "value": "postman"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Postman tự lấy 1 cặp token riêng để gọi Open API giống hub (hub giữ cặp của nó trong DB)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('302', () => pm.response.to.have.status(302));",
+                  "const loc = pm.response.headers.get('Location');",
+                  "pm.collectionVariables.set('auth_code', decodeURIComponent(loc.match(/[?&]code=([^&]+)/)[1]));"
+                ]
+              }
+            }
+          ],
+          "protocolProfileBehavior": {
+            "followRedirects": false
+          }
+        },
+        {
+          "name": "[Sim] Get Access Token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{sim_url}}/api/v2/token/get?app_key={{app_key}}&app_secret={{app_secret}}&auth_code={{auth_code}}&grant_type=authorized_code",
+              "host": [
+                "{{sim_url}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "token",
+                "get"
+              ],
+              "query": [
+                {
+                  "key": "app_key",
+                  "value": "{{app_key}}"
+                },
+                {
+                  "key": "app_secret",
+                  "value": "{{app_secret}}"
+                },
+                {
+                  "key": "auth_code",
+                  "value": "{{auth_code}}"
+                },
+                {
+                  "key": "grant_type",
+                  "value": "authorized_code"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('code = 0', () => pm.expect(pm.response.json().code).to.eql(0));",
+                  "const d = pm.response.json().data;",
+                  "pm.collectionVariables.set('access_token', d.access_token);",
+                  "pm.collectionVariables.set('refresh_token', d.refresh_token);",
+                  "pm.test('có granted_scopes', () => pm.expect(d.granted_scopes).to.include('seller.customer_service'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Authorized Shops",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-tts-access-token",
+                "value": "{{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{sim_url}}/authorization/202309/shops?app_key={{app_key}}&timestamp={{timestamp}}&sign={{sign}}",
+              "host": [
+                "{{sim_url}}"
+              ],
+              "path": [
+                "authorization",
+                "202309",
+                "shops"
+              ],
+              "query": [
+                {
+                  "key": "app_key",
+                  "value": "{{app_key}}"
+                },
+                {
+                  "key": "timestamp",
+                  "value": "{{timestamp}}"
+                },
+                {
+                  "key": "sign",
+                  "value": "{{sign}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('code = 0', () => pm.expect(pm.response.json().code).to.eql(0));",
+                  "pm.collectionVariables.set('shop_cipher', pm.response.json().data.shops[0].cipher);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Conversations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-tts-access-token",
+                "value": "{{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{sim_url}}/customer_service/202309/conversations?page_size=20&app_key={{app_key}}&timestamp={{timestamp}}&shop_cipher={{shop_cipher}}&sign={{sign}}",
+              "host": [
+                "{{sim_url}}"
+              ],
+              "path": [
+                "customer_service",
+                "202309",
+                "conversations"
+              ],
+              "query": [
+                {
+                  "key": "page_size",
+                  "value": "20"
+                },
+                {
+                  "key": "app_key",
+                  "value": "{{app_key}}"
+                },
+                {
+                  "key": "timestamp",
+                  "value": "{{timestamp}}"
+                },
+                {
+                  "key": "shop_cipher",
+                  "value": "{{shop_cipher}}"
+                },
+                {
+                  "key": "sign",
+                  "value": "{{sign}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('code = 0', () => pm.expect(pm.response.json().code).to.eql(0));",
+                  "pm.test('có hội thoại của mục 2', () => pm.expect(pm.response.json().data.conversations.length).to.be.at.least(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Conversation Messages (cũ → mới)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-tts-access-token",
+                "value": "{{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{sim_url}}/customer_service/202309/conversations/{{conversation_id}}/messages?page_size=10&sort_field=index&sort_order=ASC&app_key={{app_key}}&timestamp={{timestamp}}&shop_cipher={{shop_cipher}}&sign={{sign}}",
+              "host": [
+                "{{sim_url}}"
+              ],
+              "path": [
+                "customer_service",
+                "202309",
+                "conversations",
+                "{{conversation_id}}",
+                "messages"
+              ],
+              "query": [
+                {
+                  "key": "page_size",
+                  "value": "10"
+                },
+                {
+                  "key": "sort_field",
+                  "value": "index"
+                },
+                {
+                  "key": "sort_order",
+                  "value": "ASC"
+                },
+                {
+                  "key": "app_key",
+                  "value": "{{app_key}}"
+                },
+                {
+                  "key": "timestamp",
+                  "value": "{{timestamp}}"
+                },
+                {
+                  "key": "shop_cipher",
+                  "value": "{{shop_cipher}}"
+                },
+                {
+                  "key": "sign",
+                  "value": "{{sign}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('code = 0', () => pm.expect(pm.response.json().code).to.eql(0));",
+                  "const roles = pm.response.json().data.messages.map(m => m.sender.role);",
+                  "pm.test('có tin BUYER và ROBOT', () => { pm.expect(roles).to.include('BUYER'); pm.expect(roles).to.include('ROBOT'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Send Message (nhân viên CS nhắn tay)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-tts-access-token",
+                "value": "{{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{sim_url}}/customer_service/202606/conversations/{{conversation_id}}/messages?app_key={{app_key}}&timestamp={{timestamp}}&shop_cipher={{shop_cipher}}&sign={{sign}}",
+              "host": [
+                "{{sim_url}}"
+              ],
+              "path": [
+                "customer_service",
+                "202606",
+                "conversations",
+                "{{conversation_id}}",
+                "messages"
+              ],
+              "query": [
+                {
+                  "key": "app_key",
+                  "value": "{{app_key}}"
+                },
+                {
+                  "key": "timestamp",
+                  "value": "{{timestamp}}"
+                },
+                {
+                  "key": "shop_cipher",
+                  "value": "{{shop_cipher}}"
+                },
+                {
+                  "key": "sign",
+                  "value": "{{sign}}"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"type\":\"TEXT\",\"content\":\"{\\\"content\\\":\\\"Dạ em là nhân viên CS, em hỗ trợ thêm ạ\\\"}\",\"sender_role\":\"CUSTOMER_SERVICE\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('code = 0', () => pm.expect(pm.response.json().code).to.eql(0));",
+                  "pm.test('có message_id', () => pm.expect(pm.response.json().data.message_id).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mark Buyer Messages as Read",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-tts-access-token",
+                "value": "{{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{sim_url}}/customer_service/202309/conversations/{{conversation_id}}/messages/read?app_key={{app_key}}&timestamp={{timestamp}}&shop_cipher={{shop_cipher}}&sign={{sign}}",
+              "host": [
+                "{{sim_url}}"
+              ],
+              "path": [
+                "customer_service",
+                "202309",
+                "conversations",
+                "{{conversation_id}}",
+                "messages",
+                "read"
+              ],
+              "query": [
+                {
+                  "key": "app_key",
+                  "value": "{{app_key}}"
+                },
+                {
+                  "key": "timestamp",
+                  "value": "{{timestamp}}"
+                },
+                {
+                  "key": "shop_cipher",
+                  "value": "{{shop_cipher}}"
+                },
+                {
+                  "key": "sign",
+                  "value": "{{sign}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('code = 0', () => pm.expect(pm.response.json().code).to.eql(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Shop Webhooks (hub đã đăng ký)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-tts-access-token",
+                "value": "{{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{sim_url}}/event/202309/webhooks?app_key={{app_key}}&timestamp={{timestamp}}&shop_cipher={{shop_cipher}}&sign={{sign}}",
+              "host": [
+                "{{sim_url}}"
+              ],
+              "path": [
+                "event",
+                "202309",
+                "webhooks"
+              ],
+              "query": [
+                {
+                  "key": "app_key",
+                  "value": "{{app_key}}"
+                },
+                {
+                  "key": "timestamp",
+                  "value": "{{timestamp}}"
+                },
+                {
+                  "key": "shop_cipher",
+                  "value": "{{shop_cipher}}"
+                },
+                {
+                  "key": "sign",
+                  "value": "{{sign}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('code = 0', () => pm.expect(pm.response.json().code).to.eql(0));",
+                  "const hooks = pm.response.json().data.webhooks.map(w => w.event_type);",
+                  "pm.test('đăng ký NEW_MESSAGE, SELLER_DEAUTHORIZATION', () => pm.expect(hooks).to.include.members(['NEW_MESSAGE', 'SELLER_DEAUTHORIZATION']));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Sim] Refresh Access Token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{sim_url}}/api/v2/token/refresh?app_key={{app_key}}&app_secret={{app_secret}}&refresh_token={{refresh_token}}&grant_type=refresh_token",
+              "host": [
+                "{{sim_url}}"
+              ],
+              "path": [
+                "api",
+                "v2",
+                "token",
+                "refresh"
+              ],
+              "query": [
+                {
+                  "key": "app_key",
+                  "value": "{{app_key}}"
+                },
+                {
+                  "key": "app_secret",
+                  "value": "{{app_secret}}"
+                },
+                {
+                  "key": "refresh_token",
+                  "value": "{{refresh_token}}"
+                },
+                {
+                  "key": "grant_type",
+                  "value": "refresh_token"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('code = 0', () => pm.expect(pm.response.json().code).to.eql(0));",
+                  "const d = pm.response.json().data;",
+                  "pm.test('token mới', () => pm.expect(d.access_token).to.not.eql(pm.collectionVariables.get('access_token')));",
+                  "pm.collectionVariables.set('access_token', d.access_token);",
+                  "pm.collectionVariables.set('refresh_token', d.refresh_token);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Kịch bản lỗi (edge cases)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Ký request như app thật (docs/channel-api/tiktok.md mục 3, thuật toán chưa đối chiếu docv2):",
+              "// secret + path + key/value query đã sắp xếp (trừ sign, access_token) + body + secret, HMAC-SHA256, hex.",
+              "const cj = require('crypto-js');",
+              "const secret = pm.collectionVariables.get('app_secret');",
+              "pm.collectionVariables.set('timestamp', Math.floor(Date.now() / 1000).toString());",
+              "const query = {};",
+              "pm.request.url.query.each(p => {",
+              "    if (!p.disabled && p.key !== 'sign' && p.key !== 'access_token') {",
+              "        query[p.key] = pm.variables.replaceIn(p.value || '');",
+              "    }",
+              "});",
+              "const path = '/' + pm.request.url.path.map(s => pm.variables.replaceIn(s)).join('/');",
+              "let base = path + Object.keys(query).sort().map(k => k + query[k]).join('');",
+              "if (pm.request.body && pm.request.body.mode === 'raw' && pm.request.body.raw) {",
+              "    base += pm.variables.replaceIn(pm.request.body.raw);",
+              "}",
+              "pm.collectionVariables.set('sign', cj.HmacSHA256(secret + base + secret, secret).toString(cj.enc.Hex));"
+            ]
+          }
+        }
+      ],
+      "item": [
+        {
+          "name": "invalid_params: Send Message thiếu content",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-tts-access-token",
+                "value": "{{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{sim_url}}/customer_service/202606/conversations/{{conversation_id}}/messages?app_key={{app_key}}&timestamp={{timestamp}}&shop_cipher={{shop_cipher}}&sign={{sign}}",
+              "host": [
+                "{{sim_url}}"
+              ],
+              "path": [
+                "customer_service",
+                "202606",
+                "conversations",
+                "{{conversation_id}}",
+                "messages"
+              ],
+              "query": [
+                {
+                  "key": "app_key",
+                  "value": "{{app_key}}"
+                },
+                {
+                  "key": "timestamp",
+                  "value": "{{timestamp}}"
+                },
+                {
+                  "key": "shop_cipher",
+                  "value": "{{shop_cipher}}"
+                },
+                {
+                  "key": "sign",
+                  "value": "{{sign}}"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"type\":\"TEXT\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('code = 45101002', () => pm.expect(pm.response.json().code).to.eql(45101002));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "invalid_params: page_size = 21",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-tts-access-token",
+                "value": "{{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{sim_url}}/customer_service/202309/conversations?page_size=21&app_key={{app_key}}&timestamp={{timestamp}}&shop_cipher={{shop_cipher}}&sign={{sign}}",
+              "host": [
+                "{{sim_url}}"
+              ],
+              "path": [
+                "customer_service",
+                "202309",
+                "conversations"
+              ],
+              "query": [
+                {
+                  "key": "page_size",
+                  "value": "21"
+                },
+                {
+                  "key": "app_key",
+                  "value": "{{app_key}}"
+                },
+                {
+                  "key": "timestamp",
+                  "value": "{{timestamp}}"
+                },
+                {
+                  "key": "shop_cipher",
+                  "value": "{{shop_cipher}}"
+                },
+                {
+                  "key": "sign",
+                  "value": "{{sign}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('code = 45101002', () => pm.expect(pm.response.json().code).to.eql(45101002));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "access_token_invalid: token sai",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-tts-access-token",
+                "value": "TTP_sai"
+              }
+            ],
+            "url": {
+              "raw": "{{sim_url}}/customer_service/202309/conversations?page_size=5&app_key={{app_key}}&timestamp={{timestamp}}&shop_cipher={{shop_cipher}}&sign={{sign}}",
+              "host": [
+                "{{sim_url}}"
+              ],
+              "path": [
+                "customer_service",
+                "202309",
+                "conversations"
+              ],
+              "query": [
+                {
+                  "key": "page_size",
+                  "value": "5"
+                },
+                {
+                  "key": "app_key",
+                  "value": "{{app_key}}"
+                },
+                {
+                  "key": "timestamp",
+                  "value": "{{timestamp}}"
+                },
+                {
+                  "key": "shop_cipher",
+                  "value": "{{shop_cipher}}"
+                },
+                {
+                  "key": "sign",
+                  "value": "{{sign}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('code = 105001', () => pm.expect(pm.response.json().code).to.eql(105001));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sai chữ ký",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-tts-access-token",
+                "value": "{{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{sim_url}}/customer_service/202309/conversations?page_size=5&app_key={{app_key}}&timestamp={{timestamp}}&shop_cipher={{shop_cipher}}&sign=deadbeef",
+              "host": [
+                "{{sim_url}}"
+              ],
+              "path": [
+                "customer_service",
+                "202309",
+                "conversations"
+              ],
+              "query": [
+                {
+                  "key": "page_size",
+                  "value": "5"
+                },
+                {
+                  "key": "app_key",
+                  "value": "{{app_key}}"
+                },
+                {
+                  "key": "timestamp",
+                  "value": "{{timestamp}}"
+                },
+                {
+                  "key": "shop_cipher",
+                  "value": "{{shop_cipher}}"
+                },
+                {
+                  "key": "sign",
+                  "value": "deadbeef"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "sign cố định = deadbeef nên chữ ký luôn sai."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('code = 106001', () => pm.expect(pm.response.json().code).to.eql(106001));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Sim] Cho mọi access token hết hạn",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{sim_url}}/sim/tokens/expire?kind=access",
+              "host": [
+                "{{sim_url}}"
+              ],
+              "path": [
+                "sim",
+                "tokens",
+                "expire"
+              ],
+              "query": [
+                {
+                  "key": "kind",
+                  "value": "access"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('đã cho hết hạn', () => pm.expect(pm.response.json().expired).to.be.at.least(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "access_token hết hạn → 105002",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-tts-access-token",
+                "value": "{{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{sim_url}}/customer_service/202309/conversations?page_size=5&app_key={{app_key}}&timestamp={{timestamp}}&shop_cipher={{shop_cipher}}&sign={{sign}}",
+              "host": [
+                "{{sim_url}}"
+              ],
+              "path": [
+                "customer_service",
+                "202309",
+                "conversations"
+              ],
+              "query": [
+                {
+                  "key": "page_size",
+                  "value": "5"
+                },
+                {
+                  "key": "app_key",
+                  "value": "{{app_key}}"
+                },
+                {
+                  "key": "timestamp",
+                  "value": "{{timestamp}}"
+                },
+                {
+                  "key": "shop_cipher",
+                  "value": "{{shop_cipher}}"
+                },
+                {
+                  "key": "sign",
+                  "value": "{{sign}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('code = 105002', () => pm.expect(pm.response.json().code).to.eql(105002));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Sim] Buyer hỏi khi token hub đã hết hạn → hub tự refresh",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{sim_url}}/sim/buyer/messages",
+              "host": [
+                "{{sim_url}}"
+              ],
+              "path": [
+                "sim",
+                "buyer",
+                "messages"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"buyer_user_id\": \"postman-buyer-1\",\n  \"nickname\": \"Khách Postman\",\n  \"text\": \"Shop còn kem chống nắng không ạ?\",\n  \"wait_ms\": 20000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Hub nhận 105002 khi Send Message, refresh token 1 lần rồi gửi lại. Xem log backend: 'Đã refresh token TikTok'."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json();",
+                  "pm.test('shop trả lời (qua webhook → hub → Send Message)', () => pm.expect(d.reply, 'không có reply: backend/brain có chạy và shop đã ủy quyền?').to.be.an('object'));",
+                  "pm.test('tin trả lời do bot gửi (ROBOT)', () => pm.expect(d.reply.sender.role).to.eql('ROBOT'));",
+                  "pm.collectionVariables.set('conversation_id', d.conversation_id);",
+                  "console.log('Bot trả lời:', JSON.parse(d.reply.content).content, '| độ trễ', d.reply_latency_ms, 'ms');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Sim] Bật webhook trùng",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{sim_url}}/sim/faults",
+              "host": [
+                "{{sim_url}}"
+              ],
+              "path": [
+                "sim",
+                "faults"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"webhook_duplicate\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": []
+        },
+        {
+          "name": "[Sim] Buyer hỏi khi webhook bị gửi 2 lần",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{sim_url}}/sim/buyer/messages",
+              "host": [
+                "{{sim_url}}"
+              ],
+              "path": [
+                "sim",
+                "buyer",
+                "messages"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"buyer_user_id\": \"postman-buyer-dup\",\n  \"nickname\": \"Khách Postman\",\n  \"text\": \"Shop ơi tư vấn serum cấp ẩm\",\n  \"wait_ms\": 20000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json();",
+                  "pm.test('shop trả lời (qua webhook → hub → Send Message)', () => pm.expect(d.reply, 'không có reply: backend/brain có chạy và shop đã ủy quyền?').to.be.an('object'));",
+                  "pm.test('tin trả lời do bot gửi (ROBOT)', () => pm.expect(d.reply.sender.role).to.eql('ROBOT'));",
+                  "pm.collectionVariables.set('conversation_id', d.conversation_id);",
+                  "console.log('Bot trả lời:', JSON.parse(d.reply.content).content, '| độ trễ', d.reply_latency_ms, 'ms');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Sim] Log giao: cùng tts_notification_id 2 lần, hub chỉ trả lời 1",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{sim_url}}/sim/deliveries",
+              "host": [
+                "{{sim_url}}"
+              ],
+              "path": [
+                "sim",
+                "deliveries"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const dup = pm.response.json().filter(d => d.duplicate);",
+                  "pm.test('có bản gửi trùng', () => pm.expect(dup.length).to.be.at.least(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Sim] Thu hồi scope seller.customer_service, tắt webhook trùng",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{sim_url}}/sim/faults",
+              "host": [
+                "{{sim_url}}"
+              ],
+              "path": [
+                "sim",
+                "faults"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"webhook_duplicate\": false,\n  \"revoked_scopes\": [\n    \"seller.customer_service\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": []
+        },
+        {
+          "name": "[Sim] Buyer hỏi khi sai scope → hub không gửi được",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{sim_url}}/sim/buyer/messages",
+              "host": [
+                "{{sim_url}}"
+              ],
+              "path": [
+                "sim",
+                "buyer",
+                "messages"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"buyer_user_id\": \"postman-buyer-scope\",\n  \"nickname\": \"Khách Postman\",\n  \"text\": \"Có ai không shop?\",\n  \"wait_ms\": 4000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('không có reply (hub log lỗi scope, không retry)', () => pm.expect(pm.response.json().reply).to.be.null);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Sim] Từ khóa nhạy cảm = 'chống nắng', trả lại scope",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{sim_url}}/sim/faults",
+              "host": [
+                "{{sim_url}}"
+              ],
+              "path": [
+                "sim",
+                "faults"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"revoked_scopes\": [],\n  \"sensitive_words\": [\n    \"chống nắng\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": []
+        },
+        {
+          "name": "[Sim] Sàn chặn nội dung nhạy cảm → hub gửi fallback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{sim_url}}/sim/buyer/messages",
+              "host": [
+                "{{sim_url}}"
+              ],
+              "path": [
+                "sim",
+                "buyer",
+                "messages"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"buyer_user_id\": \"postman-buyer-sensitive\",\n  \"nickname\": \"Khách Postman\",\n  \"text\": \"Da dầu dùng kem chống nắng nào?\",\n  \"wait_ms\": 20000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Send Message trả 45101006, hub gửi fallback_message của shared/policies/tiktok.yaml."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = pm.response.json();",
+                  "pm.test('shop trả lời (qua webhook → hub → Send Message)', () => pm.expect(d.reply, 'không có reply: backend/brain có chạy và shop đã ủy quyền?').to.be.an('object'));",
+                  "pm.test('tin trả lời do bot gửi (ROBOT)', () => pm.expect(d.reply.sender.role).to.eql('ROBOT'));",
+                  "pm.collectionVariables.set('conversation_id', d.conversation_id);",
+                  "console.log('Bot trả lời:', JSON.parse(d.reply.content).content, '| độ trễ', d.reply_latency_ms, 'ms');",
+                  "pm.test('khách nhận câu fallback của kênh', () => pm.expect(JSON.parse(pm.response.json().reply.content).content).to.include('Dạ, shop xin phép tư vấn trong phạm vi TikTok Shop'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "[Sim] Tắt hết fault",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{sim_url}}/sim/faults",
+              "host": [
+                "{{sim_url}}"
+              ],
+              "path": [
+                "sim",
+                "faults"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sensitive_words\": [],\n  \"revoked_scopes\": [],\n  \"webhook_duplicate\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": []
+        }
+      ]
+    },
+    {
+      "name": "5. Gửi webhook thẳng vào hub (đóng vai sàn)",
+      "item": [
+        {
+          "name": "Webhook NEW_MESSAGE ký đúng → 200",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{hub_url}}/api/channels/tiktok/webhook",
+              "host": [
+                "{{hub_url}}"
+              ],
+              "path": [
+                "api",
+                "channels",
+                "tiktok",
+                "webhook"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"type\":14,\"tts_notification_id\":\"{{notification_id}}\",\"shop_id\":\"7494049642642441621\",\"timestamp\":{{now}},\"data\":{\"message_id\":\"{{message_id}}\",\"conversation_id\":\"{{conversation_id}}\",\"type\":\"TEXT\",\"content\":\"{\\\"content\\\":\\\"Shop ơi toner cho da nhạy cảm?\\\"}\",\"create_time\":{{now}},\"is_visible\":true,\"index\":\"1\",\"sender\":{\"im_user_id\":\"im-postman\",\"role\":\"BUYER\"}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Hub trả 200 ngay, gọi brain sau rồi gửi Send Message vào conversation_id của mục 2 (xem bằng Get Conversation Messages)."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('now', Math.floor(Date.now() / 1000).toString());",
+                  "pm.collectionVariables.set('notification_id', 'pm-' + Date.now());",
+                  "pm.collectionVariables.set('message_id', 'pm-msg-' + Date.now());",
+                  "// Ký webhook như sàn: header Authorization = hex(HMAC-SHA256(app_secret, app_key + body)) (chưa đối chiếu docv2).",
+                  "const cj = require('crypto-js');",
+                  "const body = pm.variables.replaceIn(pm.request.body.raw);",
+                  "const signature = cj.HmacSHA256(pm.collectionVariables.get('app_key') + body,",
+                  "    pm.collectionVariables.get('app_secret')).toString(cj.enc.Hex);",
+                  "pm.request.headers.upsert({ key: 'Authorization', value: signature });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 code 0', () => { pm.response.to.have.status(200); pm.expect(pm.response.json().code).to.eql(0); });",
+                  "pm.test('trả lời ngay (< 3 s)', () => pm.expect(pm.response.responseTime).to.be.below(3000));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Gửi lại y hệt (trùng notification) → 200, không xử lý lại",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{hub_url}}/api/channels/tiktok/webhook",
+              "host": [
+                "{{hub_url}}"
+              ],
+              "path": [
+                "api",
+                "channels",
+                "tiktok",
+                "webhook"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"type\":14,\"tts_notification_id\":\"{{notification_id}}\",\"shop_id\":\"7494049642642441621\",\"timestamp\":{{now}},\"data\":{\"message_id\":\"{{message_id}}\",\"conversation_id\":\"{{conversation_id}}\",\"type\":\"TEXT\",\"content\":\"{\\\"content\\\":\\\"Shop ơi toner cho da nhạy cảm?\\\"}\",\"create_time\":{{now}},\"is_visible\":true,\"index\":\"1\",\"sender\":{\"im_user_id\":\"im-postman\",\"role\":\"BUYER\"}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Log backend: 'TikTok webhook ... trùng, bỏ qua'."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Ký webhook như sàn: header Authorization = hex(HMAC-SHA256(app_secret, app_key + body)) (chưa đối chiếu docv2).",
+                  "const cj = require('crypto-js');",
+                  "const body = pm.variables.replaceIn(pm.request.body.raw);",
+                  "const signature = cj.HmacSHA256(pm.collectionVariables.get('app_key') + body,",
+                  "    pm.collectionVariables.get('app_secret')).toString(cj.enc.Hex);",
+                  "pm.request.headers.upsert({ key: 'Authorization', value: signature });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sai chữ ký → 401",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "deadbeef"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{hub_url}}/api/channels/tiktok/webhook",
+              "host": [
+                "{{hub_url}}"
+              ],
+              "path": [
+                "api",
+                "channels",
+                "tiktok",
+                "webhook"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"type\":14,\"tts_notification_id\":\"x\",\"shop_id\":\"s\",\"timestamp\":1,\"data\":{}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 invalid_signature', () => { pm.response.to.have.status(401); pm.expect(pm.response.json().error).to.eql('invalid_signature'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Timestamp cũ (replay) → 401",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{hub_url}}/api/channels/tiktok/webhook",
+              "host": [
+                "{{hub_url}}"
+              ],
+              "path": [
+                "api",
+                "channels",
+                "tiktok",
+                "webhook"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"type\":14,\"tts_notification_id\":\"old-replay\",\"shop_id\":\"7494049642642441621\",\"timestamp\":1600000000,\"data\":{}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Ký webhook như sàn: header Authorization = hex(HMAC-SHA256(app_secret, app_key + body)) (chưa đối chiếu docv2).",
+                  "const cj = require('crypto-js');",
+                  "const body = pm.variables.replaceIn(pm.request.body.raw);",
+                  "const signature = cj.HmacSHA256(pm.collectionVariables.get('app_key') + body,",
+                  "    pm.collectionVariables.get('app_secret')).toString(cj.enc.Hex);",
+                  "pm.request.headers.upsert({ key: 'Authorization', value: signature });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 stale_timestamp', () => { pm.response.to.have.status(401); pm.expect(pm.response.json().error).to.eql('stale_timestamp'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

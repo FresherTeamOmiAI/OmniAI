@@ -1,7 +1,0 @@
-# Kênh sở hữu: Facebook Messenger của shop (dev mode khi demo).
-channel: MESSENGER
-display_name: Messenger
-owned: true
-max_length: 2000
-rules: []
-fallback_message: "Dạ, shop xin lỗi, nhân viên sẽ phản hồi bạn ngay ạ."

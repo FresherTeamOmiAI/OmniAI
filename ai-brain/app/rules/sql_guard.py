@@ -1,0 +1,68 @@
+"""Chặn SQL của chatbot trước khi tới database. Parser là SQLGlot, không phải regex."""
+
+import sqlglot
+from sqlglot import exp
+from sqlglot.errors import SqlglotError
+
+PUBLIC_COLUMNS = frozenset(
+    {
+        "brand",
+        "name",
+        "category",
+        "skin_types",
+        "skin_concerns",
+        "usage_time",
+        "price_web",
+        "price_shopee",
+        "price_tiktok",
+    }
+)
+ALLOWED_COLUMNS = {
+    "chatbot_catalog": PUBLIC_COLUMNS,
+    "chatbot_catalog_search": PUBLIC_COLUMNS | {"sku", "embedding", "description"},
+}
+MAX_ROWS = 100
+
+SEARCH_SQL = (
+    "SELECT sku, brand, name, category, skin_types, skin_concerns, usage_time, "
+    "price_web, price_shopee, price_tiktok, description, CAST(embedding AS TEXT) AS embedding "
+    "FROM chatbot_catalog_search ORDER BY sku LIMIT 100"
+)
+# Câu SELECT duy nhất brain chạy (từ T-43.4 không đọc view chatbot_catalog nữa). View có hơn 100 sản phẩm active,
+# sql_guard chặn một SELECT quá 100 dòng, nên brain đọc lần lượt từng trang rồi nhớ trong bộ nhớ (rag/search.py).
+SEARCH_PAGE_SIZE = 100
+
+
+class SqlRejected(ValueError):
+    """Câu SQL không được thực thi."""
+
+
+def validate_sql(sql: str) -> str:
+    """Trả về một câu SELECT đã chuẩn hóa, hoặc ném SqlRejected."""
+    try:
+        statements = [item for item in sqlglot.parse(sql, read="postgres") if item is not None]
+    except SqlglotError as error:
+        raise SqlRejected("không phân tích được SQL") from error
+    if len(statements) != 1 or not isinstance(statements[0], exp.Select):
+        raise SqlRejected("chỉ một câu SELECT")
+    statement = statements[0]
+    if statement.args.get("joins") or statement.find(exp.Union):
+        raise SqlRejected("không JOIN, không UNION")
+    tables = list(statement.find_all(exp.Table))
+    if len(tables) != 1:
+        raise SqlRejected("đúng một bảng")
+    table = tables[0]
+    allowed = ALLOWED_COLUMNS.get(table.name.lower())
+    if allowed is None or (table.db and table.db.lower() not in {"", "public"}):
+        raise SqlRejected("chỉ được đọc catalog công khai")
+    for column in statement.find_all(exp.Column):
+        if column.name.lower() not in allowed:
+            raise SqlRejected("cột không thuộc catalog công khai")
+    limit = statement.args.get("limit")
+    if limit is None:
+        statement = statement.limit(MAX_ROWS)
+    else:
+        amount = limit.expression
+        if not isinstance(amount, exp.Literal) or not amount.is_int or int(amount.this) > MAX_ROWS:
+            raise SqlRejected("LIMIT tối đa 100")
+    return statement.sql(dialect="postgres")

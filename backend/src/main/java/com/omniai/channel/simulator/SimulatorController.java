@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * POST /api/simulator/{channel}/messages  (channel: web | telegram | messenger | shopee | tiktok)
+ * POST /api/simulator/{channel}/messages  (channel: web | shopee | tiktok)
  * Trả về cả rawText (AI nói gì) và finalText (khách nhận gì) để bench đo policy.
  */
 @RestController

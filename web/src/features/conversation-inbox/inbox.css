@@ -1,0 +1,72 @@
+/* Admin > Hội thoại (features/conversation-inbox, TuTM, US-14). Token ở shared/ui/tokens.css. */
+
+.inbox-filters { gap: var(--space-3); }
+.inbox-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.inbox-date { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); font-weight: 600; }
+.inbox-date input { min-height: var(--control-h-sm); }
+
+.badge-danger { border-color: var(--color-danger-border); background: var(--color-danger-soft); color: var(--color-danger); }
+
+/* Bố cục 2 cột: danh sách | chi tiết. Màn hẹp: 1 cột, mở chi tiết thì ẩn danh sách. */
+.inbox { display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); gap: var(--space-4); align-items: start; }
+.inbox-list, .inbox-detail {
+  min-width: 0; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
+}
+.inbox-list { padding: var(--space-2); }
+.inbox-list .state, .inbox-list .pager { margin: var(--space-2); }
+.inbox-detail { padding: var(--space-5); }
+.inbox-placeholder { margin: 0; }
+.inbox-skeleton { display: grid; gap: var(--space-3); padding: var(--space-3); }
+.inbox-back { display: none; }
+
+.inbox-items { display: grid; gap: var(--space-1); margin: 0; padding: 0; list-style: none; }
+.inbox-item {
+  display: grid; gap: var(--space-1); width: 100%; padding: var(--space-3); text-align: left;
+  border: 1px solid transparent; border-radius: var(--radius-md); background: transparent; color: var(--color-text); cursor: pointer;
+  transition: background-color var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out);
+}
+.inbox-item:hover { background: var(--color-surface-2); }
+.inbox-item-active, .inbox-item-active:hover { border-color: var(--color-primary); background: var(--color-primary-soft); }
+.inbox-item-top { display: flex; justify-content: space-between; gap: var(--space-2); font-size: var(--text-xs); color: var(--color-muted); }
+.inbox-item-user { font-weight: 600; font-size: var(--text-sm); overflow-wrap: anywhere; }
+.inbox-item-text {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  font-size: var(--text-sm); color: var(--color-muted);
+}
+.inbox-item-badges { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); font-size: var(--text-xs); }
+
+.channel-tag { padding: 0 var(--space-2); border-radius: var(--radius-pill); font-weight: 600; color: var(--color-heading); background: var(--color-primary-soft); }
+.channel-shopee { color: var(--color-warning); background: var(--color-warning-soft); }
+.channel-tiktok { color: var(--color-accent); background: var(--color-accent-soft); }
+
+/* Chi tiết: luồng tin */
+.thread { display: grid; gap: var(--space-4); }
+.thread-head { display: flex; align-items: flex-start; gap: var(--space-3); padding-bottom: var(--space-3); border-bottom: 1px solid var(--color-border); }
+.thread-head h2 { font-size: var(--text-xl); overflow-wrap: anywhere; }
+.thread-meta { font-size: var(--text-xs); overflow-wrap: anywhere; }
+.thread-messages { display: grid; gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+
+.msg { display: grid; gap: var(--space-2); max-width: min(640px, 92%); padding: var(--space-3) var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+.msg-in { justify-self: start; background: var(--color-surface-2); }
+.msg-out { justify-self: end; background: var(--color-accent-soft); }
+.msg-flagged { border-color: var(--color-warning-border); background: var(--color-warning-soft); }
+.msg-blocked { border-color: var(--color-danger-border); background: var(--color-danger-soft); }
+.msg-who { font-size: var(--text-xs); color: var(--color-muted); }
+.msg-badges { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.msg-badges:empty { display: none; }
+.msg-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.msg-texts { display: grid; gap: var(--space-1); margin: 0; }
+.msg-texts dt { font-size: var(--text-xs); font-weight: 600; color: var(--color-muted); }
+.msg-texts dd { margin: 0 0 var(--space-2); }
+.msg-raw { padding-left: var(--space-3); border-left: 3px solid var(--color-border-strong); color: var(--color-muted); }
+.msg-violations { display: grid; gap: var(--space-1); margin: 0; padding-left: var(--space-5); font-size: var(--text-sm); }
+.msg-violations mark { background: var(--color-surface); color: var(--color-text); border-radius: 4px; padding: 0 var(--space-1); }
+
+@media (max-width: 860px) {
+  .inbox { grid-template-columns: 1fr; }
+  .inbox-open .inbox-list { display: none; }
+  .inbox:not(.inbox-open) .inbox-detail { display: none; }
+  .inbox-back { display: inline-flex; }
+  .inbox-detail { padding: var(--space-4); }
+  .msg { max-width: 100%; }
+}

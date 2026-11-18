@@ -1,6 +1,6 @@
 # docs/specs: bản đồ hệ thống cho người và agent
 
-> Cập nhật: 2026-11-03 · commit c88bfc6
+> Cập nhật: 2026-11-11 · commit 0f3d600
 
 Specs là bản tóm tắt **ngắn và luôn mới** của code: hợp đồng giữa các module, quy ước, file nằm ở đâu, cái gì đã làm và cái gì chưa. Mục đích là để agent (và người mới vào) **không phải đọc lại cả repo** mỗi lần bắt đầu task.
 
@@ -11,13 +11,17 @@ Specs không chép lại code. Khi spec và code mâu thuẫn thì **code là ch
 | Task | Đọc |
 |---|---|
 | Bắt đầu bất kỳ task nào | [overview.md](overview.md), [status.md](status.md) |
+| Phạm vi, yêu cầu, User Story / Use Case P0, NFR | [../srs/SRS.md](../srs/SRS.md) |
 | Thêm/sửa endpoint, DTO, WebSocket, gọi Brain | [api-contracts.md](api-contracts.md) + spec của module đó |
 | Kênh / adapter / MessageRouter (TuTM) | [backend.md](backend.md), [api-contracts.md](api-contracts.md) |
 | Luật kênh, PolicyEngine (HungDQ) | [policy.md](policy.md) |
-| Catalog, customer, identity, order, promotion (LucVT) | [data-model.md](data-model.md), [backend.md](backend.md) |
+| Catalog, customer, identity, order, promotion (LucVT) | [data-model.md](data-model.md), [backend.md](backend.md); ảnh sản phẩm: [../catalog/luu-anh-san-pham.md](../catalog/luu-anh-san-pham.md); dữ liệu sản phẩm thật: [../catalog/du-lieu-san-pham-that.md](../catalog/du-lieu-san-pham-that.md) |
 | AI Brain, LLM, agent, luật thành phần (ChienPX) | [ai-brain.md](ai-brain.md), [api-contracts.md](api-contracts.md) |
 | Bench, dataset, metric | [bench.md](bench.md), [policy.md](policy.md) |
-| Giao diện web | [web.md](web.md), [api-contracts.md](api-contracts.md) |
+| Phương pháp benchmark, tài liệu tham khảo | [../bench/huong-dan-benchmark.md](../bench/huong-dan-benchmark.md) |
+| Simulator sàn, đồng bộ hub ↔ kênh (ChienPX: Shopee, TuTM: TikTok Shop) | [backend.md](backend.md) (mục "Kênh sàn", "Đồng bộ hub ↔ kênh"), [api-contracts.md](api-contracts.md), [../channel-api/tiktok.md](../channel-api/tiktok.md) (API TikTok, DTO ở `tiktok-dto.md`) |
+| Test case nghiệm thu theo US (PO) | [../testcases/](../testcases/) |
+| Giao diện web | [web.md](web.md), [design-system.md](design-system.md), [api-contracts.md](api-contracts.md) |
 | Migration / bảng DB | [data-model.md](data-model.md) |
 | Tại sao lại chọn X | [decisions.md](decisions.md) |
 | Cách chạy, cổng, biến môi trường | [overview.md](overview.md) (mục Chạy) |

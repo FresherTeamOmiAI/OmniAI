@@ -1,41 +1,120 @@
 # Backend (Spring Boot)
 
-> Cập nhật: 2026-11-03 · commit c88bfc6
-> Nguồn: `backend/pom.xml`, `backend/src/main/java/com/omniai/**`, `backend/src/test/**`
+> Cập nhật: 2026-11-18 · T-50.1, T-50.2, T-50.4 giá/tồn theo kênh, connector TikTok và Shopee; 2026-11-18 · T-49.1 module `sync` (khung đồng bộ chiều đi); T-25.4 TikTok gửi lỗi sau 200 thì thử lại / handoff; T-11.4 chống trùng nguyên tử ở `MessageRouter`, `PageResponse` chuyển sang `common`; 2026-11-13 · T-04.1 `CatalogNormalizationTest`; T-09.3 `DemoOrderApiTest`; T-09.2 `StoreFilterApiTest`; T-04.1 bước thêm kênh có bán hàng (V13); trước đó 2026-11-12 · commit 67e63cc · T-11.1–T-11.3; trước đó T-25.1, T-25.2, T-47.1
+> Nguồn: `backend/pom.xml`, `backend/src/main/java/com/omniai/**` (gồm `conversation/*`), `backend/src/test/**`, `simulators/tiktok-shop/**`
 
-Spring Boot 4.1.2, Java 21, Maven (chưa có `mvnw`). Starter đang dùng: webmvc, websocket, validation, data-jpa, flyway (+postgresql), actuator, lombok. Test dùng spring-boot-starter-test + Testcontainers (postgresql). Kiến trúc modular monolith: mỗi package là một module.
+Spring Boot 4.1.2, Java 21, Maven (chưa có `mvnw`). Starter đang dùng: webmvc, websocket, validation, data-jpa, flyway (+postgresql), actuator, security, lombok. Test dùng spring-boot-starter-test, webmvc-test (MockMvc), security-test + Testcontainers (postgresql). Kiến trúc modular monolith: mỗi package là một module.
 
 ## Package `com.omniai.*`
 
 | Package | Trách nhiệm | File chính | Owner |
 |---|---|---|---|
-| `common` | Kiểu dùng chung giữa các module | `CanonicalMessage`, `BotReply`, `ChannelType` | TuTM |
+| `common` | Kiểu dùng chung giữa các module; bảo mật | `CanonicalMessage`, `BotReply`, `ChannelType`, `PageResponse` (trang kết quả của mọi API danh sách), `SecurityConfig` | TuTM (`SecurityConfig`: LucVT) |
 | `channel` | Luồng chung + adapter từng kênh | `ChannelAdapter<P>`, `MessageRouter` | TuTM |
 | `channel.web` | Kênh WEB qua WebSocket | `WebChatAdapter` (là TextWebSocketHandler), `WebSocketConfig`, `WebChatInbound` | TuTM |
 | `channel.simulator` | Giả lập kênh bất kỳ (bench, khi chưa có API sàn) | `SimulatorController`, `SimulatorAdapter` (record, không phải bean), `SimulatorRequest` | TuTM |
+| `channel.tiktok` | Kênh TikTok Shop (US-25): webhook, OAuth2, gửi tin | `TiktokWebhookController` → `TiktokWebhookQueue` → `TiktokWebhookProcessor`, `TiktokChatAdapter`, `TiktokShopClient` (`HttpTiktokShopClient`), `TiktokApi` (ký + envelope + 429), `TiktokTokenManager`, `TiktokOAuthController`, `TiktokSigner`, `TiktokErrorCode`, `TiktokModels` (DTO snake_case, JsonMapper riêng) | TuTM |
+| `channel.credential` | Token OAuth2 của shop trên kênh sàn (bảng V8) | `ChannelCredential`, `ChannelCredentialRepository` | TuTM |
+| `conversation` | Lưu hội thoại mọi kênh (bảng V11, US-11) | `ConversationRecorder` (interface router gọi; `NOOP` cho test), `ConversationService` (bản thật + đọc cho API), `ConversationController` (`/api/conversations`), `ConversationView`, `MessageView`, `Conversation`, `ConversationMessage`, `StoredViolation`, các repository | TuTM |
 | `brain` | Client gọi ai-brain | `BrainClient` (interface để mock), `HttpBrainClient` (RestClient), `BrainRequest/Response` | ChienPX/TuTM |
+| `sync` | Đồng bộ hub → sàn chiều đi (US-49, T-49.1) | `ProductSyncService` (nghe `catalog.ProductChanged`, xếp hàng, gửi, thử lại), `ProductSyncWorker` (`@Scheduled`), `ProductChannelConnector` (1 bean / sàn), `ProductSnapshot`, `SyncException`, `ProductSyncState` + repository, `AdminSyncController` (`/api/admin/sync`), `SyncProperties` | TuTM |
 | `policy` | Áp luật kênh | `PolicyEngine`, `ChannelPolicy`, `PolicyRule`, `PolicyAction`, `PolicyResult`, `PolicyViolation`. Xem [policy.md](policy.md) | HungDQ |
-| `catalog` | Sản phẩm | `Product`, `ProductRepository`, `ProductController` | LucVT |
+| `catalog` | Sản phẩm: API đọc cho store/AI, API admin | `Product`, `ProductRepository`, `ProductController` (đọc, chỉ active), `AdminProductController` + `ProductService` (CRUD admin), `ProductRequest`, `CatalogVocabulary` (luật dữ liệu), `ProductErrors`, `AdminProductExceptionHandler` (ProblemDetail) | LucVT |
 | `customer` | Khách + danh tính kênh | `Customer`, `ChannelIdentity`, các repository | LucVT |
-| `identity`, `order`, `promotion` | **Mới có `package-info.java`** ghi kế hoạch | | LucVT |
+| `identity` | Đăng nhập người mua bằng email + OTP, cấp JWT (US-13, V16) | `AuthController` (`/api/auth/otp`, `/api/auth/otp/verify`, `/api/me`), `AuthExceptionHandler`, `AuthErrors`, `OtpService` (giới hạn gửi lại/khoá), `OtpChallenge` + repository, `OtpSender` (`log` hoặc `smtp`), `TokenService` (JWT HS256), `WebIdentityLinker` (customer + `channel_identity` WEB), `IdentityConfig` (khoá JWT, `JwtEncoder/Decoder`, bean `Clock`), `OtpProperties`, `AuthProperties` | LucVT |
+| `order` | Đơn hàng (T-09.3) | `OrderController`, `OrderService`, `CustomerOrder` | LucVT |
+| `promotion` | **Mới có `package-info.java`** ghi kế hoạch | | LucVT |
 
 ## MessageRouter
-- `handle(CanonicalMessage)`: kiểm tra idempotency → `brainClient.ask` → `policyEngine.apply(channel, reply)` → trả `BotReply`.
-- Idempotency key là `CHANNEL:messageId`, lưu trong LRU map 10.000 phần tử **trong bộ nhớ**. Chạy nhiều instance thì không đúng nữa; S7 (US-29) sẽ chuyển sang Redis.
-- Chưa lưu hội thoại (US-11, S2).
+- `handle(CanonicalMessage)`: kiểm tra idempotency → `recorder.inbound` (lưu tin khách) → `brainClient.ask` → `policyEngine.apply(channel, reply)` → `recorder.reply` (lưu câu bot) → trả `BotReply`.
+- Idempotency key là `CHANNEL:messageId`, lưu trong LRU map 10.000 phần tử **trong bộ nhớ**. Chạy nhiều instance thì không đúng nữa; S7 (US-29) sẽ chuyển sang Redis. Trúng cache thì không lưu lại; mất cache (restart) thì DB tự bỏ dòng trùng.
+- Chống trùng nguyên tử (T-11.4): map giữ `CompletableFuture<BotReply>`, ghi bằng `putIfAbsent` trước khi gọi Brain. Request trùng đến khi lượt đầu chưa xong thì chờ future và nhận cùng `BotReply`, Brain chỉ được gọi 1 lần. Lượt ném exception thì xoá key (kênh gửi lại sẽ được xử lý lại), request đang chờ nhận cùng exception.
+- Lưu hội thoại (US-11, decisions #31): tin khách lưu **trước** khi gọi Brain để Brain treo/sập thì tin vẫn còn. Brain ném exception bất kỳ thì router đổi thành `BrainResponse.unavailable()` (handoff). Lưu lỗi (DB sập) chỉ log, khách vẫn nhận câu trả lời. Mỗi lần ghi là 1 transaction ngắn, không giữ transaction trong lúc chờ Brain.
+- Mọi kênh đi qua router nên tự được lưu; adapter mới không cần làm gì thêm.
 
 ## Thêm kênh mới
 1. Thêm giá trị vào enum `ChannelType` (owned hay không).
-2. Tạo `shared/policies/<kenh>.yaml`. Thiếu file thì `PolicyEngine.apply` ném `IllegalStateException`.
+2. Tạo `shared/policies/<kenh>.yaml`. Thiếu file thì backend không khởi động: `PolicyEngine` báo kênh nào còn thiếu.
 3. Viết class implement `ChannelAdapter<P>`: chuyển payload của kênh thành `CanonicalMessage`, gọi `MessageRouter.handle`, rồi gửi `finalText` ra kênh.
 4. Thêm kênh vào `web/src/shared/types.ts`, schema JSON và [api-contracts.md](api-contracts.md).
+5. Nếu kênh có bán hàng: viết migration `INSERT INTO sales_channel` và giá cho các sản phẩm (`product_channel`), thêm cột giá vào 2 view chatbot (`CREATE OR REPLACE VIEW`), thêm cột `price_<kênh>` vào CSV catalog + `PRICE_COLUMNS` của `csv_to_sql.py`. **Không** sửa bảng `product`, entity, API hay form admin: chúng đọc danh sách kênh từ `sales_channel` (V13, decisions #32).
+
+## Kênh sàn (decisions #12, #22)
+Shopee và TikTok Shop chạy **100% bằng simulator theo schema thật**; dự án không nối API thật của sàn (chốt 11/11). Simulator vẫn phải đủ 3 điều kiện sau, để hợp đồng giữa hub và sàn đúng như tài liệu của sàn:
+1. JSON webhook vào và request/response gửi tin ra chép đúng mẫu trong tài liệu chính thức của sàn, ghi nguồn (URL) và ngày lấy. Lưu thành fixture test, ví dụ `backend/src/test/resources/channel/shopee/*.json`.
+2. Adapter sàn gồm `toCanonical()` đọc đúng webhook thật, và một interface client gửi dữ liệu ra sàn. Hiện chỉ có bản simulated (gọi simulator, simulator lưu lại và trả response mẫu); không làm bản live.
+3. Webhook có chữ ký thì simulator ký bằng khóa test và adapter luôn kiểm chữ ký, kể cả khi đang giả lập.
+
+Simulator chung `/api/simulator/{channel}/messages` vẫn giữ cho bench và `/admin/policy`. Simulator theo schema sàn làm ở S2: Shopee do ChienPX (US-21), TikTok Shop do TuTM (US-25). Bảng đối chiếu: `docs/channel-api/shopee.md` (T-50.3, T-51.1), `docs/channel-api/tiktok.md` (T-25.3).
+
+`channel.shopee` là simulator giá, tồn kho, đơn và chat Shopee. Số liệu nằm ở các bảng `tbl_shopee_item`, `tbl_shopee_price_list`, `tbl_shopee_seller_stock`, `tbl_shopee_order`, `tbl_shopee_order_item`, `tbl_shopee_push`, `tbl_shopee_conversation`, `tbl_shopee_message`, `tbl_shopee_webchat_push` trong cùng Postgres với hub khi dùng Supabase. Hub chưa tự đẩy khi admin sửa sản phẩm (task đồng bộ của TuTM). Webhook đơn và tin chat được ký sẵn; đường nhận push trên hub là T-51.3, chưa làm. Schema chat shop là bản giả lập: trang seller chat của Open Platform không cấp quyền đọc (2026-11-11).
+
+### TikTok Shop (US-25, đã làm; Products US-50)
+- Simulator là **app riêng** `simulators/tiktok-shop` (Spring Boot, cổng 8090, không DB, decisions #28), package `com.omniai.sim.tiktok`: `gateway/GatewayFilter` (rate limit → app_key, timestamp ±5 phút, sign → token → scope → shop_cipher), `auth/`, `event/` (`WebhookDispatcher`: ký, timeout 3 s, gửi lại 3 lần), `cs/`, `product/` (US-50: Upload Product Image multipart, Create/Edit/Get Product, Update Price/Inventory, Activate/Deactivate; sản phẩm giữ trong bộ nhớ, kiểm theo mã lỗi docv2), `control/` (`/sim/*`, có `GET /sim/products`). API và DTO: [../channel-api/tiktok.md](../channel-api/tiktok.md).
+- Luồng tin: buyer (`POST :8090/sim/buyer/messages`) → webhook NEW_MESSAGE đã ký → `TiktokWebhookController` kiểm chữ ký trên body thô, timestamp, chống trùng `tts_notification_id`, đưa vào `TiktokWebhookQueue` và **trả 200 ngay** (queue đầy thì 503) → `TiktokWebhookProcessor` chỉ nhận tin TEXT hiện được của BUYER (bỏ tin SHOP/ROBOT để không tự trả lời mình), chống trùng `message_id` → `MessageRouter` → Send Message `sender_role=ROBOT`. Sàn báo `45101006` (nhạy cảm) thì gửi `fallback_message` và DB ghi câu fallback làm `text`.
+- Gửi lỗi sau khi đã trả 200 (T-25.4): sàn không gửi lại webhook, nên `TiktokWebhookProcessor` tự thử lại. Lỗi tạm thời (mạng, HTTP 5xx, `36009003`, 429 đã hết lượt ở `TiktokApi`) thì thử lại tới `omniai.tiktok.send-attempts` lần (mặc định 4 = lần đầu + 3), chờ `send-retry-backoff` (mặc định 2 s) rồi gấp đôi, trên luồng `tiktok-send-retry`. Lỗi không thử lại được (`45109001`, `45102007`, scope, shop `NEEDS_REAUTH`/`REVOKED`, tham số sai...) hoặc hết lượt thì câu OUT thành `delivery_status=FAILED` + `handoff=true`. Mỗi lần ghi trạng thái qua `ConversationRecorder.delivery()`. Tắt app khi đang chờ thử lại thì câu đó giữ `RETRYING`.
+- Token: `TiktokTokenManager.withCredential()` refresh trước hạn 5 phút; sàn báo token sai/hết hạn thì refresh 1 lần rồi gọi lại; khóa theo shop. Refresh token hết hạn → `NEEDS_REAUTH`; webhook SELLER_DEAUTHORIZATION → `REVOKED`.
+- `TiktokApi` giới hạn 40 request đồng thời (sàn chặn 50), gặp 429 thì backoff, tối đa 3 lần.
+- Fixture hợp đồng dùng chung cho hub và simulator: `shared/channel-fixtures/tiktok/` (mục Example của docv2; webhook và token ghi chưa đối chiếu).
+
+## Đồng bộ hub ↔ kênh (trụ E, decisions #23)
+Hub (backend) là nguồn dữ liệu gốc. Bảng endpoint từng sàn viết ở T-48.3. Chiều đi đã có khung (T-49.1), chưa có connector sàn nào.
+
+| Chiều | Dữ liệu | US · Sprint |
+|---|---|---|
+| Đi (hub → sàn) | Sản phẩm (tên, mô tả, ảnh, thành phần) | US-49 S3 (Shopee), US-50 S4 (TikTok Shop) |
+| Đi | Giá theo kênh, tồn kho | US-50 S4 |
+| Đi | Khuyến mãi (voucher, flash sale) | US-52 S6, cần US-33 (S5) |
+| Đi | Trạng thái xử lý đơn (xác nhận, hủy) | US-53 S6 |
+| Về (sàn → hub) | Hội thoại chăm sóc khách hàng | US-21, US-25 (S2), lưu ở US-11 (S2), xem ở US-14 (S3) |
+| Về | Đơn hàng, kéo theo trừ tồn kho | US-51 S5 |
+| Về | Trạng thái duyệt/vi phạm sản phẩm | US-54 S7 |
+| Về | Đánh giá sản phẩm | US-55 S8 |
+
+Quy ước: thay đổi trên hub đi qua hàng đợi đồng bộ, mỗi kênh một connector, gửi lỗi thì thử lại và không gửi trùng (US-49).
+
+**Khung chiều đi (`sync`, T-49.1, decisions #42):**
+1. `ProductService.create/update/setActive` phát `ProductChanged` trong transaction của nó. `ProductSyncService.onProductChanged` (`@EventListener`, cùng transaction) tính `ProductSnapshot.contentHash()` cho mỗi kênh `sales_channel.active && !owned` có connector và sản phẩm có giá ở kênh đó, rồi ghi `product_channel_sync`: chưa có dòng thì tạo `PENDING` (sản phẩm ẩn chưa từng lên sàn thì bỏ); hash bằng bản đã gửi (`SYNCED`) hoặc bằng bản đang chờ (`PENDING`) thì bỏ qua; khác thì về `PENDING`, `attempts = 0`. Product rollback thì hàng đợi rollback theo.
+2. `ProductSyncWorker` mỗi `omniai.sync.poll-interval-ms` (1000) gọi `claimDue`: `UPDATE ... FOR UPDATE SKIP LOCKED RETURNING`, dời `next_attempt_at` thêm `lease` (60 s) để instance khác không nhận trùng, tối đa `batch-size` (20) dòng.
+3. `deliver`: đọc sản phẩm **hiện tại** (sửa nhiều lần trước khi gửi thì chỉ gửi bản mới nhất), gọi connector ngoài transaction. Thành công → `SYNCED`, lưu `external_id`; nếu admin sửa tiếp trong lúc gửi thì vẫn `PENDING` để gửi bản mới. Lỗi → `attempts++`, chờ `retry-backoff` (2 s) gấp đôi; tới `max-attempts` (4 = lần đầu + 3 lần thử lại) hoặc `SyncException(retryable=false)` → `FAILED`, admin bấm thử lại.
+4. **Giá, tồn riêng (US-50, V19, decisions #43):** mỗi (sản phẩm, kênh) có tối đa 3 dòng `aspect` = `PRODUCT` (nội dung, giữ `external_id`), `PRICE` (giá **của kênh đó**), `STOCK` (tồn). Hash PRICE gồm giá kênh, hash STOCK gồm tồn, nên đổi giá Shopee chỉ làm dòng PRICE/SHOPEE chờ gửi, đổi tồn làm STOCK của mọi kênh chờ gửi. PRICE/STOCK chỉ xếp khi dòng PRODUCT đã có `external_id`; tạo/sửa sản phẩm thành công thì ghi PRICE/STOCK là SYNCED theo đúng giá trị đã gửi kèm. Connector khai `aspects()` và `ready()` (chưa sẵn sàng thì không xếp hàng).
+5. **Connector:** `channel.tiktok.TiktokProductConnector` (PRODUCT, PRICE, STOCK; `ready` khi có shop TikTok ACTIVE): tải ảnh từ URL Supabase → Upload Product Image (cache `storage_key → uri` trong bộ nhớ) → Create Product (`idempotency_key = omniai-product-<id>`) hoặc Edit Product → Activate/Deactivate theo ẩn/hiện; giá qua Update Price, tồn qua Update Inventory. `external_id = <product_id>:<sku_id>`. Danh mục hub → `category_id` và kho ở `omniai.tiktok.products.*` (mặc định khớp simulator, giả định). `package_weight` = dung tích + 50 g. `channel.shopee.ShopeeProductConnector` (chỉ PRICE, STOCK) gọi `update_price`/`update_stock` có ký tới `omniai.channels.shopee.api-base-url` (mặc định chính hub, nơi có simulator); `item_id` lấy từ liên kết admin vì add_item chờ T-49.2. Tắt: `omniai.tiktok.products.enabled`, `omniai.channels.shopee.sync-enabled`.
+6. **Liên kết tay** `POST /api/admin/sync/products/{id}/{channel}/link {externalId}`: ghi dòng PRODUCT SYNCED với mã sàn có sẵn rồi xếp gửi giá, tồn hiện tại.
+7. Kênh nào chưa có connector thì không có dòng nào. Thêm sàn = thêm 1 bean `ProductChannelConnector`. `omniai.sync.enabled=false` (env `SYNC_ENABLED`) tắt worker. Mọi webhook từ sàn đều kiểm chữ ký và chống trùng. Nội dung đẩy ra sàn phải qua luật của kênh (US-54).
+
+## Bảo mật (`common/SecurityConfig.java`)
+- 2 `SecurityFilterChain`: `customerFilterChain` (`@Order(1)`, chỉ `/api/me/**`, OAuth2 resource server JWT, role `CUSTOMER`) và `securityFilterChain` (còn lại). JWT ký/kiểm bằng `JWT_SECRET` (≥ 32 byte; trống thì dùng khoá dev và log WARN), validate `exp` + `iss=omniai`.
+- `/api/admin/**` và `/api/conversations/**` cần đăng nhập (role ADMIN, HTTP Basic, 1 tài khoản in-memory từ `omniai.admin.*`, SRS Q-01; hội thoại thêm ở US-11, decisions #31). Mọi đường khác `permitAll`: store, `/api/auth/**`, simulator, `/ws/chat` (token tuỳ chọn qua `channel/web/WebChatAuthInterceptor`), webhook kênh, actuator.
+- Stateless, tắt CSRF/form login/logout. `ADMIN_PASSWORD` rỗng thì không khởi động; còn là `admin` (mặc định dev) thì log WARN.
+- `PasswordEncoder` là `DelegatingPasswordEncoder` mặc định `bcrypt` (mật khẩu/mã lưu DB). Tài khoản admin trong bộ nhớ lưu `{sha256-ct}` (`InMemorySecretEncoder`: SHA-256 + `MessageDigest.isEqual`) vì bcrypt ~90 ms mỗi request Basic; bean chỉ là `UserDetailsService` đọc (không phải `UserDetailsPasswordService`) để Spring không tự nâng cấp hash về bcrypt (US-43, decisions #44).
+- Thêm endpoint cần khóa thì đặt dưới `/api/admin/` (riêng `/api/conversations` giữ đúng tên trong backlog nên có rule riêng). Admin **giữ** HTTP Basic, US-13 chỉ cho người mua (decisions #39).
 
 ## Cấu hình (`application.yml`)
-`omniai.policy-dir`, `omniai.brain.url`, `omniai.brain.timeout` (10s), `omniai.web.allowed-origins`. Datasource đọc từ env `DB_*`.
+`omniai.policy-dir`, `omniai.brain.url`, `omniai.brain.timeout` (10s), `omniai.web.allowed-origins`, `omniai.admin.username/password` (env `ADMIN_USERNAME`/`ADMIN_PASSWORD`, mặc định `admin`/`admin`). Datasource đọc từ env `DB_*`. `omniai.channels.shopee.*` (`ShopeeChannelProperties`): khóa test `partner-id`, `partner-key`, `shop-id`, `access-token`, `push-callback-url`. `omniai.tiktok.*` (`TiktokProperties`): `app-key/app-secret` (env `TIKTOK_APP_KEY/SECRET`, mặc định khóa test giống simulator), `base-url` (`TIKTOK_SIM_URL`), `redirect-uri`, `webhook-url`, `webhook-max-skew` 5m, `max-concurrent` 40, `timeout` 10s. `omniai.chatbot-db-password` (env `CHATBOT_DB_PASSWORD`) + `omniai.chatbot-reader.overwrite-password` (mặc định `true`; profile `supabase` đặt `false`): `ChatbotReaderSetup` bật LOGIN cho role `chatbot_reader` lúc khởi động; `false` thì role đã LOGIN được giữ nguyên mật khẩu (DB dùng chung, decisions #43). Hiệu năng (US-43): `spring.jpa.properties.hibernate.default_batch_fetch_size: 50` (hết N+1 `brandRef`), `spring.data.web.pageable.max-page-size: 100`, `server.compression` (JSON ≥ 1 KB nén gzip). `ProductService` giữ danh mục/loại da/vấn đề da trong bộ nhớ sau lần đọc đầu (chỉ đổi qua migration); `sales_channel` không cache.
 
 ## Test hiện có
-- `policy/PolicyEngineTest`: link, SĐT, chặn tên kênh khác (Shopee/TikTok), WEB giữ link, làm mềm claim y khoa, giá tiền không bị tưởng là SĐT, "giá trị" không bị tưởng là "trị".
+- `policy/PolicyEngineTest`: link, SĐT, chặn tên kênh khác (Shopee/TikTok), WEB giữ link, làm mềm claim y khoa, giá tiền không bị tưởng là SĐT, "giá trị" không bị tưởng là "trị". File YAML sai (11 ca) hoặc thiếu kênh thì lỗi lúc khởi động; cắt `max_length` không tách emoji. Chạy bộ ca dùng chung với bench `shared/policies/tests/cases.yaml` trên cả 3 kênh.
 - `channel/MessageRouterTest`: cùng câu trả lời nhưng mỗi kênh lọc khác nhau, trùng messageId chỉ trả lời 1 lần, brain lỗi thì handoff. Dùng mock BrainClient.
+- `OmniAiApplicationTests`: Flyway + pgvector + catalog thật trên Testcontainers. Số SKU/active/hết hàng/hãng mong đợi đọc từ `shared/catalog/products.csv` qua `TestCatalog` (test không hardcode, catalog lớn lên không phải sửa); kiểm V9 đã xoá 5 hãng hư cấu, mọi SKU có barcode/nguồn/`image_key`/giấy phép.
+- `catalog/AdminProductApiTest` (MockMvc): 401 khi thiếu/sai Basic; store, simulator, actuator vẫn mở; list admin gồm SKU ẩn; tạo (chuẩn hóa, 201), trùng SKU 409, validate 400 theo field, sửa và ẩn/hiện phản ánh ngay ở `/api/products`, không đổi SKU, sửa không làm mất cột ảnh/nguồn, `imageUrl` ghép đúng từ `omniai.images.base-url` (`@TestPropertySource`, không gọi mạng). Dùng SKU thật `CERA-CLE-01`. Mỗi test rollback (`@Transactional`).
+- `catalog/StoreFilterApiTest` (MockMvc, T-09.2): 6 tổ hợp lọc của `GET /api/products` (loại da, danh mục, khoảng giá, loại da + danh mục, cả 3, không khớp), đủ 5 loại da, không phân biệt hoa thường, sản phẩm ẩn không hiện, tham số sai 400 theo field, lọc giá + phân trang không trùng SKU. Số mong đợi tính từ CSV (`TestCatalog`). T-43.1: đọc lần lượt trang 100 SP; `size=500` hạ về 100, mặc định 20 sort id; list chỉ có 9 trường `ProductCard`; sort lạ 400; **1 trang store 2–8 câu SQL** (Hibernate `Statistics`, xoá persistence context trước khi đếm).
+- `common/InMemorySecretEncoderTest`: SHA-256 so sánh thời gian không đổi; bean encoder mặc định vẫn bcrypt; tài khoản admin lưu `{sha256-ct}` và không phải `UserDetailsPasswordService`.
+- `order/DemoOrderApiTest` (MockMvc, T-09.3): đơn DEMO kênh WEB, giá web chụp lại lúc đặt (đổi giá/tên sau không ảnh hưởng), **tồn kho không đổi**, gộp dòng trùng, hết hàng / không đủ hàng / sản phẩm ẩn / id không có / quantity 0, 11 / items rỗng → `400` đúng field, `GET` đơn không có `404`; ràng buộc DB của V14 (status, kênh, quantity, `line_total`).
+- `identity/OtpAuthApiTest` (MockMvc + đồng hồ chỉnh được, T-13.1): khách mới đăng nhập tạo `customer` + `channel_identity` WEB (`OTP`, `consent_at`), chỉ lưu hash; khách cũ giữ nguyên tài khoản; thiếu consent / email sai / mã không phải 6 số → `400`; hết hạn sau 5 phút; sai 4 lần còn `attemptsLeft`, lần 5 → `423` khoá 15 phút (mã đúng cũng bị chặn, xin mã mới cũng `423`), hết khoá thì đăng nhập được; gửi lại < 60 s → `429` + `Retry-After`, mã thứ 6 trong 1 giờ → `429` tới khi mã cũ nhất ra khỏi cửa sổ; mã cũ mất hiệu lực, mã dùng 1 lần; `/api/me` không token / token rác / token hết hạn → `401`; JWT không vào được `/api/admin/**`, `/api/conversations`, Basic admin vẫn chạy.
+- `channel/web/WebChatAuthInterceptorTest`, `WebChatAdapterTest`: token hợp lệ → `customerId` vào session; thiếu/sai/hết hạn/`sub` không phải số → khách vãng lai; có `customerId` thì `channelUserId`/`conversationId` = `web:c<id>`.
+- `catalog/CatalogNormalizationTest` (T-04.1, V15): dữ liệu sau chuẩn hoá khớp CSV từng SKU (hãng, loại da, vấn đề da, buổi dùng, INCI theo thứ tự, ảnh chính), nhóm hoạt chất, view chatbot giữ cột/giá trị, ràng buộc mới. `AdminProductApiTest` thêm: hãng / thành phần mới tự thêm vào bảng tra cứu, hãng viết khác hoa thường dùng lại dòng cũ, sửa INCI giữ thứ tự mới, loại da trả theo `sort_order`.
+- `catalog/ChatbotReaderSetupTest` (Testcontainers): đăng nhập JDBC thật bằng `chatbot_reader`; `overwrite-password=true` đổi mật khẩu mỗi lần chạy, `false` giữ mật khẩu cũ khi role đã LOGIN, vẫn bật LOGIN cho DB mới; thiếu mật khẩu thì NOLOGIN.
+- Container Postgres dùng chung qua `TestcontainersConfig` (`@Import`); test `@SpringBootTest` mới cũng import class này.
+- Test tay API admin: Postman collection `backend/http/OmniAI-admin-products.postman_collection.json` (chạy được bằng newman) và `backend/http/admin-products.http` (REST Client). Hướng dẫn và bảng TC: `docs/testcases/US-08.md`.
+- `channel/web/WebChatAdapterTest`: toCanonical tạo UUID khi messageId rỗng/blank, giữ nguyên id nếu có; định tuyến đúng CanonicalMessage; gửi BotReply qua WebSocket; tin rỗng/JSON hỏng thì trả `invalid_message` mà không đóng session; đóng session khi lỗi transport.
+- `channel/web/WebChatSocketIT`: WebSocket thật (`RANDOM_PORT` + `TestcontainersConfig`, `@MockitoBean BrainClient`) dùng `StandardWebSocketClient`; tin hợp lệ thì nhận BotReply đúng messageId, JSON hỏng/text rỗng thì nhận `invalid_message`.
+- Surefire trong `pom.xml` include thêm `**/*IT.java`, nên `mvn test` chạy luôn test tích hợp (cần Docker).
+- `channel/tiktok/`: `TiktokSignerTest` (test vector chung với simulator), `TiktokContractTest` (đọc fixture docv2, webhook → CanonicalMessage, lọc role), `TiktokApiTest` (MockRestServiceServer: tham số chung + sign, lỗi giữ `request_id`, 429 retry), `TiktokTokenManagerTest` (refresh trước hạn, refresh khi lỗi token, NEEDS_REAUTH, sai scope không retry, 8 luồng chỉ refresh 1 lần), `TiktokWebhookIT` (Spring + Testcontainers: sai chữ ký/replay 401, Brain chậm 5 s vẫn trả 200 < 3 s, trùng notification/message chỉ trả lời 1 lần, bỏ tin ROBOT/SHOP, luật TIKTOK, fallback khi `45101006`, V8 + REVOKED, OAuth state).
+- Simulator `simulators/tiktok-shop` (`mvn test`, không cần Docker): `AuthFlowTest`, `GatewayTest`, `CustomerServiceTest` (phân trang, invalid_params `45101002`, lỗi nghiệp vụ, khớp fixture), `RateLimitTest` (60 request đồng thời → 429), `WebhookTest` (chữ ký, retry khi 500/quá giờ, gửi trùng, Event API), `TiktokSignerTest`. Cả hai module có awaitility ở test scope.
+- `channel/MessageRouterTest`: cùng câu trả lời nhưng mỗi kênh lọc khác nhau, trùng messageId chỉ trả lời 1 lần, phân biệt key theo kênh, làm mềm claim y khoa trên WEB, brain lỗi thì handoff; lưu IN trước Brain và OUT sau, lưu lỗi không chặn trả lời, Brain ném exception thành handoff. Dùng mock BrainClient và recorder giả.
+- `conversation/ConversationStoreIT` (Spring + Testcontainers, mock BrainClient): IN/OUT đủ rawText, finalText, blocked, vi phạm; cùng hội thoại dùng 1 dòng `conversation`, gửi trùng không nhân dòng; cùng user khác kênh thành 2 hội thoại; Brain `unavailable()` hoặc ném exception thì vẫn lưu IN + OUT, OUT `handoff=true` (T-11.3). TC tay: `docs/testcases/US-11.md`.
+- `conversation/ConversationApiTest` (MockMvc, `@Transactional` rollback, seed qua repository): 401 khi thiếu/sai Basic; lọc kênh không phân biệt hoa thường; phân trang mới nhất trước; kênh lạ/size/page sai 400; `/messages` trả rawText, finalText, vi phạm theo thứ tự thời gian; id lạ 404.
+- `policy/PolicyEngineTest`: link, SĐT, chặn tên kênh khác (Shopee/TikTok), WEB giữ link, làm mềm claim y khoa, giá tiền không bị tưởng là SĐT, "giá trị" không bị tưởng là "trị".
 - `OmniAiApplicationTests`: Flyway + pgvector trên Testcontainers.
 
 ## Quy ước

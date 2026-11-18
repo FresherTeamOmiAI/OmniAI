@@ -1,10 +1,10 @@
 @echo off
-rem Tat AI Brain, Backend, Web (theo cong 8000, 8080, 5173 va theo tieu de cua so "OmniAI - ...").
+rem Tat AI Brain, Backend, TikTok Sim, Web (theo cong 8000, 8080, 8090, 5173 va theo tieu de cua so "OmniAI - ...").
 rem Sau do hoi co tat ha tang Docker khong (mac dinh: khong, sau 10 giay).
 setlocal
 set "HERE=%~dp0"
 
-for %%P in (8000 8080 5173) do (
+for %%P in (8000 8080 8090 5173) do (
   for /f "tokens=5" %%I in ('netstat -ano ^| findstr /r /c:":%%P .*LISTENING"') do (
     taskkill /pid %%I /t /f >nul 2>&1 && echo Da tat tien trinh %%I o cong %%P
   )

@@ -1,0 +1,12 @@
+/* Đăng nhập người mua (features/account, US-13). Khung .login-form dùng chung với admin (product-admin/admin.css). Token ở shared/ui/tokens.css. */
+
+.login-form .login-consent { display: grid; grid-template-columns: auto 1fr; gap: var(--space-2); align-items: start; font-weight: 400; }
+.login-form .login-consent input { width: auto; margin-top: 3px; }
+.login-form .otp-input { font-size: var(--text-xl); letter-spacing: .4em; text-align: center; font-variant-numeric: tabular-nums; }
+.login-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.login-actions .btn { width: auto; flex: 1 1 auto; }
+
+/* Menu tài khoản trên header */
+.account-menu { display: inline-flex; align-items: center; gap: var(--space-1); min-width: 0; }
+.account-email { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-sm); color: var(--color-muted); }
+.account-menu button.tab { border: 0; background: transparent; font: inherit; font-size: var(--text-sm); cursor: pointer; }

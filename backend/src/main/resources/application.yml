@@ -1,6 +1,8 @@
 spring:
   application:
     name: omniai-backend
+  # Mặc định: Postgres Docker local. Dùng Postgres trên Supabase: SPRING_PROFILES_ACTIVE=supabase
+  # (application-supabase.yml đọc SUPABASE_DB_*, decisions #33).
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/omniai}
     username: ${DB_USERNAME:omniai}
@@ -9,22 +11,102 @@ spring:
     hibernate:
       ddl-auto: validate
     open-in-view: false
+    properties:
+      hibernate:
+        # Nạp quan hệ theo lô (US-43, T-43.1): brandRef (@ManyToOne) của 20 SP trên 1 trang store chỉ còn 1 câu SELECT
+        # thay cho 1 câu / hãng (N+1, đo 16 câu ngày 18/11).
+        default_batch_fetch_size: 50
+  data:
+    web:
+      pageable:
+        # Không cho 1 request kéo cả catalog (?size=2000). size > 100 bị hạ về 100.
+        max-page-size: 100
   flyway:
     enabled: true
+  # SMTP cho OTP (OTP_SENDER=smtp): host/port/tài khoản lấy từ env SPRING_MAIL_*, vd Gmail + App Password.
+  # Timeout 5 s để mail server treo không giữ request (và khoá dòng otp_challenge) lâu.
+  mail:
+    default-encoding: UTF-8
+    properties:
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
 
 server:
   port: ${PORT:8080}
+  # Nén JSON (trang store ~27 KB, chi tiết có INCI) khi trình duyệt gửi Accept-Encoding: gzip (US-43).
+  compression:
+    enabled: true
+    mime-types: application/json,application/problem+json
+    min-response-size: 1KB
 
 management:
   endpoints:
     web:
       exposure:
         include: health,info
+  health:
+    # SMTP chỉ dùng khi OTP_SENDER=smtp; không để /actuator/health DOWN vì mail server.
+    mail:
+      enabled: false
 
 omniai:
   policy-dir: ${OMNIAI_POLICY_DIR:../shared/policies}
   brain:
     url: ${BRAIN_URL:http://localhost:8000}
-    timeout: 10s
+    timeout: 30s
+  chatbot-db-password: ${CHATBOT_DB_PASSWORD:}
   web:
     allowed-origins: ${WEB_ALLOWED_ORIGINS:http://localhost:5173}
+  # Tài khoản admin tạm cho /api/admin/** (HTTP Basic, SRS Q-01). admin/admin chỉ dùng khi dev.
+  admin:
+    username: ${ADMIN_USERNAME:admin}
+    password: ${ADMIN_PASSWORD:admin}
+  # Đăng nhập người mua bằng email + OTP (US-13, SRS NFR-08, decisions #39).
+  # OTP_SENDER=log (mặc định): in mã ra log backend. OTP_SENDER=smtp: gửi mail, cần SPRING_MAIL_HOST/PORT/USERNAME/PASSWORD.
+  otp:
+    sender: ${OTP_SENDER:log}
+    mail-from: ${OTP_MAIL_FROM:no-reply@omniai.local}
+    ttl: 5m
+    max-attempts: 5
+    lock: 15m
+    resend-interval: 60s
+    max-per-hour: 5
+  # JWT HS256 của người mua. Giá trị mặc định chỉ dùng khi dev (tối thiểu 32 byte).
+  auth:
+    jwt-secret: ${JWT_SECRET:omniai-dev-jwt-secret-change-me-32bytes!}
+    token-ttl: 7d
+  # Khóa test của simulator Shopee. Không dùng khóa sàn thật.
+  channels:
+    shopee:
+      partner-id: ${SHOPEE_PARTNER_ID:2000001}
+      partner-key: ${SHOPEE_PARTNER_KEY:test-partner-key}
+      shop-id: ${SHOPEE_SHOP_ID:10001}
+      access-token: ${SHOPEE_ACCESS_TOKEN:test-access-token}
+      push-callback-url: ${SHOPEE_PUSH_CALLBACK_URL:http://127.0.0.1:8080/api/channels/shopee/push}
+      datasource:
+        url: ${SHOPEE_DB_URL:jdbc:postgresql://localhost:5432/shopee}
+        username: ${SHOPEE_DB_USERNAME:omniai}
+        password: ${SHOPEE_DB_PASSWORD:omniai}
+  # Kênh TikTok Shop (US-25). S2 trỏ tới simulator simulators/tiktok-shop (decisions #22, #28).
+  # Khóa app phải trùng với simulator; giá trị mặc định là khóa test, không phải bí mật.
+  tiktok:
+    app-key: ${TIKTOK_APP_KEY:omniai-test-app}
+    app-secret: ${TIKTOK_APP_SECRET:omniai-test-secret}
+    base-url: ${TIKTOK_SIM_URL:http://localhost:8090}
+    redirect-uri: ${TIKTOK_REDIRECT_URI:http://localhost:8080/api/channels/tiktok/oauth/callback}
+    webhook-url: ${TIKTOK_WEBHOOK_URL:http://localhost:8080/api/channels/tiktok/webhook}
+    webhook-max-skew: 5m
+    max-concurrent: 40
+    timeout: 10s
+  # Đồng bộ sản phẩm hub -> sàn (US-49, T-49.1). Chỉ gửi ra kênh có connector; S3 chưa có connector nào (Shopee sau T-49.2).
+  sync:
+    enabled: ${SYNC_ENABLED:true}
+    poll-interval-ms: 1000
+    max-attempts: 4
+    retry-backoff: 2s
+  # Ảnh sản phẩm trên Supabase Storage (decisions #26). Backend chỉ ghép URL public, không cần khoá service.
+  # SUPABASE_URL trống thì imageUrl = null (web hiện khung trống).
+  images:
+    base-url: ${SUPABASE_URL:}
+    bucket: ${SUPABASE_BUCKET:product-images}
