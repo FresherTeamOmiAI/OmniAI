@@ -68,17 +68,37 @@ public class ProductService {
         this.ingredients = ingredients;
     }
 
+    /** Trường được phép sort ở danh sách store và admin (US-43). Trường khác (kể cả collection) trả 400. */
+    static final Set<String> SORTABLE = Set.of("id", "name", "createdAt");
+
     /** Bộ từ vựng hiện hành, đọc từ các bảng tra cứu (V15). Mỗi map giữ thứ tự sort_order. */
     record Vocabulary(Map<String, Category> categories, Map<String, SkinType> skinTypes,
                       Map<String, SkinConcern> skinConcerns, List<SalesChannel> channels) {
     }
 
+    /** Danh mục, loại da, vấn đề da: chỉ đổi qua migration nên nạp 1 lần rồi giữ trong bộ nhớ (US-43). */
+    record Lookups(Map<String, Category> categories, Map<String, SkinType> skinTypes,
+                   Map<String, SkinConcern> skinConcerns) {
+    }
+
+    private volatile Lookups lookups;
+
+    Lookups lookups() {
+        Lookups cached = lookups;
+        if (cached == null) {
+            cached = new Lookups(
+                    byCode(categories.findAllByOrderBySortOrderAsc(), Category::getCode),
+                    byCode(skinTypes.findAllByOrderBySortOrderAsc(), SkinType::getCode),
+                    byCode(skinConcerns.findAllByOrderBySortOrderAsc(), SkinConcern::getCode));
+            lookups = cached;
+        }
+        return cached;
+    }
+
+    /** Kênh bán KHÔNG cache: test và vận hành thêm/tạm ngừng kênh bằng SQL, admin tạo/sửa phải thấy ngay. */
     Vocabulary vocabulary() {
-        return new Vocabulary(
-                byCode(categories.findAllByOrderBySortOrderAsc(), Category::getCode),
-                byCode(skinTypes.findAllByOrderBySortOrderAsc(), SkinType::getCode),
-                byCode(skinConcerns.findAllByOrderBySortOrderAsc(), SkinConcern::getCode),
-                channels());
+        Lookups l = lookups();
+        return new Vocabulary(l.categories(), l.skinTypes(), l.skinConcerns(), channels());
     }
 
     private static <T> Map<String, T> byCode(List<T> rows, Function<T, String> code) {
@@ -92,6 +112,7 @@ public class ProductService {
 
     /** Danh sách cho admin, gồm cả sản phẩm ẩn. {@code q} tìm trong sku và tên; {@code active} null = tất cả. */
     public Page<Product> search(String q, Boolean active, Pageable pageable) {
+        checkSort(pageable);
         return repository.findAll(filter(q, active), pageable);
     }
 
@@ -101,7 +122,8 @@ public class ProductService {
      */
     public Page<Product> storeSearch(StoreFilter filter, Pageable pageable) {
         StoreFilter f = filter.normalized();
-        checkStoreFilter(f, vocabulary());
+        checkSort(pageable);
+        checkStoreFilter(f, lookups());
         return repository.findAll(storeSpec(f), pageable);
     }
 
@@ -307,7 +329,16 @@ public class ProductService {
         return values.stream().sorted().toList();
     }
 
-    private static void checkStoreFilter(StoreFilter f, Vocabulary v) {
+    private static void checkSort(Pageable pageable) {
+        List<String> bad = pageable.getSort().stream().map(order -> order.getProperty())
+                .filter(property -> !SORTABLE.contains(property)).toList();
+        if (!bad.isEmpty()) {
+            throw new Invalid(List.of(new FieldViolation("sort",
+                    "không sort được theo " + bad + ", chọn trong " + sorted(SORTABLE))));
+        }
+    }
+
+    private static void checkStoreFilter(StoreFilter f, Lookups v) {
         List<FieldViolation> errors = new ArrayList<>();
         if (f.skinType() != null && !v.skinTypes().containsKey(f.skinType())) {
             errors.add(new FieldViolation("skinType", "không hợp lệ, chọn một trong " + sorted(v.skinTypes().keySet())));

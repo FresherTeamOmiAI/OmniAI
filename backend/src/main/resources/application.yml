@@ -11,6 +11,16 @@ spring:
     hibernate:
       ddl-auto: validate
     open-in-view: false
+    properties:
+      hibernate:
+        # Nạp quan hệ theo lô (US-43, T-43.1): brandRef (@ManyToOne) của 20 SP trên 1 trang store chỉ còn 1 câu SELECT
+        # thay cho 1 câu / hãng (N+1, đo 16 câu ngày 18/11).
+        default_batch_fetch_size: 50
+  data:
+    web:
+      pageable:
+        # Không cho 1 request kéo cả catalog (?size=2000). size > 100 bị hạ về 100.
+        max-page-size: 100
   flyway:
     enabled: true
   # SMTP cho OTP (OTP_SENDER=smtp): host/port/tài khoản lấy từ env SPRING_MAIL_*, vd Gmail + App Password.
@@ -24,6 +34,11 @@ spring:
 
 server:
   port: ${PORT:8080}
+  # Nén JSON (trang store ~27 KB, chi tiết có INCI) khi trình duyệt gửi Accept-Encoding: gzip (US-43).
+  compression:
+    enabled: true
+    mime-types: application/json,application/problem+json
+    min-response-size: 1KB
 
 management:
   endpoints:

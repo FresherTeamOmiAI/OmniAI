@@ -61,6 +61,10 @@ export interface Product {
   updatedAt: string
 }
 
+// Thẻ sản phẩm trong danh sách GET /api/products (US-43, T-43.1): chỉ các trường thẻ store và chat widget cần.
+// Chi tiết đầy đủ (INCI, mô tả, nguồn...) lấy ở GET /api/products/{id}.
+export type ProductCard = Pick<Product, 'id' | 'sku' | 'brand' | 'name' | 'category' | 'skinTypes' | 'imageUrl' | 'prices' | 'stock'>
+
 // Kênh bán (bảng sales_channel, V13). owned = kênh của shop (WEB), active = false khi tạm ngừng bán.
 export interface SalesChannel {
   code: string
