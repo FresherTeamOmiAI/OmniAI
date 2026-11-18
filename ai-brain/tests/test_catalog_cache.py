@@ -1,6 +1,7 @@
 """Catalog nhớ trong bộ nhớ, đủ SKU, prompt gọn, giá NULL, ngừng thử khi mở kết nối lỗi (US-43, T-43.4). Owner: LucVT."""
 
 import logging
+import threading
 from types import SimpleNamespace
 
 import psycopg
@@ -71,15 +72,106 @@ def test_ten_chats_within_ttl_read_the_database_once(pages, clock):
     assert pages.calls == 2  # 1 lần nạp = 2 trang (100 + 1 SKU), không phải 2 câu mỗi lượt chat
 
 
-def test_cache_expires_after_ttl(pages, clock, monkeypatch):
+@pytest.fixture
+def spawned(monkeypatch):
+    """Thay thread nền: ghi lại việc làm mới để test tự chạy đúng lúc."""
+    tasks = []
+    monkeypatch.setattr(search, "_spawn", tasks.append)
+    return tasks
+
+
+def _nivea_price(rows):
+    return next(row.price_web for row in rows if row.sku == "NIVE-SUN-02")
+
+
+def test_expired_cache_is_served_while_refreshing_in_background(pages, clock, spawned, monkeypatch):
+    # T-43.5: hết TTL thì câu chat không chờ database, catalog được làm mới ngầm đúng 1 lần.
     monkeypatch.setenv("CATALOG_CACHE_TTL_SECONDS", "60")
     assert len(load_search_rows()) == 101
     clock["t"] += 59
     load_search_rows()
-    assert pages.calls == 2
+    assert pages.calls == 2 and spawned == []
+
+    pages.pages[1] = [_record("NIVE-SUN-02", "Nivea", "Nivea Derma Skin Clear UV Fluid SPF50", "sunscreen", "oily", 189_000)]
     clock["t"] += 2
-    load_search_rows()
+    stale = load_search_rows()
+    assert _nivea_price(stale) == 201_000  # trả ngay bản cũ
+    assert pages.calls == 2  # không có câu SELECT nào trên đường trả lời
+    for _ in range(5):
+        load_search_rows()
+    assert len(spawned) == 1  # nhiều câu chat cùng lúc chỉ khởi động 1 lần làm mới
+
+    spawned.pop()()
     assert pages.calls == 4
+    assert _nivea_price(load_search_rows()) == 189_000
+    assert spawned == []
+
+
+def test_failed_refresh_keeps_stale_rows_until_the_stale_limit(clock, spawned, monkeypatch):
+    monkeypatch.setenv("CATALOG_CACHE_TTL_SECONDS", "60")
+    state = {"down": False}
+
+    def flaky(sql):
+        if state["down"]:
+            raise psycopg.OperationalError("down")
+        return [NIVEA]
+
+    monkeypatch.setattr(search, "run_select", flaky)
+    assert [row.sku for row in load_search_rows()] == ["NIVE-SUN-02"]
+
+    state["down"] = True
+    clock["t"] += 61
+    assert [row.sku for row in load_search_rows()] == ["NIVE-SUN-02"]
+    spawned.pop()()  # làm mới lỗi: vẫn giữ bản cũ, câu sau thử lại
+    assert [row.sku for row in load_search_rows()] == ["NIVE-SUN-02"]
+    assert len(spawned) == 1
+
+    clock["t"] += 60 * search.STALE_LIMIT_FACTOR
+    assert load_search_rows() is None  # bản cũ quá giới hạn: đọc đồng bộ, database vẫn lỗi
+
+
+def test_prewarm_loads_the_catalog_before_the_first_chat(pages, clock, spawned):
+    search.prewarm()
+    search.prewarm()  # gọi lại khi đang nạp: không khởi động thêm
+    assert len(spawned) == 1 and pages.calls == 0
+    spawned.pop()()
+    assert pages.calls == 2
+
+    chat("kem chống nắng cho da dầu dưới 300k")
+    assert pages.calls == 2  # câu chat đầu không đọc database
+    search.prewarm()
+    assert spawned == []  # đã có cache thì không nạp lại
+
+
+def test_zero_ttl_reads_every_time(pages, clock, spawned, monkeypatch):
+    monkeypatch.setenv("CATALOG_CACHE_TTL_SECONDS", "0")
+    load_search_rows()
+    load_search_rows()
+    assert pages.calls == 4 and spawned == []
+
+
+def test_concurrent_cold_loads_read_the_database_once(clock, monkeypatch):
+    started, release = threading.Event(), threading.Event()
+    calls = []
+
+    def slow(sql):
+        calls.append(sql)
+        started.set()
+        release.wait(5)
+        return [NIVEA]
+
+    monkeypatch.setattr(search, "run_select", slow)
+    results = []
+    first = threading.Thread(target=lambda: results.append(load_search_rows()))
+    first.start()
+    assert started.wait(5)
+    second = threading.Thread(target=lambda: results.append(load_search_rows()))
+    second.start()
+    release.set()
+    first.join(5)
+    second.join(5)
+    assert len(calls) == 1
+    assert [[row.sku for row in rows] for rows in results] == [["NIVE-SUN-02"], ["NIVE-SUN-02"]]
 
 
 def test_database_failure_is_not_cached(monkeypatch, clock):

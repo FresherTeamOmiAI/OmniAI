@@ -1,6 +1,6 @@
 # Đo hiệu năng US-43: trước / sau
 
-> Cập nhật: 2026-11-18 · T-43.2 kết quả chốt (`dev` 5098687, mọi tiêu chí trừ phần widget chờ T-43.3); số **trước** khi tối ưu · Người đo: LucVT · Đặc tả: [dac-ta-hieu-nang-catalog.md](dac-ta-hieu-nang-catalog.md)
+> Cập nhật: 2026-11-18 · T-43.5 sau khi cache làm mới ngầm: 0/19 câu chat chờ DB trên Supabase; T-43.2 kết quả chốt (`dev` 5098687, mọi tiêu chí trừ phần widget chờ T-43.3); số **trước** khi tối ưu · Người đo: LucVT · Đặc tả: [dac-ta-hieu-nang-catalog.md](dac-ta-hieu-nang-catalog.md)
 > Công cụ: `bench/perf/load_test.py`, `bench/perf/brain_db.py`, `bench/perf/seed_conversations.sql` (cách chạy ở [../specs/bench.md](../specs/bench.md), mục "Đo hiệu năng")
 
 ## Điều kiện đo
@@ -174,6 +174,24 @@ Chạy `npm run dev` thì thấy 2 request khi mở `/`. Đó là React `StrictM
 | p95 store / chi tiết / hội thoại < 300 ms (local) | 80,1 / 50,0 / 51,4 (lấy lượt chậm hơn) | ✓ |
 
 Ghi chú: 7/20 câu chat có cảnh báo `grounding:price`, tức `grounding.py` đã xoá một con số giá không có trong dữ liệu. Việc này không ảnh hưởng hiệu năng; ghi lại để bench giá (US-15) xem.
+
+### Sau T-43.5 (cache làm mới ngầm + nạp sẵn), đo 2026-11-18
+ai-brain nối **Supabase** (role `chatbot_reader`, chỉ đọc), Gemini thật, cùng 20 câu chat có ràng buộc như mục 4 ở trên. Đặt `CATALOG_CACHE_TTL_SECONDS=30` để cache hết hạn vài lần trong lượt đo (20 câu mất khoảng 3 phút).
+
+| Chỉ số | Kết quả chốt T-43.2 (TTL 120 s) | Sau T-43.5 (TTL 30 s) |
+|---|---|---|
+| Câu chat phải chờ đọc DB | 2 / 20 (7.0 s và 8.3 s) | **0 / 19** |
+| `db_ms` p50 / p95 / max | 0 / 6.953 / 8.279 | **0 / 4 / 4** |
+| Câu đầu sau khởi động | 8.279 ms đọc DB | 0 ms (nạp sẵn 2,9 s lúc khởi động) |
+| Lần làm mới catalog trong lượt đo | 1, trên đường trả lời | **5, chạy ngầm** (1,0–3,7 s mỗi lần) |
+
+- Câu chat rơi đúng lúc cache hết hạn chỉ mất 2–4 ms (khởi động thread làm mới) và dùng catalog cũ thêm vài giây.
+- 1/20 câu lỗi `502` do Gemini `ReadTimeout`, không liên quan cache, nên chỉ còn 19 dòng log. `llm_ms` p50 5,6 s ở lượt này (lượt T-43.2: 3,7 s) là dao động của Gemini.
+- pytest (`tests/test_catalog_cache.py`):
+  - hết TTL thì 0 câu SELECT trên đường trả lời, đúng 1 lần làm mới dù nhiều câu chat tới cùng lúc;
+  - làm mới lỗi thì giữ bản cũ; quá 10 × TTL thì đọc đồng bộ;
+  - `prewarm()` xong thì câu chat đầu không đọc DB;
+  - 2 thread cùng nạp lúc chưa có cache chỉ đọc DB 1 lần.
 
 ### Sau T-43.3
 _Chưa đo._ PR của T-43.3 điền dòng "Mở chat lần đầu" (mục 5 ở trên) và tiêu chí đầu tiên của mục 6.
