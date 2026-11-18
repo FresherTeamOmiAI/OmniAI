@@ -1,6 +1,6 @@
-import { getJson, postJson } from '../../shared/lib/http'
+import { getJson, requestJson } from '../../shared/lib/http'
 import type { OrderView, Page } from '../../shared/types'
-import type { Product } from './types'
+import type { Product, ProductCard } from './types'
 
 export const STORE_PAGE_SIZE = 20
 
@@ -13,7 +13,7 @@ export interface StoreQuery {
 }
 
 // sort=id để các trang không chồng/sót SKU (Postgres không bảo đảm thứ tự khi không ORDER BY).
-export function fetchProducts(query: StoreQuery, page: number): Promise<Page<Product>> {
+export function fetchProducts(query: StoreQuery, page: number): Promise<Page<ProductCard>> {
   const params = new URLSearchParams({ page: String(page), size: String(STORE_PAGE_SIZE), sort: 'id' })
   if (query.skinType) params.set('skinType', query.skinType)
   if (query.category) params.set('category', query.category)
@@ -27,7 +27,10 @@ export function fetchProduct(id: string): Promise<Product> {
   return getJson(`/api/products/${encodeURIComponent(id)}`)
 }
 
-/** Đặt hàng ảo (T-09.3, SRS UC-06): đơn DEMO, không thanh toán, không giao, không trừ tồn kho. */
-export function createDemoOrder(items: { productId: number; quantity: number }[]): Promise<OrderView> {
-  return postJson('/api/orders', { items })
+/**
+ * Đặt hàng ảo (T-09.3, SRS UC-06): đơn DEMO, không thanh toán, không giao, không trừ tồn kho.
+ * Từ S3 cần JWT người mua, đơn gắn khách (G-04, decisions #40). Token sai/hết hạn: backend trả 401.
+ */
+export function createDemoOrder(items: { productId: number; quantity: number }[], token: string): Promise<OrderView> {
+  return requestJson('/api/orders', { method: 'POST', body: { items }, headers: { Authorization: `Bearer ${token}` } })
 }

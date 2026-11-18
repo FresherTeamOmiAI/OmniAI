@@ -10,6 +10,14 @@ from app.llm.factory import get_provider
 from app.schemas import ChatRequest, ChatResponse
 
 log = logging.getLogger(__name__)
+# uvicorn chỉ cấu hình logger của nó. Logger "app" in INFO (thời gian từng chặng của /chat, T-43.4) ra stderr.
+# Không bật INFO cho root: httpx log mọi URL gọi ra ở mức INFO.
+_app_log = logging.getLogger("app")
+if not _app_log.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    _app_log.addHandler(_handler)
+    _app_log.setLevel(logging.INFO)
 
 app = FastAPI(title="OmniAI Brain", version="0.1.0")
 # Thiếu CHATBOT_DB_URL hoặc LLM_API_KEY thì dừng ngay lúc khởi động, không chạy ở chế độ giả (decisions #25).

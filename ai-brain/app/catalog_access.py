@@ -2,43 +2,30 @@
 
 Thiếu CHATBOT_DB_URL thì brain không khởi động (require_config). Lỗi kết nối lúc đang chạy thì trả danh sách rỗng,
 chat vẫn chạy và grounding.py bỏ mọi giá vì không có giá nào để đối chiếu.
+
+Một kết nối dùng lại, có khoá. Catalog đã đọc được nhớ ở rag/search.py (load_search_rows), nên database chỉ bị đọc
+khi cache hết hạn và không cần pool (decisions #45). Mở kết nối lỗi thì ngừng thử CONNECT_BACKOFF_S giây: mỗi lần
+thử với mật khẩu sai là một lần đăng nhập hỏng, đủ nhiều thì pooler Supabase chặn cả role (ECIRCUITBREAKER, 18/11).
 """
 
 import logging
 import os
 import threading
 import time
-from dataclasses import dataclass
 
 import psycopg
 
-from app.rules.sql_guard import CATALOG_SQL, SqlRejected, validate_sql
+from app.rules.sql_guard import validate_sql
 
 log = logging.getLogger(__name__)
-# Catalog 366 SKU ít đổi trong lúc demo. Nhớ 2 phút để mỗi câu chat không bắt tay Supabase lại từ đầu.
-_CACHE_TTL_S = 120.0
+CONNECT_BACKOFF_S = 60.0
 _lock = threading.Lock()
 _connection: psycopg.Connection | None = None
-_cache: dict[str, tuple[float, list[tuple]]] = {}
+_blocked_until = 0.0
 
 
-@dataclass(frozen=True)
-class CatalogSnapshot:
-    lines: tuple[str, ...] = ()
-    prices: frozenset[int] = frozenset()
-
-
-def _vnd(amount: int) -> str:
-    return f"{amount:,}".replace(",", ".") + "đ"
-
-
-def _prices_for_channel(channel: str, owned: bool, web: int, shopee: int, tiktok: int) -> tuple[str, set[int]]:
-    if owned:
-        text = f"giá web {_vnd(web)}, Shopee {_vnd(shopee)}, TikTok {_vnd(tiktok)}"
-        return text, {web, shopee, tiktok}
-    if channel.upper() == "TIKTOK":
-        return f"giá {_vnd(tiktok)}", {tiktok}
-    return f"giá {_vnd(shopee)}", {shopee}
+class CatalogUnavailable(psycopg.OperationalError):
+    """Đang trong thời gian ngừng thử sau một lần mở kết nối lỗi. Không chạm tới database."""
 
 
 def require_config() -> None:
@@ -47,33 +34,40 @@ def require_config() -> None:
         raise ValueError("Thiếu CHATBOT_DB_URL: brain đọc catalog từ Postgres bằng role chatbot_reader (xem .env.example)")
 
 
-def load_public_catalog(channel: str = "WEB", channel_owned: bool = True) -> CatalogSnapshot:
-    """Sản phẩm đang bán và giá được phép nêu, lấy qua câu SELECT cố định đã được validate."""
-    try:
-        rows = run_select(CATALOG_SQL)
-    except (SqlRejected, psycopg.Error, OSError) as error:
-        log.warning("Không đọc được chatbot_catalog: %s", error.__class__.__name__)
-        return CatalogSnapshot()
-    lines = []
-    prices: set[int] = set()
-    for brand, name, category, skin_types, _concerns, usage_time, web, shopee, tiktok in rows:
-        detail = ", ".join(part for part in (category, skin_types, usage_time) if part)
-        price_text, allowed = _prices_for_channel(channel, channel_owned, int(web), int(shopee), int(tiktok))
-        prices.update(allowed)
-        label = f"{brand} — {name}" + (f" ({detail})" if detail else "") + f" — {price_text}"
-        lines.append(label)
-    return CatalogSnapshot(tuple(lines), frozenset(prices))
+def _reason(error: psycopg.Error) -> str:
+    """Tóm tắt lỗi mở kết nối mà không in thông báo gốc (có host, user)."""
+    text = str(error).lower()
+    if "circuit" in text:
+        return "pooler đang chặn role (ECIRCUITBREAKER)"
+    if "password" in text or "authentication" in text:
+        return "sai user hoặc mật khẩu"
+    if "timeout" in text or "timed out" in text:
+        return "hết thời gian chờ"
+    return "không kết nối được"
 
 
 def _reader() -> psycopg.Connection:
-    global _connection
+    global _connection, _blocked_until
     if _connection is not None and not _connection.closed:
         return _connection
+    if time.monotonic() < _blocked_until:
+        raise CatalogUnavailable("đang ngừng thử kết nối catalog")
     url = os.getenv("CHATBOT_DB_URL", "").strip()
     if not url:
         raise psycopg.OperationalError("thiếu CHATBOT_DB_URL")
-    _connection = psycopg.connect(url, connect_timeout=3)
-    _connection.read_only = True
+    try:
+        # autocommit: transaction do run_select tự mở (BEGIN READ ONLY) trong cùng 1 lần gửi.
+        _connection = psycopg.connect(url, connect_timeout=3, autocommit=True)
+    except psycopg.Error as error:
+        _blocked_until = time.monotonic() + CONNECT_BACKOFF_S
+        log.warning(
+            "Không mở được kết nối chatbot_reader: %s (%s, sqlstate=%s). Ngừng thử %.0f s",
+            _reason(error),
+            error.__class__.__name__,
+            error.sqlstate or "-",
+            CONNECT_BACKOFF_S,
+        )
+        raise
     return _connection
 
 
@@ -87,23 +81,35 @@ def _drop_reader() -> None:
     _connection = None
 
 
-def run_select(sql: str) -> list[tuple]:
-    """Validate rồi thực thi bằng CHATBOT_DB_URL. Role này không đọc được bảng khách."""
-    checked = validate_sql(sql)
-    now = time.monotonic()
+def reset() -> None:
+    """Đóng kết nối và bỏ thời gian ngừng thử. Dùng trong pytest và script đo."""
+    global _blocked_until
     with _lock:
-        cached = _cache.get(checked)
-        if cached is not None and now - cached[0] < _CACHE_TTL_S:
-            return cached[1]
+        _drop_reader()
+        _blocked_until = 0.0
+
+
+def run_select(sql: str) -> list[tuple]:
+    """Validate rồi thực thi bằng CHATBOT_DB_URL. Role này không đọc được bảng khách.
+
+    Transaction chỉ đọc, timeout 2 s, gửi 1 lần (simple query nhiều câu, không tham số): tới pooler Supabase mỗi vòng
+    mạng ~300 ms, gửi SET, SELECT, ROLLBACK riêng thì 1 trang mất ~0,9 s thay vì ~0,3 s (đo 18/11).
+    """
+    checked = validate_sql(sql)
+    with _lock:
         try:
             connection = _reader()
             with connection.cursor() as cursor:
-                cursor.execute("SET statement_timeout = '2s'")
-                cursor.execute(checked)
-                rows = cursor.fetchall()
-            connection.rollback()
+                cursor.execute(f"BEGIN READ ONLY; SET LOCAL statement_timeout = '2s'; {checked}; COMMIT")
+                rows: list[tuple] = []
+                while True:
+                    if cursor.description is not None:
+                        rows = cursor.fetchall()
+                    if not cursor.nextset():
+                        break
+        except CatalogUnavailable:
+            raise
         except psycopg.Error:
             _drop_reader()
             raise
-        _cache[checked] = (time.monotonic(), rows)
         return rows

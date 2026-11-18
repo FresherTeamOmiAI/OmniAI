@@ -16,13 +16,14 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 | `V5__import_catalog_80.sql` | Nạp 80 SKU từ `shared/catalog/products.csv` (T-08.2). **Sinh tự động** bằng `tools/catalog/csv_to_sql.py`, không sửa tay. Upsert theo `sku`: 8 SKU của V2 giữ mã/giá và có thêm mô tả, vấn đề da, buổi dùng |
 | `V6__chatbot_catalog.sql` | View `chatbot_catalog` và role `chatbot_reader` NOLOGIN. Chỉ tên, thương hiệu, loại da. Không có giá, tồn kho, email |
 | `V7__chatbot_catalog_prices.sql` | Thêm `price_web`, `price_shopee`, `price_tiktok` vào view. Vẫn không có tồn kho |
-| `V8__channel_credential.sql` | Bảng `channel_credential`: token OAuth2 của shop trên kênh sàn (US-25, decisions #29). Owner: TuTM |
+| `V8__channel_credential.sql` | Bảng `channel_credential`: token OAuth2 của shop trên kênh sàn (US-25, decisions #29). Comment đầu file ghi "decisions #27" là số cũ; **không sửa file** vì đổi nội dung migration đã chạy làm Flyway báo sai checksum (T-25.5). Owner: TuTM |
 | `V9__product_source_image.sql` | T-47.1: thêm `barcode` (unique), `source_url`, `image_key`, `image_source_url`, `image_license_note` (đều cho phép NULL); **xoá cứng 80 SKU của 5 thương hiệu hư cấu** của V2/V5 (decisions #30) |
 | `V10__import_catalog_real.sql` | Nạp 366 SKU thật từ `shared/catalog/products.csv` (T-47.1). **Sinh tự động** bằng `csv_to_sql.py`, upsert theo `sku`, gồm cả cột nguồn/ảnh |
 | `V11__conversation.sql` | Bảng `conversation`, `conversation_message`, `message_violation`: lưu hội thoại mọi kênh (US-11, decisions #31). Owner: TuTM |
 | `V12__product_embedding.sql` | Cột `product.embedding vector(768)`, index HNSW cosine, view `chatbot_catalog_search` (US-10). Chỉ sản phẩm `active`. Owner: ChienPX |
 | `V13__product_channel_price.sql` | T-04.1 sửa theo review: **tách giá theo kênh khỏi `product`**. Thêm `sales_channel` (WEB, SHOPEE, TIKTOK) và `product_channel` (1 dòng / sản phẩm / kênh), chép giá 366 SKU × 3 kênh, xoá 3 cột `price_*` và CHECK `ck_product_prices`. Tạo lại 2 view chatbot với đúng tên cột cũ (decisions #32) |
 | `V14__demo_order.sql` | T-09.3: bảng `customer_order` + `customer_order_item` (đơn mọi kênh; S2 chỉ có đơn `DEMO` trên web, không trừ tồn kho, decisions #34) |
+| `V16__otp_challenge.sql` | T-13.1: bảng `otp_challenge` (mã OTP đăng nhập người mua, chỉ lưu hash, US-13, decisions #39) |
 | `V15__normalize_product.sql` | T-04.1 sửa theo review (phần A+B, decisions #35): **chuẩn hoá bảng `product`**. Bảng tra cứu `brand`, `category`, `skin_type`, `skin_concern`, `ingredient`; bảng nối `product_skin_type`, `product_skin_concern`, `product_ingredient` (giữ thứ tự INCI); `product_image`; `use_am`/`use_pm` thay `usage_time`; `created_at`. Xoá 8 cột `brand, skin_types, skin_concerns, usage_time, ingredients_inci, image_key, image_source_url, image_license_note`. Tạo lại 2 view chatbot **giữ nguyên cột** qua view nội bộ `product_text_pivot` |
 | `V17__message_delivery.sql` | T-25.4: thêm `delivery_status`, `delivery_attempts`, `delivery_error` vào `conversation_message` (trạng thái gửi câu bot ra kênh gửi async, TikTok). Owner: TuTM |
 | `V18__product_channel_sync.sql` | T-49.1: bảng `product_channel_sync` (hàng đợi + trạng thái đồng bộ sản phẩm ra từng sàn, decisions #42). Owner: TuTM |
@@ -77,7 +78,12 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 - `linked_by`: `OTP | DEEP_LINK | LINK_CODE | ORDER_CLAIM | PROBABILISTIC_CONFIRMED`. `DEEP_LINK` còn trong enum nhưng không dùng nữa sau khi bỏ Telegram (decisions #22).
 - `confidence`: 1.0 nếu liên kết tất định, nhỏ hơn 1 nếu đến từ gợi ý xác suất đã được khách xác nhận.
 - `consent_at`.
+- Kênh WEB (US-13): `external_id` = `customer.id` (chuỗi), `linked_by=OTP`, `confidence=1.0`, `consent_at` = lúc xác thực OTP lần đầu (khách đã tick đồng ý). Tạo bởi `identity/WebIdentityLinker`. Hội thoại web của khách đã đăng nhập có `conversation.customer_id` và `external_id = web:c<customerId>`.
 - Nguyên tắc: chỉ gắn vào customer khi có bằng chứng + consent (Luật BVDLCN 91/2025). **Không bao giờ tự gộp.**
+
+**otp_challenge** (`identity/OtpChallenge.java`, V16, owner LucVT): 1 lần gửi OTP tới 1 email.
+- `email` (đã trim + lowercase), `code_hash` (bcrypt qua `PasswordEncoder`, không lưu mã gốc), `created_at`, `expires_at` (+5 phút), `attempts` (số lần sai), `locked_until` (sai đủ 5 lần thì +15 phút), `consumed_at` (đã đăng nhập bằng mã này). Index (`email`, `created_at` DESC).
+- Dòng mới nhất của email là mã hiệu lực. Giới hạn gửi lại tính trên các dòng: dòng mới nhất < 60 s, hoặc ≥ 5 dòng trong 1 giờ. Chưa có job dọn dòng cũ.
 
 **channel_credential** (`channel/credential/ChannelCredential.java`, owner TuTM): ủy quyền OAuth2 của 1 shop trên 1 kênh sàn. TikTok Shop dùng từ S2, Shopee dùng chung.
 - `channel` (enum `ChannelType`), `shop_id`; unique (`channel`, `shop_id`). `shop_name`, `shop_cipher` (TikTok: tham số `shop_cipher` của mọi API dữ liệu shop).
@@ -120,13 +126,14 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 - Ràng buộc unique của `sku` tên là `product_sku_key` (Postgres tự đặt ở V1). `ProductService` dựa vào tên này để trả 409 khi 2 request tạo cùng SKU một lúc.
 - `CustomerOrderRepository` (T-09.3): CRUD mặc định.
 - `CustomerRepository`: `findByEmail`, `findByPhone`.
+- `OtpChallengeRepository` (T-13.1): `findFirstByEmailOrderByCreatedAtDescIdDesc` (khoá `PESSIMISTIC_WRITE`, chống đoán mã song song), `countByEmailAndCreatedAtAfter`, `findFirstByEmailAndCreatedAtAfterOrderByCreatedAtAsc`.
 - `ChannelIdentityRepository`: `findByChannelAndExternalId`, `findByCustomerId`.
 - `ChannelCredentialRepository`: `findByChannelAndShopId`, `findByChannelOrderByShopId`.
 - `ConversationRepository`: `upsert` (native `INSERT ... ON CONFLICT ... RETURNING id`), `touch` (tăng `message_count`, dời `last_message_at`), `findByChannel`.
 - `ConversationMessageRepository`: `existsByConversationIdAndDirectionAndMessageId`, `findByConversationId` (phân trang).
 
 ## Dự kiến (chưa có)
-OTP/JWT (US-13, S3, chỉ email), mã liên kết `OMNI-XXXXXX` 6 ký tự kèm đếm số lần sai theo danh tính kênh (US-22, S4, SRS G-01), lịch sử đơn theo khách (US-23), promotion/voucher/lịch sử giá (US-33, S5, mốc giờ theo `Asia/Ho_Chi_Minh`), consent log (US-30, S7). Cho trụ E (decisions #23): trạng thái đồng bộ theo kênh (US-49, S3), đơn từ sàn (US-51, S5), trạng thái duyệt sản phẩm (US-54, S7), đánh giá sản phẩm (US-55, S8).
+Mã liên kết `OMNI-XXXXXX` 6 ký tự kèm đếm số lần sai theo danh tính kênh (US-22, S4, SRS G-01), lịch sử đơn theo khách (US-23), promotion/voucher/lịch sử giá (US-33, S5, mốc giờ theo `Asia/Ho_Chi_Minh`), consent log (US-30, S7). Cho trụ E (decisions #23): trạng thái đồng bộ theo kênh (US-49, S3), đơn từ sàn (US-51, S5), trạng thái duyệt sản phẩm (US-54, S7), đánh giá sản phẩm (US-55, S8).
 
 ## Database simulator Shopee
 

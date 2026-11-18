@@ -12,6 +12,7 @@ from app.tools.price_stock import SKU
 _IMAGE = ("ảnh", "hình ảnh", "hình sản phẩm", "xem hình")
 _CARD_LINE = re.compile(r"(?m)^\d+\.\s+.+\s—\s+.+\s—\s+\d")
 ASK_WHICH = "Bạn gửi giúp shop mã hoặc tên sản phẩm để shop lấy đúng ảnh."
+NOT_ON_CHANNEL = "Sản phẩm này hiện chưa bán trên kênh này ạ."
 
 
 def asks_for_image(text: str) -> bool:
@@ -46,8 +47,10 @@ def image_reply(text: str, history: list[HistoryTurn], rows: list[ProductRow], c
     row = product_named(text, rows) or product_from_history(history, rows)
     if row is None:
         return ASK_WHICH
-    line = suggestion_lines([row], channel, owned)[0]
-    return f"{line}\nĐây là ảnh sản phẩm ạ."
+    lines = suggestion_lines([row], channel, owned)
+    if not lines:
+        return NOT_ON_CHANNEL
+    return f"{lines[0]}\nĐây là ảnh sản phẩm ạ."
 
 
 def ensure_product_cards(reply: str, rows: list[ProductRow], channel: str, owned: bool) -> str:
@@ -64,7 +67,7 @@ def ensure_product_cards(reply: str, rows: list[ProductRow], channel: str, owned
         found.append(row)
         if len(found) == 3:
             break
-    if not found:
-        return reply
     lines = suggestion_lines(found, channel, owned)
+    if not lines:
+        return reply
     return "Gợi ý trong shop:\n" + "\n".join(lines) + "\n" + reply

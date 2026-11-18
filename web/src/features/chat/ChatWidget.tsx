@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import { channelOffer, dong } from '../marketplace'
 import { formatVnd } from '../../shared/lib/format'
 import { getJson } from '../../shared/lib/http'
-import type { Page, Product } from '../../shared/types'
+import type { Page, ProductCard } from '../../shared/types'
 import { ChatIcon, ChevronDownIcon, SparkleIcon } from '../../shared/ui/icons'
 import { ProductThumb, splitSuggestion } from './suggestionCards'
 import { useChatSocket } from './useChatSocket'
@@ -65,7 +65,7 @@ export function ChatWidget() {
   const [open, setOpen] = useState(readOpen)
   const [catalogWanted, setCatalogWanted] = useState(open)
   const [draft, setDraft] = useState('')
-  const [products, setProducts] = useState<Product[]>([])
+  const [products, setProducts] = useState<ProductCard[]>([])
   const { lines, status, isPending, send, reconnect } = useChatSocket()
   const thinkingStep = useThinkingStep(isPending)
   const logRef = useRef<HTMLDivElement | null>(null)
@@ -79,11 +79,11 @@ export function ChatWidget() {
     if (!catalogWanted) return
     let cancelled = false
     const load = async () => {
-      const all: Product[] = []
+      const all: ProductCard[] = []
       let page = 0
       try {
         for (;;) {
-          const result = await getJson<Page<Product>>(`/api/products?page=${page}&size=100`)
+          const result = await getJson<Page<ProductCard>>(`/api/products?page=${page}&size=100`)
           all.push(...result.items)
           if (cancelled || all.length >= result.total || result.items.length === 0) break
           page += 1

@@ -1,4 +1,5 @@
 import { Link, NavLink, Outlet, useLocation } from 'react-router'
+import { AccountMenu, useCustomerSession } from '../features/account'
 import { ChatWidget } from '../features/chat'
 import { DemoBanner } from '../shared/ui/DemoBanner'
 
@@ -8,6 +9,7 @@ const tabClass = ({ isActive }: { isActive: boolean }) => (isActive ? 'tab tab-a
 // Mỗi trang tự render <main id="main" tabIndex={-1}> để link "Bỏ qua" tới được.
 export function ShopLayout() {
   const isAdmin = useLocation().pathname.startsWith('/admin')
+  const session = useCustomerSession()
   return (
     <>
       <a className="skip-link" href="#main">Bỏ qua, tới nội dung chính</a>
@@ -20,6 +22,7 @@ export function ShopLayout() {
           </Link>
           <nav className="site-nav" aria-label="Cửa hàng">
             <NavLink to="/" end className={tabClass}>Cửa hàng</NavLink>
+            {!isAdmin && <AccountMenu />}
           </nav>
           <nav className="admin-nav" aria-label="Quản trị">
             <NavLink to="/admin/products" className={tabClass}>Admin · Sản phẩm</NavLink>
@@ -29,7 +32,8 @@ export function ShopLayout() {
         </div>
       </header>
       <Outlet />
-      {!isAdmin && <ChatWidget />}
+      {/* Đổi tài khoản thì dựng lại widget: xoá tin của người trước, nối lại WebSocket với token mới. */}
+      {!isAdmin && <ChatWidget key={session?.customer.id ?? 'guest'} />}
     </>
   )
 }
