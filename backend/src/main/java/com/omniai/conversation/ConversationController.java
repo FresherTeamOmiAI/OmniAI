@@ -1,8 +1,7 @@
 package com.omniai.conversation;
 
-import com.omniai.catalog.ProductController.PageResponse;
 import com.omniai.common.ChannelType;
-import org.springframework.data.domain.Page;
+import com.omniai.common.PageResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -33,7 +32,7 @@ public class ConversationController {
     public PageResponse<ConversationView> list(@RequestParam(required = false) String channel,
                                                @RequestParam(defaultValue = "0") int page,
                                                @RequestParam(defaultValue = "20") int size) {
-        return toResponse(service.list(parseChannel(channel), checkPage(page), checkSize(size)));
+        return PageResponse.of(service.list(parseChannel(channel), checkPage(page), checkSize(size)));
     }
 
     @GetMapping("/{id}/messages")
@@ -41,7 +40,7 @@ public class ConversationController {
                                               @RequestParam(defaultValue = "0") int page,
                                               @RequestParam(defaultValue = "50") int size) {
         return service.messages(id, checkPage(page), checkSize(size))
-                .map(ConversationController::toResponse)
+                .map(PageResponse::of)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không có hội thoại " + id));
     }
 
@@ -69,9 +68,5 @@ public class ConversationController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "size phải từ 1 đến " + MAX_PAGE_SIZE);
         }
         return size;
-    }
-
-    private static <T> PageResponse<T> toResponse(Page<T> page) {
-        return new PageResponse<>(page.getContent(), page.getNumber(), page.getSize(), page.getTotalElements());
     }
 }

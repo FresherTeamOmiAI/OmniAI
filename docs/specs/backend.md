@@ -1,6 +1,6 @@
 # Backend (Spring Boot)
 
-> Cập nhật: 2026-11-13 · T-04.1 `CatalogNormalizationTest`; T-09.3 `DemoOrderApiTest`; T-09.2 `StoreFilterApiTest`; T-04.1 bước thêm kênh có bán hàng (V13); trước đó 2026-11-12 · commit 67e63cc · T-11.1–T-11.3; trước đó T-25.1, T-25.2, T-47.1
+> Cập nhật: 2026-11-18 · T-11.4 chống trùng nguyên tử ở `MessageRouter`, `PageResponse` chuyển sang `common`; 2026-11-13 · T-04.1 `CatalogNormalizationTest`; T-09.3 `DemoOrderApiTest`; T-09.2 `StoreFilterApiTest`; T-04.1 bước thêm kênh có bán hàng (V13); trước đó 2026-11-12 · commit 67e63cc · T-11.1–T-11.3; trước đó T-25.1, T-25.2, T-47.1
 > Nguồn: `backend/pom.xml`, `backend/src/main/java/com/omniai/**` (gồm `conversation/*`), `backend/src/test/**`, `simulators/tiktok-shop/**`
 
 Spring Boot 4.1.2, Java 21, Maven (chưa có `mvnw`). Starter đang dùng: webmvc, websocket, validation, data-jpa, flyway (+postgresql), actuator, security, lombok. Test dùng spring-boot-starter-test, webmvc-test (MockMvc), security-test + Testcontainers (postgresql). Kiến trúc modular monolith: mỗi package là một module.
@@ -9,7 +9,7 @@ Spring Boot 4.1.2, Java 21, Maven (chưa có `mvnw`). Starter đang dùng: webmv
 
 | Package | Trách nhiệm | File chính | Owner |
 |---|---|---|---|
-| `common` | Kiểu dùng chung giữa các module; bảo mật | `CanonicalMessage`, `BotReply`, `ChannelType`, `SecurityConfig` | TuTM (`SecurityConfig`: LucVT) |
+| `common` | Kiểu dùng chung giữa các module; bảo mật | `CanonicalMessage`, `BotReply`, `ChannelType`, `PageResponse` (trang kết quả của mọi API danh sách), `SecurityConfig` | TuTM (`SecurityConfig`: LucVT) |
 | `channel` | Luồng chung + adapter từng kênh | `ChannelAdapter<P>`, `MessageRouter` | TuTM |
 | `channel.web` | Kênh WEB qua WebSocket | `WebChatAdapter` (là TextWebSocketHandler), `WebSocketConfig`, `WebChatInbound` | TuTM |
 | `channel.simulator` | Giả lập kênh bất kỳ (bench, khi chưa có API sàn) | `SimulatorController`, `SimulatorAdapter` (record, không phải bean), `SimulatorRequest` | TuTM |
@@ -25,6 +25,7 @@ Spring Boot 4.1.2, Java 21, Maven (chưa có `mvnw`). Starter đang dùng: webmv
 ## MessageRouter
 - `handle(CanonicalMessage)`: kiểm tra idempotency → `recorder.inbound` (lưu tin khách) → `brainClient.ask` → `policyEngine.apply(channel, reply)` → `recorder.reply` (lưu câu bot) → trả `BotReply`.
 - Idempotency key là `CHANNEL:messageId`, lưu trong LRU map 10.000 phần tử **trong bộ nhớ**. Chạy nhiều instance thì không đúng nữa; S7 (US-29) sẽ chuyển sang Redis. Trúng cache thì không lưu lại; mất cache (restart) thì DB tự bỏ dòng trùng.
+- Chống trùng nguyên tử (T-11.4): map giữ `CompletableFuture<BotReply>`, ghi bằng `putIfAbsent` trước khi gọi Brain. Request trùng đến khi lượt đầu chưa xong thì chờ future và nhận cùng `BotReply`, Brain chỉ được gọi 1 lần. Lượt ném exception thì xoá key (kênh gửi lại sẽ được xử lý lại), request đang chờ nhận cùng exception.
 - Lưu hội thoại (US-11, decisions #31): tin khách lưu **trước** khi gọi Brain để Brain treo/sập thì tin vẫn còn. Brain ném exception bất kỳ thì router đổi thành `BrainResponse.unavailable()` (handoff). Lưu lỗi (DB sập) chỉ log, khách vẫn nhận câu trả lời. Mỗi lần ghi là 1 transaction ngắn, không giữ transaction trong lúc chờ Brain.
 - Mọi kênh đi qua router nên tự được lưu; adapter mới không cần làm gì thêm.
 
