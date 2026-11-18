@@ -72,7 +72,8 @@ export interface SalesChannel {
 /** Mã kênh của web store (kênh shop sở hữu). */
 export const WEB_CHANNEL = 'WEB'
 
-// Đơn hàng (POST/GET /api/orders, T-09.3). S2 chỉ có đơn DEMO: không thanh toán, không giao, không trừ tồn kho.
+// Đơn hàng (POST/GET /api/orders, T-09.3). Chỉ có đơn DEMO: không thanh toán, không giao, không trừ tồn kho.
+// Từ S3 cần đăng nhập, đơn gắn khách (decisions #40).
 export interface OrderLine {
   productId: number
   sku: string
