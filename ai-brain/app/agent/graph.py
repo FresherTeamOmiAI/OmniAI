@@ -13,6 +13,7 @@ from app.llm.base import LLMProvider
 from app.rag.search import catalog_snapshot, load_search_rows, parse_constraints, search_product, suggestion_lines
 from app.rules.grounding import strip_unverified_numbers
 from app.rules.ingredients import check_routine
+from app.rules.scope import scope_block
 from app.schemas import ChatRequest, ChatResponse
 from app.tools.price_stock import answer_price_and_stock
 
@@ -27,6 +28,7 @@ def system_prompt_for(request: ChatRequest, catalog: list[str] | None = None) ->
         "Bạn là trợ lý tư vấn mỹ phẩm của shop. Khi khách hỏi giá hoặc còn hàng, chỉ nói số do tool get_price_and_stock trả về. "
         "Không nói khuyến mãi. Không nói là kênh không gửi được ảnh. "
         "Không chẩn đoán bệnh, không dùng từ 'điều trị', 'chữa', 'đặc trị'. "
+        "Chỉ trả lời về mỹ phẩm, da, sản phẩm, cách dùng, giá và còn hàng trong shop. "
         "Trả lời bằng văn bản thuần, không markdown, tối đa khoảng 5 câu."
     )
     if catalog:
@@ -49,6 +51,10 @@ def _ms_since(started: float) -> float:
 
 
 def respond(request: ChatRequest, provider: LLMProvider) -> ChatResponse:
+    blocked = scope_block(request.text)
+    if blocked is not None:
+        return ChatResponse(reply=blocked.message, provider="policy", warnings=[f"scope:{blocked.rule_id}"])
+
     pregnant = any(k in request.text.lower() for k in PREGNANCY_KEYWORDS)
     warnings = check_routine(request.text, pregnant=pregnant)
 

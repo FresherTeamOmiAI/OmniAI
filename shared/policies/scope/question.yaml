@@ -1,0 +1,34 @@
+# Phạm vi câu hỏi khách gửi cho trợ lý shop mỹ phẩm.
+# Nằm trong thư mục con để PolicyEngine và bench không nạp nhầm thành luật kênh.
+# Brain đọc file này trước khi gọi LLM: khớp refuse thì từ chối ngay;
+# không khớp allow thì cũng từ chối. Câu về da, sản phẩm, cách dùng, giá, còn hàng được đi tiếp.
+fallback_message: "Dạ, mình chỉ tư vấn mỹ phẩm trong shop thôi ạ. Bạn hỏi về loại da, sản phẩm, cách dùng, giá hoặc còn hàng giúp mình nhé."
+refuse:
+  - id: math
+    description: Phép tính hoặc bài toán, không phải câu hỏi về sản phẩm.
+    pattern: '(?<!\d)\d+(?:[.,]\d+)?\s*(?:\+|×|\*|x|÷|\^|cộng|trừ|nhân|chia)\s*\d+|\b(phương trình|đạo hàm|tích phân|giải toán|bài toán|căn bậc)\b'
+  - id: programming
+    description: Lập trình.
+    pattern: '(lập trình|viết code|viết chương trình|ngôn ngữ lập trình|thuật toán|\bpython\b|\bjavascript\b|\btypescript\b|\bjava\b|\bhtml\b|\bcss\b|\bsql\b|\breact\b|c\+\+|\bdebug\b)'
+  - id: literature
+    description: Văn học.
+    pattern: '(văn học|tiểu thuyết|nhà văn|nhà thơ|làm thơ|viết thơ|bài thơ|truyện kiều)'
+  - id: philosophy
+    description: Triết học.
+    pattern: '(triết học|triết gia|siêu hình)'
+  - id: history
+    description: Sử học.
+    pattern: '(sử học|lịch sử)'
+  - id: geography
+    description: Địa lý.
+    pattern: '(địa lý|thủ đô|châu lục|bán cầu|kinh tuyến|vĩ tuyến|bản đồ|(?:sông|núi|biển|đảo) nào)'
+  - id: other-subject
+    description: Chủ đề ngoài mỹ phẩm khác.
+    pattern: '(thời tiết|bóng đá|world cup|dịch sang|dịch hộ|giá vàng|chứng khoán|bitcoin)'
+allow:
+  - id: shop
+    description: Câu nói về da, sản phẩm, cách dùng, giá hoặc còn hàng.
+    pattern: '(mỹ phẩm|dưỡng|loại da|\bda\b|da dầu|da khô|da hỗn hợp|da nhạy cảm|da thường|kem |serum|toner|mụn|nám|thâm|chống nắng|retinol|niacinamide|\bbha\b|\baha\b|thành phần|sản phẩm|thoa|rửa mặt|tẩy trang|mặt nạ|son |dưỡng ẩm|lỗ chân lông|kích ứng|mang thai|có bầu|cho con bú|dị ứng|\bspf\b|còn hàng|hết hàng|tồn kho|giá(?!\s*trị)|bao nhiêu|đặt hàng|mua |giao hàng|vận chuyển|cách dùng|hướng dẫn|sử dụng|\bdùng\b|loại nào|cái này|cái đó|còn không|(?:dưới|trên|tầm|khoảng)\s+\d|\b[a-z]{2,}(?:-[a-z0-9]+)+)'
+  - id: social
+    description: Chào hỏi hoặc cảm ơn, không cần gọi model cho một bài khác.
+    pattern: '^\s*(xin chào|chào( shop| bạn)?|hello|hi|cảm ơn|cám ơn|thanks|ok|okay|dạ|vâng|shop ơi)[\s!.?]*$'
