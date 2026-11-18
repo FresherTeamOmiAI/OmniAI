@@ -1,6 +1,6 @@
 # Hợp đồng API
 
-> Cập nhật: 2026-11-18 · T-21.5, T-21.6 simulator Shopee tách ra `simulators/shopee` (:8091, trang `/ui`); bonus: API `/sim/ui/*` và trang `/ui` của simulator TikTok; T-49.3 sửa ghi chú `/api/admin/sync/channels` (đã có SHOPEE, TIKTOK); T-50.1–T-50.4 API Products của simulator TikTok, `aspect` và `/link` của đồng bộ; 2026-11-18 · T-49.1 `/api/admin/sync/**` trạng thái đồng bộ sản phẩm ra sàn; T-14.2 lọc `/api/conversations` theo ngày, vi phạm, handoff; `ConversationView` thêm số liệu; T-25.4 `MessageView.deliveryStatus`, `deliveryAttempts`; 2026-11-13 · T-04.1 ghi chú JSON sau V15; T-09.3 `/api/orders`; T-09.2 bộ lọc `GET /api/products`; T-04.1 `prices` theo kênh, `GET /api/admin/sales-channels` (decisions #32); trước đó US-11 (T-11.2), US-25, T-47.1
+> Cập nhật: 2026-11-18 · T-19.3 API hồ sơ da `/api/me/profile` (JWT) và `/api/internal/customers/{id}/profile` (`X-Internal-Token`); T-21.5, T-21.6 simulator Shopee tách ra `simulators/shopee` (:8091, trang `/ui`); bonus: API `/sim/ui/*` và trang `/ui` của simulator TikTok; T-49.3 sửa ghi chú `/api/admin/sync/channels` (đã có SHOPEE, TIKTOK); T-50.1–T-50.4 API Products của simulator TikTok, `aspect` và `/link` của đồng bộ; 2026-11-18 · T-49.1 `/api/admin/sync/**` trạng thái đồng bộ sản phẩm ra sàn; T-14.2 lọc `/api/conversations` theo ngày, vi phạm, handoff; `ConversationView` thêm số liệu; T-25.4 `MessageView.deliveryStatus`, `deliveryAttempts`; 2026-11-13 · T-04.1 ghi chú JSON sau V15; T-09.3 `/api/orders`; T-09.2 bộ lọc `GET /api/products`; T-04.1 `prices` theo kênh, `GET /api/admin/sales-channels` (decisions #32); trước đó US-11 (T-11.2), US-25, T-47.1
 > Nguồn: `backend/.../channel/simulator/*`, `channel/web/*`, `channel/tiktok/*`, `catalog/ProductController.java`, `catalog/AdminProductController.java`, `catalog/ProductRequest.java`, `conversation/ConversationController.java`, `brain/*`, `common/*`, `ai-brain/app/main.py`, `ai-brain/app/schemas.py`, `shared/schemas/canonical-message.schema.json`, `web/src/shared/types.ts`
 
 JSON phía backend dùng **camelCase**. Riêng hợp đồng backend → ai-brain dùng **snake_case**.
@@ -27,6 +27,24 @@ JSON phía backend dùng **camelCase**. Riêng hợp đồng backend → ai-brai
 | GET | `/api/me` | Bearer | `{id, email, displayName}` | Khách không còn trong DB thì `401` |
 
 Lỗi là ProblemDetail có `code`: `400` sai dữ liệu (`errors[{field, message}]`), `401 otp_invalid` (kèm `attemptsLeft`), `401 otp_expired` (chưa gửi mã / hết 5 phút / đã dùng), `423 otp_locked` (sai 5 lần, khoá email 15 phút, chặn cả gửi mã), `429 otp_rate_limited` (gửi lại < 60 s hoặc đã 5 mã trong 1 giờ), `503 otp_send_failed` (SMTP lỗi). `423`/`429` có `retryAfterSeconds` và header `Retry-After`.
+
+## Hồ sơ da (US-19, T-19.3, SRS UC-13)
+
+1 khách 1 hồ sơ, dùng chung mọi kênh đã liên kết. Dữ liệu sức khoẻ: mọi lần ghi phải có `consent: true` (decisions #48). Nguồn: `profile/*`.
+
+- `SkinProfileRequest = {skinType?, skinConcerns?: [mã], allergies?: [chuỗi], pregnant?, consent*}`. `skinType` ∈ bảng `skin_type` (`oily, dry, combination, sensitive, normal`, không phân biệt hoa thường) hoặc rỗng; `skinConcerns` ∈ bảng `skin_concern` (bỏ trùng); `allergies` ≤ 10 mục, mỗi mục 1–60 ký tự sau khi trim, bỏ trùng không phân biệt hoa thường, giữ thứ tự; `pregnant` = mang thai **hoặc** cho con bú, null = false. PUT thay toàn bộ hồ sơ.
+- `SkinProfileView = {customerId, skinType, skinConcerns, allergies, pregnant, source: FORM|CHAT, healthConsentAt, updatedAt}`. `healthConsentAt` = lần đồng ý đầu, không đổi khi sửa.
+- Sai dữ liệu → `400` ProblemDetail `errors[{field, message}]` (`consent`, `skinType`, `skinConcerns[i]`, `allergies`, `allergies[i]`). Chưa khai → `404`.
+
+| Method | Path | Ai gọi | Response | Ghi chú |
+|---|---|---|---|---|
+| GET | `/api/me/profile` | Web, `Authorization: Bearer <JWT>` | `SkinProfileView` / `404` | Thiếu/sai token, Basic admin, hoặc khách đã bị xoá → `401` |
+| PUT | `/api/me/profile` | Web | `SkinProfileView` | `source = FORM` |
+| DELETE | `/api/me/profile` | Web | `204` | Rút consent: xoá hồ sơ. Không có hồ sơ vẫn `204` |
+| GET | `/api/internal/customers/{customerId}/profile` | ai-brain, header `X-Internal-Token` | `SkinProfileView` / `404` | `customerId` = `ChatRequest.customer_id`. Khách không có → `404` |
+| PUT | `/api/internal/customers/{customerId}/profile` | ai-brain | `SkinProfileView` | `source = CHAT`. Chỉ gọi sau khi khách xác nhận hồ sơ và đồng ý trong chat (UC-13 bước 2, T-19.1) |
+
+`/api/internal/**`: header `X-Internal-Token` phải bằng env `INTERNAL_API_TOKEN` của backend (ai-brain đặt cùng giá trị). Thiếu, sai, server chưa đặt token, hay dùng Basic admin / JWT khách → `401` (không có body).
 
 ## Admin sản phẩm (`/api/admin/**`, US-08, T-08.1)
 
@@ -135,6 +153,8 @@ Trang kiểm tra trực quan `GET /ui/index.html` (`/` và `/ui` chuyển hướ
 |---|---|---|---|
 | GET | `/health` | | `{status, provider}` |
 | POST | `/chat` | `ChatRequest` | `ChatResponse` |
+
+- Hồ sơ da của khách (T-19.2, T-19.1): brain gọi `GET/PUT {BACKEND_URL}/api/internal/customers/{customer_id}/profile` với header `X-Internal-Token: <INTERNAL_API_TOKEN>`, xem mục "Hồ sơ da". Chỉ có khi `customer_id` khác null (danh tính kênh đã liên kết).
 
 - `ChatRequest` (Pydantic) = `BrainRequest` (Java record): `message_id, channel, channel_owned, user_id, customer_id?, text`. Tên sản phẩm không đi trong request. Brain tự đọc view `chatbot_catalog` bằng role `chatbot_reader` (`ai-brain/app/rules/chatbot_database_security.md`).
 - `ChatResponse` = `BrainResponse`: `reply, provider, warnings[] (mã cảnh báo), handoff`. Mã cảnh báo: `conflict:<a>+<b>`, `pregnancy:<nhóm>` (luật thành phần); `grounding:price|stock|promo` (AI Brain đã bỏ số giá, tồn kho, khuyến mãi do LLM tự nêu, T-06.6).
