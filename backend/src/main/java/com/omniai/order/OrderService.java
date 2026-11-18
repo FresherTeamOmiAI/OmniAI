@@ -5,6 +5,7 @@ import com.omniai.catalog.ProductErrors.FieldViolation;
 import com.omniai.catalog.ProductErrors.Invalid;
 import com.omniai.catalog.ProductRepository;
 import com.omniai.catalog.StoreFilter;
+import com.omniai.customer.CustomerRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,12 +13,14 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
  * Đặt hàng ảo trên web store (T-09.3, SRS UC-06, decisions #34). Owner: LucVT.
  * Không gọi cổng thanh toán, không giao hàng, KHÔNG trừ tồn kho (G-04). Hết hàng hoặc không đủ hàng thì không cho đặt.
+ * Từ S3 đơn gắn khách đã đăng nhập, chỉ chủ đơn xem được (G-04, decisions #40).
  */
 @Service
 @Transactional(readOnly = true)
@@ -28,14 +31,20 @@ public class OrderService {
 
     private final CustomerOrderRepository orders;
     private final ProductRepository products;
+    private final CustomerRepository customers;
 
-    public OrderService(CustomerOrderRepository orders, ProductRepository products) {
+    public OrderService(CustomerOrderRepository orders, ProductRepository products, CustomerRepository customers) {
         this.orders = orders;
         this.products = products;
+        this.customers = customers;
     }
 
     @Transactional
-    public CustomerOrder createDemo(OrderRequest request) {
+    public CustomerOrder createDemo(OrderRequest request, long customerId) {
+        // Token còn hạn nhưng khách đã bị xoá (US-30): coi như chưa đăng nhập, giống GET /api/me.
+        if (!customers.existsById(customerId)) {
+            throw new CustomerGone();
+        }
         // Gộp các dòng cùng sản phẩm, giữ chỉ số dòng đầu để báo lỗi đúng chỗ.
         Map<Long, Integer> quantities = new LinkedHashMap<>();
         Map<Long, Integer> firstIndex = new LinkedHashMap<>();
@@ -82,19 +91,29 @@ public class OrderService {
         CustomerOrder order = new CustomerOrder();
         order.setChannelCode(StoreFilter.STORE_CHANNEL);
         order.setStatus(CustomerOrder.STATUS_DEMO);
+        order.setCustomerId(customerId);
         order.setTotalAmount(total);
         order.setItems(items);
         // Cố ý KHÔNG đụng product.stock: đơn DEMO không trừ tồn kho (G-04).
         return orders.saveAndFlush(order);
     }
 
-    public CustomerOrder get(Long id) {
-        return orders.findById(id).orElseThrow(() -> new OrderNotFound(id));
+    /** Đơn của khách {@code customerId}. Đơn của người khác (kể cả đơn S2 không gắn khách) trả 404 như không có. */
+    public CustomerOrder getOwned(Long id, long customerId) {
+        return orders.findById(id)
+                .filter(o -> Objects.equals(o.getCustomerId(), customerId))
+                .orElseThrow(() -> new OrderNotFound(id));
     }
 
     public static class OrderNotFound extends RuntimeException {
         public OrderNotFound(Long id) {
             super("Không có đơn id=" + id);
+        }
+    }
+
+    public static class CustomerGone extends RuntimeException {
+        public CustomerGone() {
+            super("Tài khoản không còn, đăng nhập lại");
         }
     }
 }

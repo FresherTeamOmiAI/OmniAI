@@ -38,6 +38,11 @@ class OrderExceptionHandler {
         return problem(HttpStatus.NOT_FOUND, "Không tìm thấy", e.getMessage());
     }
 
+    @ExceptionHandler(OrderService.CustomerGone.class)
+    ProblemDetail customerGone(OrderService.CustomerGone e) {
+        return problem(HttpStatus.UNAUTHORIZED, "Chưa đăng nhập", e.getMessage());
+    }
+
     private static ProblemDetail withErrors(List<FieldViolation> errors) {
         ProblemDetail pd = problem(HttpStatus.BAD_REQUEST, "Không đặt được đơn", "Có " + errors.size() + " lỗi");
         pd.setProperty("errors", errors);

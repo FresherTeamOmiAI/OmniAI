@@ -1,4 +1,5 @@
 import { BrowserRouter, Link, Route, Routes } from 'react-router'
+import { LoginPage } from '../features/account'
 import { ConversationInboxPage } from '../features/conversation-inbox'
 import { ShopeeProductPage, TiktokProductPage } from '../features/marketplace'
 import { PolicyPlaygroundPage } from '../features/policy-playground'
@@ -25,6 +26,7 @@ export default function App() {
         <Route element={<ShopLayout />}>
           <Route index element={<StorePage />} />
           <Route path="products/:id" element={<ProductDetailPage />} />
+          <Route path="login" element={<LoginPage />} />
           <Route path="admin/products" element={<ProductAdminPage />} />
           <Route path="admin/conversations" element={<ConversationInboxPage />} />
           <Route path="admin/policy" element={<PolicyPlaygroundPage />} />

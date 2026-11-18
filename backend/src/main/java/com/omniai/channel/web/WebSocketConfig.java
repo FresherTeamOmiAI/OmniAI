@@ -11,16 +11,20 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 public class WebSocketConfig implements WebSocketConfigurer {
 
     private final WebChatAdapter webChatAdapter;
+    private final WebChatAuthInterceptor authInterceptor;
     private final String[] allowedOrigins;
 
-    public WebSocketConfig(WebChatAdapter webChatAdapter,
+    public WebSocketConfig(WebChatAdapter webChatAdapter, WebChatAuthInterceptor authInterceptor,
                            @Value("${omniai.web.allowed-origins}") String[] allowedOrigins) {
         this.webChatAdapter = webChatAdapter;
+        this.authInterceptor = authInterceptor;
         this.allowedOrigins = allowedOrigins;
     }
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-        registry.addHandler(webChatAdapter, "/ws/chat").setAllowedOrigins(allowedOrigins);
+        registry.addHandler(webChatAdapter, "/ws/chat")
+                .addInterceptors(authInterceptor)
+                .setAllowedOrigins(allowedOrigins);
     }
 }
