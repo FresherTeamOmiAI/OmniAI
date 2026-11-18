@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: shopee-simulator
+  jackson:
+    # JSON của Shopee là snake_case; record Java viết camelCase.
+    property-naming-strategy: SNAKE_CASE
+
+server:
+  port: ${SHOPEE_SIM_PORT:8091}
+
+# Khóa test, không phải khóa sàn thật. Phải trùng với backend (cả hai đọc SHOPEE_* trong .env).
+sim:
+  partner-id: ${SHOPEE_PARTNER_ID:2000001}
+  partner-key: ${SHOPEE_PARTNER_KEY:test-partner-key}
+  shop-id: ${SHOPEE_SHOP_ID:10001}
+  shop-name: OmniAI Beauty (simulator)
+  access-token: ${SHOPEE_ACCESS_TOKEN:test-access-token}
+  # Hub nhận push ở đây. URL này cũng nằm trong chữ ký push nên phải trùng với backend.
+  push-callback-url: ${SHOPEE_PUSH_CALLBACK_URL:http://127.0.0.1:8080/api/channels/shopee/push}
+  push:
+    # Hub xử lý push đồng bộ (gọi Brain rồi send_message) nên chờ lâu hơn TikTok.
+    timeout: 30s
+    max-attempts: 3
+    backoff: 1s
+  # Local: database shopee (tự tạo nếu chưa có). Supabase: database postgres.
+  datasource:
+    url: ${SHOPEE_DB_URL:jdbc:postgresql://localhost:5432/shopee}
+    username: ${SHOPEE_DB_USERNAME:omniai}
+    password: ${SHOPEE_DB_PASSWORD:omniai}

@@ -93,6 +93,11 @@ public class TokenStore {
         return count;
     }
 
+    /** Các grant đang giữ (kể cả đã hết hạn), cho trang /ui. */
+    public List<Grant> grants() {
+        return List.copyOf(byAccess.values());
+    }
+
     public void clear() {
         authCodes.clear();
         byAccess.clear();

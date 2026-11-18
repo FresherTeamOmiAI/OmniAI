@@ -3,7 +3,7 @@ package com.omniai.channel.shopee;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
-/** Khóa test của simulator Shopee. Không phải khóa sàn thật. Owner: ChienPX. */
+/** Khóa test của simulator Shopee (simulators/shopee). Không phải khóa sàn thật. Owner: ChienPX. */
 @Component
 @ConfigurationProperties(prefix = "omniai.channels.shopee")
 public class ShopeeChannelProperties {
@@ -12,14 +12,12 @@ public class ShopeeChannelProperties {
     private String partnerKey = "test-partner-key";
     private long shopId = 10001L;
     private String accessToken = "test-access-token";
-    /** Host Open API Shopee hub gọi ra (giá, tồn; US-50). Simulator nằm ngay trong backend nên mặc định là hub. */
-    private String apiBaseUrl = "http://127.0.0.1:8080";
+    /** Host Open API Shopee hub gọi ra (giá, tồn, send_message). S2 là simulator ở cổng 8091 ({@code SHOPEE_SIM_URL}). */
+    private String apiBaseUrl = "http://localhost:8091";
     /** Tắt thì không có connector giá/tồn SHOPEE trong khung đồng bộ. */
     private boolean syncEnabled = true;
-    /** URL hub sẽ nhận push đơn. Dùng để ký, chưa gọi mạng nếu để trống. */
+    /** URL hub nhận push. Nằm trong chữ ký push nên phải trùng với simulator. */
     private String pushCallbackUrl = "http://127.0.0.1:8080/api/channels/shopee/push";
-    /** Postgres của simulator. Supabase dùng database postgres; local/test vẫn dùng database shopee. */
-    private Datasource datasource = new Datasource();
 
     public long getPartnerId() {
         return partnerId;
@@ -75,44 +73,5 @@ public class ShopeeChannelProperties {
 
     public void setPushCallbackUrl(String pushCallbackUrl) {
         this.pushCallbackUrl = pushCallbackUrl;
-    }
-
-    public Datasource getDatasource() {
-        return datasource;
-    }
-
-    public void setDatasource(Datasource datasource) {
-        this.datasource = datasource;
-    }
-
-    /** JDBC của database simulator. Không dùng datasource của hub. */
-    public static class Datasource {
-        private String url = "jdbc:postgresql://localhost:5432/shopee";
-        private String username = "omniai";
-        private String password = "omniai";
-
-        public String getUrl() {
-            return url;
-        }
-
-        public void setUrl(String url) {
-            this.url = url;
-        }
-
-        public String getUsername() {
-            return username;
-        }
-
-        public void setUsername(String username) {
-            this.username = username;
-        }
-
-        public String getPassword() {
-            return password;
-        }
-
-        public void setPassword(String password) {
-            this.password = password;
-        }
     }
 }

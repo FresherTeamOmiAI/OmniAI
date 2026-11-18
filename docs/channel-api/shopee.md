@@ -1,6 +1,7 @@
 # Đối chiếu API Shopee dùng cho simulator
 
 > Đọc lại trên open.shopee.com ngày 2026-11-11. Owner: ChienPX. Phục vụ T-50.3 và T-51.1.
+> Cập nhật: 2026-11-18 · T-21.5, T-21.6 simulator Shopee tách ra `simulators/shopee` (:8091, trang `/ui`)
 
 Nguồn đã mở:
 
@@ -18,15 +19,15 @@ Push đơn dùng field `ordersn`. Chi tiết đơn dùng `order_sn`. Đó là t�
 |---|---|---|
 | Nhận giá | `POST /api/v2/product/update_price` | Ghi hết `price_list` (1–50). Response có `warning`, `failure_list`, `success_list` |
 | Nhận tồn | `POST /api/v2/product/update_stock` | Ghi hết `seller_stock`. Thiếu `location_id` thì lưu `"-"` như mẫu tài liệu |
-| Xem số đã nhận | `GET /api/simulator/shopee/items/{itemId}` | Chỉ để kiểm tra, không có trên API Shopee |
-| Phát đơn | `POST /api/simulator/shopee/orders` | Không phải API Shopee. Tạo đơn và trả raw body `order_status_push` code 3 |
+| Xem số đã nhận | `GET /api/simulator/shopee/items/{itemId}` | Chỉ để kiểm tra, không có trên API Shopee. JSON `{item_id, original_price, stock}` |
+| Phát đơn | `POST /api/simulator/shopee/orders` | Không phải API Shopee. Tạo đơn và trả raw body `order_status_push` code 3; `"deliver": true` thì tự POST push tới hub |
 | Lấy chi tiết | `GET /api/v2/order/get_order_detail` | `item_list` và `total_amount` chỉ có khi `response_optional_fields` xin hai field đó |
-| Khách nhắn vào | `POST /api/simulator/shopee/webchat` | Không phải API Shopee. Tạo tin và trả raw body `webchat_push` code 10 |
+| Khách nhắn vào | `POST /api/simulator/shopee/webchat` | Không phải API Shopee. Tạo tin và trả raw body `webchat_push` code 10; `"deliver": true` thì tự POST push tới hub |
 | Shop trả lời | `POST /api/v2/sellerchat/send_message` | Bản giả lập. Xem mục Chat bên dưới |
 | Đọc hội thoại | `GET /api/v2/sellerchat/get_message` | Bản giả lập |
 | Danh sách hội thoại | `GET /api/v2/sellerchat/get_conversation_list` | Bản giả lập |
 
-Sai chữ ký thì body có `"error": "error_sign"` và số đã lưu không đổi. Khóa test nằm ở `omniai.channels.shopee` trong `application.yml`.
+Simulator là app riêng `simulators/shopee`, cổng 8091 (decisions #44); trang kiểm tra `/ui` xem chat, giá/tồn, đơn, request hub gọi và push đã gửi. Sai chữ ký thì body có `"error": "error_sign"` và số đã lưu không đổi. Khóa test nằm ở `sim.*` trong `simulators/shopee/src/main/resources/application.yml`, phía hub ở `omniai.channels.shopee`; hai bên đọc cùng `SHOPEE_*` trong `.env` nên phải trùng nhau.
 
 ## Chat — tài liệu giả lập
 
@@ -34,7 +35,7 @@ Trang `v2.sellerchat.send_message` trên open.shopee.com, ngày 2026-11-11, tr�
 
 Hai nguồn dùng để dựng cho gần Shopee:
 
-1. **Tin khách gửi vào** là push công khai `webchat_push`, code `10`. Đọc ngày 2026-11-11 từ snapshot tài liệu push (bản 2026-09-07, bảng field cập nhật đến 2025-04-18). Mẫu JSON gốc nằm ở `backend/src/test/resources/channel/shopee/webchat-push-message.json`. Timeout 2 giây, retry 1 / 2 / 3, guaranteed delivery. Simulator ký push và trả body, không tự POST sang hub.
+1. **Tin khách gửi vào** là push công khai `webchat_push`, code `10`. Đọc ngày 2026-11-11 từ snapshot tài liệu push (bản 2026-09-07, bảng field cập nhật đến 2025-04-18). Mẫu JSON gốc nằm ở `backend/src/test/resources/channel/shopee/webchat-push-message.json`. Timeout 2 giây, retry 1 / 2 / 3, guaranteed delivery. Simulator ký push và trả body; gọi kèm `"deliver": true` thì simulator tự POST sang hub, chờ tối đa 30 s (hub trả lời đồng bộ) và gửi lại tối đa 3 lần, khác Shopee thật (2 s, retry 1 / 2 / 3).
 2. **Shop gửi và đọc tin** dựng theo body mà SDK công khai vẫn mô tả (`to_id`, `message_type`, `content`) và theo field của push ở trên, để cùng một tin đọc lại được. Trang chính thức của ba API này chưa đọc được.
 
 `to_id` phía shop trong push lấy bằng `shop_id` test. Open Platform không công bố user id của shop trong phần đã đọc.
@@ -78,7 +79,7 @@ Cùng một khách (`from_id` / `to_id`) nằm trong một `conversation_id`. Id
 
 ## Database riêng
 
-Simulator ghi vào cùng Postgres với hub. Trên Supabase đó là database `postgres` (project chỉ có một database). Local và test vẫn dùng database tên `shopee` nếu URL trỏ tới đó; app chỉ tự tạo database khi tên là `shopee` và chưa có. Flyway đọc `backend/src/main/resources/db/shopee` và ghi lịch sử vào `tbl_shopee_flyway_history`, tách khỏi lịch sử migration của hub. Biến môi trường: `SHOPEE_DB_URL`, `SHOPEE_DB_USERNAME`, `SHOPEE_DB_PASSWORD`.
+Simulator ghi vào Postgres riêng của nó (hub không kết nối DB này). Trên Supabase đó là database `postgres` (project chỉ có một database). Local và test vẫn dùng database tên `shopee` nếu URL trỏ tới đó; app chỉ tự tạo database khi tên là `shopee` và chưa có. Flyway đọc `simulators/shopee/src/main/resources/db/shopee` và ghi lịch sử vào `tbl_shopee_flyway_history`, tách khỏi lịch sử migration của hub. Biến môi trường: `SHOPEE_DB_URL`, `SHOPEE_DB_USERNAME`, `SHOPEE_DB_PASSWORD`.
 
 | Bảng | Khớp với |
 |---|---|

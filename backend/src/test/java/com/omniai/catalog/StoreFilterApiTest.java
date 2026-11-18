@@ -41,7 +41,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(TestcontainersConfig.class)
-@TestPropertySource(properties = "omniai.images.base-url=https://test.supabase.co/")
+// Tắt worker đồng bộ: nó poll DB mỗi giây, chen câu SQL vào phép đếm của StoreFilterApiTest. Giữ giống nhau ở 3 test
+// (AdminProductApiTest, StoreFilterApiTest, DemoOrderApiTest) để dùng chung Spring context.
+@TestPropertySource(properties = {"omniai.images.base-url=https://test.supabase.co/", "omniai.sync.enabled=false"})
 @Transactional
 class StoreFilterApiTest {
 

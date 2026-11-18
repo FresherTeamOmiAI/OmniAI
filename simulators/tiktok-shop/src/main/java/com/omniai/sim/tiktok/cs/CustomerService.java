@@ -184,6 +184,23 @@ public class CustomerService {
 
     // ---------- điều khiển của simulator ----------
 
+    /** Mọi hội thoại (mọi shop) kèm toàn bộ tin theo thứ tự cũ → mới, cho trang /ui. */
+    public record ConversationDump(String shopId, ConversationView conversation, List<Message> messages) {
+    }
+
+    public List<ConversationDump> dump() {
+        return conversations.values().stream()
+                .sorted(Comparator.comparingLong(Conversation::latestTime).reversed().thenComparing(c -> c.id))
+                .map(c -> {
+                    synchronized (c) {
+                        List<Message> ordered = c.messages.stream()
+                                .sorted(Comparator.comparing(m -> Long.parseLong(m.index()))).toList();
+                        return new ConversationDump(c.shopId, c.view(), ordered);
+                    }
+                })
+                .toList();
+    }
+
     /** Buyer nhắn tin cho shop (POST /sim/buyer/messages). Chưa bắn NEW_MESSAGE: gọi expectReply trước rồi notifyBuyerMessage. */
     public BuyerMessageResult buyerSays(String buyerUserId, String nickname, String text) {
         String shopId = props.shop().id();

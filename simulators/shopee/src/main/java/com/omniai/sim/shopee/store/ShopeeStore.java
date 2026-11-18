@@ -1,5 +1,6 @@
-package com.omniai.channel.shopee;
+package com.omniai.sim.shopee.store;
 
+import com.omniai.sim.shopee.SimProperties;
 import com.zaxxer.hikari.HikariDataSource;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -18,11 +19,32 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
-/** Giá, tồn kho và đơn của simulator Shopee, ghi vào các bảng tbl_shopee_*. Owner: ChienPX. */
+/**
+ * Giá, tồn kho, đơn và chat của simulator Shopee, ghi vào các bảng tbl_shopee_* trong database riêng (không phải DB
+ * hub). Lịch sử Flyway giữ bảng tbl_shopee_flyway_history như khi simulator còn nằm trong backend. Owner: ChienPX.
+ */
 @Component
-public class ShopeeSimulatorStore {
+public class ShopeeStore {
+
+    private static final String ALL_TABLES = """
+            tbl_shopee_webchat_push, tbl_shopee_message, tbl_shopee_conversation,
+            tbl_shopee_push, tbl_shopee_order_item, tbl_shopee_order,
+            tbl_shopee_seller_stock, tbl_shopee_price_list, tbl_shopee_item""";
 
     public record Item(long itemId, Long originalPrice, Long stock) {
+    }
+
+    /** Một item cho trang /ui: giá và tồn của model 0 (sản phẩm không biến thể, kho mặc định). */
+    public record ItemView(long itemId, String itemSku, String itemName, String itemStatus, Long originalPrice,
+                           Long stock, int models, long createTime, long updateTime) {
+    }
+
+    /** Một đơn cho trang /ui, kèm dòng hàng đầu tiên. */
+    public record OrderView(String orderSn, String orderStatus, long totalAmount, boolean cod, String messageToSeller,
+                            long createTime, long updateTime, OrderLine line) {
+    }
+
+    public record Stats(int items, int orders, int conversations, int messages) {
     }
 
     public record OrderLine(long itemId, String itemSku, String itemName, int quantity, long price, String modelName, String modelSku) {
@@ -46,27 +68,27 @@ public class ShopeeSimulatorStore {
                                      long latestMessageFromId, long lastMessageTimestamp) {
     }
 
-    private final ShopeeChannelProperties properties;
+    private final SimProperties properties;
     private HikariDataSource pool;
     private JdbcTemplate jdbc;
     private TransactionTemplate transactions;
 
-    public ShopeeSimulatorStore(ShopeeChannelProperties properties) {
+    public ShopeeStore(SimProperties properties) {
         this.properties = properties;
     }
 
     @PostConstruct
     void open() {
-        ShopeeChannelProperties.Datasource database = properties.getDatasource();
+        SimProperties.Datasource database = properties.datasource();
         ensureDatabase(database);
         HikariDataSource dataSource = new HikariDataSource();
-        dataSource.setJdbcUrl(database.getUrl());
-        dataSource.setUsername(database.getUsername());
-        dataSource.setPassword(database.getPassword());
+        dataSource.setJdbcUrl(database.url());
+        dataSource.setUsername(database.username());
+        dataSource.setPassword(database.password());
         dataSource.setPoolName("shopee");
-        dataSource.setMaximumPoolSize(3);
+        dataSource.setMaximumPoolSize(5);
         Flyway.configure()
-                .dataSource(database.getUrl(), database.getUsername(), database.getPassword())
+                .dataSource(database.url(), database.username(), database.password())
                 .locations("classpath:db/shopee")
                 .table("tbl_shopee_flyway_history")
                 .baselineOnMigrate(true)
@@ -267,7 +289,64 @@ public class ShopeeSimulatorStore {
                 rs.getLong("last_message_timestamp")), shopId, limit);
     }
 
-    JdbcTemplate jdbc() {
+    /** Item hub đã đẩy giá/tồn hoặc có trong đơn, mới cập nhật trước. */
+    public List<ItemView> items() {
+        return jdbc.query("""
+                SELECT i.item_id, i.item_sku, i.item_name, i.item_status, i.create_time, i.update_time,
+                       p.original_price,
+                       (SELECT SUM(s.stock) FROM tbl_shopee_seller_stock s
+                         WHERE s.item_id = i.item_id AND s.model_id = 0) AS stock,
+                       (SELECT COUNT(DISTINCT m.model_id) FROM (
+                            SELECT model_id FROM tbl_shopee_price_list WHERE item_id = i.item_id
+                            UNION SELECT model_id FROM tbl_shopee_seller_stock WHERE item_id = i.item_id) m) AS models
+                FROM tbl_shopee_item i
+                LEFT JOIN tbl_shopee_price_list p ON p.item_id = i.item_id AND p.model_id = 0
+                ORDER BY i.update_time DESC, i.item_id DESC
+                """, (rs, row) -> new ItemView(rs.getLong("item_id"), rs.getString("item_sku"),
+                rs.getString("item_name"), rs.getString("item_status"),
+                rs.getObject("original_price") == null ? null : rs.getLong("original_price"),
+                rs.getObject("stock") == null ? null : rs.getLong("stock"),
+                rs.getInt("models"), rs.getLong("create_time"), rs.getLong("update_time")));
+    }
+
+    /** Đơn mới nhất trước, tối đa {@code limit}. */
+    public List<OrderView> orders(int limit) {
+        return jdbc.query("""
+                SELECT o.order_sn, o.order_status, o.total_amount, o.cod, o.message_to_seller, o.create_time,
+                       o.update_time, l.item_id, l.item_sku, l.item_name, l.model_quantity_purchased,
+                       l.model_original_price, l.model_name, l.model_sku
+                FROM tbl_shopee_order o
+                LEFT JOIN LATERAL (
+                    SELECT * FROM tbl_shopee_order_item it WHERE it.order_sn = o.order_sn ORDER BY it.id LIMIT 1
+                ) l ON true
+                ORDER BY o.create_time DESC, o.order_sn DESC
+                LIMIT ?
+                """, (rs, row) -> new OrderView(rs.getString("order_sn"), rs.getString("order_status"),
+                rs.getLong("total_amount"), rs.getBoolean("cod"), rs.getString("message_to_seller"),
+                rs.getLong("create_time"), rs.getLong("update_time"),
+                rs.getObject("item_id") == null ? null : new OrderLine(rs.getLong("item_id"), rs.getString("item_sku"),
+                        rs.getString("item_name"), rs.getInt("model_quantity_purchased"),
+                        rs.getLong("model_original_price"), rs.getString("model_name"), rs.getString("model_sku"))),
+                limit);
+    }
+
+    public Stats stats() {
+        return jdbc.queryForObject("""
+                SELECT (SELECT COUNT(*) FROM tbl_shopee_item) AS items,
+                       (SELECT COUNT(*) FROM tbl_shopee_order) AS orders,
+                       (SELECT COUNT(*) FROM tbl_shopee_conversation) AS conversations,
+                       (SELECT COUNT(*) FROM tbl_shopee_message) AS messages
+                """, (rs, row) -> new Stats(rs.getInt("items"), rs.getInt("orders"), rs.getInt("conversations"),
+                rs.getInt("messages")));
+    }
+
+    /** Xóa toàn bộ dữ liệu simulator (POST /sim/reset). Giữ lịch sử Flyway. */
+    public void reset() {
+        jdbc.execute("TRUNCATE TABLE " + ALL_TABLES + " RESTART IDENTITY CASCADE");
+    }
+
+    /** Cho test đọc thẳng bảng. */
+    public JdbcTemplate jdbc() {
         return jdbc;
     }
 
@@ -305,8 +384,8 @@ public class ShopeeSimulatorStore {
                 """, itemId, shopId, itemSku, itemName, now, now);
     }
 
-    private static void ensureDatabase(ShopeeChannelProperties.Datasource database) {
-        String url = database.getUrl();
+    private static void ensureDatabase(SimProperties.Datasource database) {
+        String url = database.url();
         String name = databaseName(url);
         if ("postgres".equals(name)) {
             return;
@@ -315,7 +394,7 @@ public class ShopeeSimulatorStore {
             throw new IllegalStateException("Database simulator Shopee phải tên là shopee hoặc postgres");
         }
         String adminUrl = adminUrl(url);
-        try (Connection connection = DriverManager.getConnection(adminUrl, database.getUsername(), database.getPassword());
+        try (Connection connection = DriverManager.getConnection(adminUrl, database.username(), database.password());
              Statement statement = connection.createStatement()) {
             connection.setAutoCommit(true);
             try (ResultSet found = statement.executeQuery("SELECT 1 FROM pg_database WHERE datname = 'shopee'")) {

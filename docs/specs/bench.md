@@ -1,12 +1,12 @@
 # Bench
 
-> Cập nhật: 2026-11-18 · T-43.4 `perf.brain_db` đo cache lạnh/ấm; T-43.2 thêm `bench/perf/` đo hiệu năng (LucVT); trước đó 2026-11-12 · commit bf9cef4 · Owner: HungDQ · transport tiktok: TuTM (T-25.2)
+> Cập nhật: 2026-11-18 · T-21.5, T-21.6 simulator Shopee tách ra `simulators/shopee` (:8091, trang `/ui`); 2026-11-18 · T-43.4 `perf.brain_db` đo cache lạnh/ấm; T-43.2 thêm `bench/perf/` đo hiệu năng (LucVT); trước đó 2026-11-12 · commit bf9cef4 · Owner: HungDQ · transport tiktok: TuTM (T-25.2)
 > Nguồn: `bench/bench/run.py`, `bench/bench/policy_check.py`, `bench/datasets/*.jsonl`, `bench/perf/*`, `bench/tests/*`
 
 Bench đo chất lượng bot theo từng kênh. Đây là **đóng góp chính** của dự án. Bench gửi từng ca vào backend qua API simulator, hoặc qua WebSocket `/ws/chat` giống chat widget (cần backend + ai-brain đang chạy, tức là luôn đo trên **LLM thật và Postgres thật**, decisions #25: `.env` phải có `LLM_API_KEY` và mỗi lần chạy tốn quota free tier), rồi tự chấm lại `finalText` bằng cùng bộ YAML luật. Phương pháp, cách áp vào bài toán và tài liệu tham khảo: [../bench/huong-dan-benchmark.md](../bench/huong-dan-benchmark.md).
 
 ## Chạy
-`python -m bench.run [--dataset datasets/x.jsonl] [--base-url http://localhost:8080] [--tiktok-sim-url http://localhost:8090] [--out reports]`, hoặc `tools\systembat\run-bench.bat`. Báo cáo ghi ra `bench/reports/bench-<thời gian>.md` và `.json` (thư mục này bị gitignore). URL WebSocket suy ra từ `--base-url` (`http` → `ws`, `https` → `wss`, thêm `/ws/chat`). Thư viện: httpx, pyyaml, pytest, websockets (client sync). Khi `requirements.txt` đổi thì chạy lại `setup.bat`.
+`python -m bench.run [--dataset datasets/x.jsonl] [--base-url http://localhost:8080] [--tiktok-sim-url http://localhost:8090] [--shopee-sim-url http://localhost:8091] [--out reports]`, hoặc `tools\systembat\run-bench.bat`. Báo cáo ghi ra `bench/reports/bench-<thời gian>.md` và `.json` (thư mục này bị gitignore). URL WebSocket suy ra từ `--base-url` (`http` → `ws`, `https` → `wss`, thêm `/ws/chat`). Thư viện: httpx, pyyaml, pytest, websockets (client sync). Khi `requirements.txt` đổi thì chạy lại `setup.bat`.
 
 ## Định dạng dataset (JSONL, mỗi dòng một ca)
 
@@ -17,6 +17,7 @@ Bench đo chất lượng bot theo từng kênh. Đây là **đóng góp chính*
 ```
 - `transport`: `simulator` (mặc định, `POST /api/simulator/{channel}/messages`) hoặc `ws` (WebSocket `/ws/chat`, chỉ dùng cho kênh WEB). Với `ws`, độ trễ đo từ lúc gửi tới lúc nhận `BotReply`, vì widget đã kết nối sẵn. Giá trị khác, hoặc `ws` cho kênh khác WEB, thì bench báo lỗi dataset.
 - `transport: tiktok` (chỉ kênh TIKTOK, US-25): bench đóng vai buyer trên simulator TikTok Shop (`POST {tiktok-sim-url}/sim/buyer/messages`, `wait_ms` 25 s), hub nhận webhook thật rồi trả lời bằng Send Message. Bench chỉ thấy câu khách nhận: `blocked` = finalText trùng `fallback_message` của kênh (`policy_check.load_fallbacks`), `raw_violations` luôn rỗng. Độ trễ lấy `reply_latency_ms` của simulator. Shop chưa ủy quyền hoặc backend không chạy thì ca báo lỗi "shop không trả lời".
+- `transport: shopee` (chỉ kênh SHOPEE, US-21): bench phát tin buyer trên simulator Shopee (`POST {shopee-sim-url}/api/simulator/shopee/webchat`, không `deliver`), rồi tự POST raw body + chữ ký vào `{base-url}/api/channels/shopee/push`; finalText lấy từ `final_text` của response (hub còn gửi `send_message` về simulator). `blocked` so với fallback SHOPEE, `raw_violations` rỗng. `--shopee-sim-url` mặc định env `SHOPEE_SIM_URL`, không có thì `http://localhost:8091`.
 - `no_violation` mặc định true: `finalText` không được còn khớp luật nào của kênh.
 - `blocked`: kiểm tra cờ blocked. `must_contain_any`: finalText phải chứa ít nhất một chuỗi (không phân biệt hoa thường).
 - `must_not_match`: finalText không được khớp regex này (Python `re`, không phân biệt hoa thường). Dùng cho ca "không bịa tồn kho/khuyến mãi" (T-06.6). Lỗi ghi đúng đoạn bị khớp.
@@ -43,7 +44,7 @@ Không gọi LLM, không chấm policy. Kết quả trước/sau ghi ở [../tra
 ## Test
 `tests/test_policy_check.py`: nạp đủ kênh, Shopee bắt được link/SĐT/kênh khác, WEB cho phép link, claim y khoa bị bắt ở mọi kênh. Ngoài ra chạy bộ ca dùng chung `shared/policies/tests/cases.yaml` (18 ca × 3 kênh, cùng bộ với `PolicyEngineTest`), để chắc regex cho kết quả giống nhau ở Python và Java.
 
-`tests/test_run.py`: hàm chấm `grade()` (pass, lọt luật, sai `blocked`, thiếu chuỗi, khớp mẫu cấm, quá chậm) cách suy URL WebSocket từ `--base-url`, transport `tiktok` (giả `httpx.post`: finalText, blocked theo fallback, không có reply thì lỗi, sai kênh thì lỗi) và dataset TikTok đủ 5 ca. Không cần server.
+`tests/test_run.py`: hàm chấm `grade()` (pass, lọt luật, sai `blocked`, thiếu chuỗi, khớp mẫu cấm, quá chậm) cách suy URL WebSocket từ `--base-url`, transport `tiktok` (giả `httpx.post`: finalText, blocked theo fallback, không có reply thì lỗi, sai kênh thì lỗi) và dataset TikTok đủ 5 ca; transport `shopee` (webchat gửi tới simulator, push gửi tới backend, sai kênh thì lỗi) và dataset Shopee đủ 5 ca. Không cần server.
 
 ## Lộ trình
 - S1: 5 ca luồng web qua WebSocket (T-06.5) và ca không bịa giá (T-06.6): đã có. Ngày 11/11 bỏ FakeProvider, sửa kỳ vọng để không phụ thuộc câu chữ của model (T-12.4).
