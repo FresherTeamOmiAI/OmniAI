@@ -47,7 +47,7 @@ omniai:
   admin:
     username: ${ADMIN_USERNAME:admin}
     password: ${ADMIN_PASSWORD:admin}
-  # Đăng nhập người mua bằng email + OTP (US-13, SRS NFR-08, decisions #36).
+  # Đăng nhập người mua bằng email + OTP (US-13, SRS NFR-08, decisions #39).
   # OTP_SENDER=log (mặc định): in mã ra log backend. OTP_SENDER=smtp: gửi mail, cần SPRING_MAIL_HOST/PORT/USERNAME/PASSWORD.
   otp:
     sender: ${OTP_SENDER:log}
@@ -61,6 +61,18 @@ omniai:
   auth:
     jwt-secret: ${JWT_SECRET:omniai-dev-jwt-secret-change-me-32bytes!}
     token-ttl: 7d
+  # Khóa test của simulator Shopee. Không dùng khóa sàn thật.
+  channels:
+    shopee:
+      partner-id: ${SHOPEE_PARTNER_ID:2000001}
+      partner-key: ${SHOPEE_PARTNER_KEY:test-partner-key}
+      shop-id: ${SHOPEE_SHOP_ID:10001}
+      access-token: ${SHOPEE_ACCESS_TOKEN:test-access-token}
+      push-callback-url: ${SHOPEE_PUSH_CALLBACK_URL:http://127.0.0.1:8080/api/channels/shopee/push}
+      datasource:
+        url: ${SHOPEE_DB_URL:jdbc:postgresql://localhost:5432/shopee}
+        username: ${SHOPEE_DB_USERNAME:omniai}
+        password: ${SHOPEE_DB_PASSWORD:omniai}
   # Kênh TikTok Shop (US-25). S2 trỏ tới simulator simulators/tiktok-shop (decisions #22, #28).
   # Khóa app phải trùng với simulator; giá trị mặc định là khóa test, không phải bí mật.
   tiktok:

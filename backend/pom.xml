@@ -47,7 +47,7 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
-        <!-- Admin: HTTP Basic 1 tài khoản từ env (SRS Q-01). Người mua: email + OTP, JWT (US-13, decisions #36) -->
+        <!-- Admin: HTTP Basic 1 tài khoản từ env (SRS Q-01). Người mua: email + OTP, JWT (US-13, decisions #39) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>

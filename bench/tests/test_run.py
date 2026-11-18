@@ -141,3 +141,32 @@ def test_tiktok_dataset_has_five_cases():
     cases = [json.loads(line) for line in lines if line.strip()]
     assert len(cases) == 5
     assert {c["channel"] for c in cases} == {"TIKTOK"} and {c["transport"] for c in cases} == {"tiktok"}
+
+
+def test_shopee_push_reply_becomes_final_text():
+    calls = []
+
+    class Client:
+        def post(self, url, **kwargs):
+            calls.append(url)
+            if url.endswith("/webchat"):
+                return FakeResponse({"raw_body": "{\"code\":10}", "authorization": "abc"})
+            return FakeResponse({"error": "", "final_text": "Dạ kem chống nắng kiềm dầu ạ"})
+
+    reply, _ = run.send_shopee(Client(), {"id": "SHP-T", "text": "hi"}, FALLBACKS)
+
+    assert calls == ["/api/simulator/shopee/webchat", "/api/channels/shopee/push"]
+    assert reply["finalText"] == "Dạ kem chống nắng kiềm dầu ạ"
+    assert reply["blocked"] is False
+
+
+def test_shopee_transport_only_for_shopee_channel():
+    with pytest.raises(ValueError, match="chỉ dùng cho kênh SHOPEE"):
+        run.run_case(None, POLICIES, {"id": "X", "channel": "WEB", "transport": "shopee", "text": "hi"})
+
+
+def test_shopee_dataset_has_five_cases():
+    lines = (run.ROOT / "datasets" / "shopee-flow.jsonl").read_text(encoding="utf-8").splitlines()
+    cases = [json.loads(line) for line in lines if line.strip()]
+    assert len(cases) == 5
+    assert {c["channel"] for c in cases} == {"SHOPEE"} and {c["transport"] for c in cases} == {"shopee"}

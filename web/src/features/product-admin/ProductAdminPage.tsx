@@ -32,7 +32,7 @@ export function ProductAdminPage() {
   const onUnauthorized = useCallback(() => logout('Phiên đăng nhập không còn hợp lệ, hãy đăng nhập lại.'), [logout])
 
   return (
-    <main className="admin">
+    <main id="main" tabIndex={-1} className="admin">
       {token ? (
         <ProductTable token={token} onLogout={onLogout} onUnauthorized={onUnauthorized} />
       ) : (
@@ -132,11 +132,11 @@ function ProductTable({ token, onLogout, onUnauthorized }: TableProps) {
   return (
     <>
       <div className="admin-header">
-        <h2>Sản phẩm</h2>
+        <h1>Sản phẩm</h1>
         <button type="button" className="btn btn-primary" onClick={() => setEditing({ mode: 'create' })}>+ Thêm sản phẩm</button>
         <button type="button" className="btn" onClick={onLogout}>Đăng xuất</button>
       </div>
-      <p className="muted">Gồm cả sản phẩm đã ẩn. Ẩn thì cửa hàng không hiện và AI không gợi ý; không có xoá hẳn.</p>
+      <p className="admin-intro">Gồm cả sản phẩm đã ẩn. Ẩn thì cửa hàng không hiện và AI không gợi ý; không có xoá hẳn.</p>
 
       <form className="admin-toolbar" onSubmit={submitSearch} role="search">
         <label className="sr-only" htmlFor="pa-search">Tìm theo SKU hoặc tên</label>
@@ -155,7 +155,7 @@ function ProductTable({ token, onLogout, onUnauthorized }: TableProps) {
       {error && <p className="error" role="alert">{error}</p>}
 
       <div className="table-wrap">
-        <table className="product-table">
+        <table className={loading && data ? 'product-table is-loading' : 'product-table'} aria-busy={loading}>
           <thead>
             <tr>
               <th>SKU</th>
@@ -175,7 +175,7 @@ function ProductTable({ token, onLogout, onUnauthorized }: TableProps) {
               <tr key={p.id} className={p.active ? undefined : 'row-hidden'}>
                 <td><code>{p.sku}</code></td>
                 <td>
-                  {p.name}
+                  <span className="cell-name">{p.name}</span>
                   <span className="cell-sub">{p.brand}</span>
                 </td>
                 <td>{labelOf(CATEGORIES, p.category)}</td>

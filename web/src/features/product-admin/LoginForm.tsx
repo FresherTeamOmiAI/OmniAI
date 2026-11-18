@@ -31,11 +31,11 @@ export function LoginForm({ notice, onLogin }: Props) {
 
   return (
     <form className="login-form" onSubmit={submit}>
-      <h2>Đăng nhập admin</h2>
+      <h1>Đăng nhập admin</h1>
       <p className="muted">
         Tài khoản là <code>ADMIN_USERNAME</code> / <code>ADMIN_PASSWORD</code> trong <code>.env</code> của backend (mặc định khi dev: admin / admin).
       </p>
-      {notice && <p className="notice" role="status">{notice}</p>}
+      {notice && <p className="notice notice-warning" role="status">{notice}</p>}
       <label>
         Tên đăng nhập
         <input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" required autoFocus />

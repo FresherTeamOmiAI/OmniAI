@@ -1,0 +1,110 @@
+/*
+ * Design token của web (US-56, T-56.1). Quy tắc dùng: docs/specs/design-system.md.
+ * Component chỉ dùng biến ở đây, không viết mã màu trực tiếp.
+ * Nguồn: ui-ux-pro-max (hồ sơ Beauty: Soft UI Evolution, hồng + tím nhạt, Playfair Display),
+ * cặp font "Vietnamese Friendly" (Be Vietnam Pro); chuyển động theo emil-design-eng.
+ * Màu chữ và viền đã kiểm tương phản (chữ >= 4,5:1, viền ô nhập/focus >= 3:1).
+ */
+:root {
+  color-scheme: light;
+
+  /* Màu: nền */
+  --color-bg: #fdf2f8;
+  --color-surface: #ffffff;
+  --color-surface-2: #fbf6f9;
+  --color-border: #f3dbe7;
+  --color-border-strong: #9c7a8e;
+
+  /* Màu: chữ */
+  --color-text: #2b1b24;
+  --color-heading: #831843;
+  --color-muted: #6b5562;
+
+  /* Màu: thương hiệu (hành động) và AI (trợ lý tư vấn) */
+  --color-primary: #a3245a;
+  --color-primary-hover: #861c4a;
+  --color-primary-soft: #fce7f1;
+  --color-on-primary: #ffffff;
+  --color-accent: #6d28d9;
+  --color-accent-soft: #f1ecfd;
+  --color-focus: #a3245a;
+
+  /* Màu: trạng thái (luôn đi kèm chữ, không chỉ dùng màu) */
+  --color-success: #14532d;
+  --color-success-soft: #e8f5ee;
+  --color-success-border: #b7e0c8;
+  --color-warning: #7a4b00;
+  --color-warning-soft: #fdf1d8;
+  --color-warning-border: #f0d49a;
+  --color-danger: #b42318;
+  --color-danger-soft: #fef3f2;
+  --color-danger-border: #fecdca;
+  --color-backdrop: rgb(43 27 36 / 0.45);
+  /* Chấm trạng thái kết nối chat: chỉ là chấm tô màu, luôn có chữ trạng thái đi kèm */
+  --color-dot-open: #34d399;
+  --color-dot-connecting: #fbbf24;
+  --color-dot-closed: #f87171;
+  /* Màu minh hoạ hộp sản phẩm khi thiếu ảnh (thẻ gợi ý trong chat) */
+  --tone-0: #a3245a;
+  --tone-1: #0f6e56;
+  --tone-2: #9a6700;
+  --tone-3: #185fa5;
+  --tone-4: #533ab7;
+  --tone-5: #993556;
+
+  /* Chữ */
+  --font-sans: "Be Vietnam Pro", "Segoe UI", system-ui, sans-serif;
+  --font-serif: "Playfair Display Variable", "Playfair Display", Georgia, serif;
+  --font-mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+  --text-xs: 0.75rem;   /* 12px */
+  --text-sm: 0.875rem;  /* 14px */
+  --text-base: 1rem;    /* 16px */
+  --text-lg: 1.125rem;  /* 18px */
+  --text-xl: 1.25rem;   /* 20px */
+  --text-2xl: 1.5rem;   /* 24px */
+  --text-3xl: 1.875rem; /* 30px */
+  --leading-body: 1.6;
+  --leading-tight: 1.25;
+
+  /* Khoảng cách (bước 4px) */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+
+  /* Bo góc, bóng (Soft UI: bóng nhiều lớp, mờ, ngả hồng) */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+  --shadow-sm: 0 1px 2px rgb(131 24 67 / 0.06), 0 1px 1px rgb(43 27 36 / 0.03);
+  --shadow-md: 0 6px 16px rgb(131 24 67 / 0.08), 0 2px 4px rgb(43 27 36 / 0.04);
+  --shadow-lg: 0 20px 48px rgb(43 27 36 / 0.18), 0 6px 16px rgb(43 27 36 / 0.08);
+
+  /* Bố cục */
+  --container: 1120px;
+  --gutter: var(--space-6);
+  --control-h: 44px;
+  --control-h-sm: 36px;
+  --z-header: 10;
+  --z-chat: 40;
+  --z-skip: 100;
+
+  /* Chuyển động: ease-out mạnh cho phản hồi, không dùng ease-in (emil-design-eng) */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --dur-fast: 160ms;
+  --dur: 200ms;
+  --dur-slow: 280ms;
+}
+
+@media (max-width: 640px) {
+  :root {
+    --gutter: var(--space-4);
+  }
+}

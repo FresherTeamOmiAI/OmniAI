@@ -117,63 +117,69 @@ export function LoginPage() {
 
   if (session && step === 'email') {
     return (
-      <div className="login-form">
-        <h2>Bạn đã đăng nhập</h2>
-        <p>Đang dùng tài khoản <strong>{session.customer.email}</strong>.</p>
-        <Link to={next} className="btn btn-primary">Tiếp tục mua sắm</Link>
-      </div>
+      <main id="main" tabIndex={-1} className="account">
+        <div className="login-form">
+          <h1>Bạn đã đăng nhập</h1>
+          <p>Đang dùng tài khoản <strong>{session.customer.email}</strong>.</p>
+          <Link to={next} className="btn btn-primary">Tiếp tục mua sắm</Link>
+        </div>
+      </main>
     )
   }
 
   if (step === 'email') {
     return (
-      <form className="login-form" onSubmit={submitEmail} noValidate>
-        <h2>Đăng nhập / Đăng ký</h2>
-        <p className="muted">Nhập email, shop gửi mã 6 số để đăng nhập. Email chưa có tài khoản thì tự tạo mới.</p>
-        <label>
-          Email
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email"
-                 placeholder="ban@example.com" required autoFocus />
-        </label>
-        <label className="login-consent">
-          <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-          <span>
-            Tôi đồng ý cho shop lưu email, lịch sử chat và đơn hàng để tư vấn và ghi nhớ tôi ở các kênh
-            (Luật Bảo vệ dữ liệu cá nhân).
-          </span>
-        </label>
-        {error && <p className="error" role="alert">{error}</p>}
-        <button type="submit" className="btn btn-primary" disabled={busy || !email.trim()}>
-          {busy ? 'Đang gửi…' : 'Gửi mã'}
-        </button>
-      </form>
+      <main id="main" tabIndex={-1} className="account">
+        <form className="login-form" onSubmit={submitEmail} noValidate>
+          <h1>Đăng nhập / Đăng ký</h1>
+          <p className="muted">Nhập email, shop gửi mã 6 số để đăng nhập. Email chưa có tài khoản thì tự tạo mới.</p>
+          <label>
+            Email
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email"
+                   placeholder="ban@example.com" required autoFocus />
+          </label>
+          <label className="login-consent">
+            <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+            <span>
+              Tôi đồng ý cho shop lưu email, lịch sử chat và đơn hàng để tư vấn và ghi nhớ tôi ở các kênh
+              (Luật Bảo vệ dữ liệu cá nhân).
+            </span>
+          </label>
+          {error && <p className="error" role="alert">{error}</p>}
+          <button type="submit" className="btn btn-primary" disabled={busy || !email.trim()}>
+            {busy ? 'Đang gửi…' : 'Gửi mã'}
+          </button>
+        </form>
+      </main>
     )
   }
 
   return (
-    <form className="login-form" onSubmit={submitCode}>
-      <h2>Nhập mã xác thực</h2>
-      {notice && <p className="notice" role="status">{notice}</p>}
-      {import.meta.env.DEV && <p className="muted">Khi chạy dev, mã được in trong log backend (OTP_SENDER=log).</p>}
-      <label>
-        Mã 6 số
-        <input className="otp-input" value={code} inputMode="numeric" autoComplete="one-time-code" maxLength={6}
-               pattern="\d{6}" required autoFocus
-               onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} />
-      </label>
-      {error && <p className="error" role="alert">{error}</p>}
-      <button type="submit" className="btn btn-primary" disabled={busy || code.length !== 6}>
-        {busy ? 'Đang kiểm tra…' : 'Đăng nhập'}
-      </button>
-      <div className="login-actions">
-        <button type="button" className="btn btn-sm" disabled={busy || resendIn > 0} onClick={send}>
-          {resendIn > 0 ? `Gửi lại mã sau ${resendIn}s` : 'Gửi lại mã'}
+    <main id="main" tabIndex={-1} className="account">
+      <form className="login-form" onSubmit={submitCode}>
+        <h1>Nhập mã xác thực</h1>
+        {notice && <p className="notice" role="status">{notice}</p>}
+        {import.meta.env.DEV && <p className="muted">Khi chạy dev, mã được in trong log backend (OTP_SENDER=log).</p>}
+        <label>
+          Mã 6 số
+          <input className="otp-input" value={code} inputMode="numeric" autoComplete="one-time-code" maxLength={6}
+                 pattern="\d{6}" required autoFocus
+                 onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} />
+        </label>
+        {error && <p className="error" role="alert">{error}</p>}
+        <button type="submit" className="btn btn-primary" disabled={busy || code.length !== 6}>
+          {busy ? 'Đang kiểm tra…' : 'Đăng nhập'}
         </button>
-        <button type="button" className="btn btn-sm" disabled={busy}
-                onClick={() => { setStep('email'); setError(null); setNotice(null) }}>
-          Đổi email
-        </button>
-      </div>
-    </form>
+        <div className="login-actions">
+          <button type="button" className="btn btn-sm" disabled={busy || resendIn > 0} onClick={send}>
+            {resendIn > 0 ? `Gửi lại mã sau ${resendIn}s` : 'Gửi lại mã'}
+          </button>
+          <button type="button" className="btn btn-sm" disabled={busy}
+                  onClick={() => { setStep('email'); setError(null); setNotice(null) }}>
+            Đổi email
+          </button>
+        </div>
+      </form>
+    </main>
   )
 }

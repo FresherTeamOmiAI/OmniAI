@@ -53,6 +53,20 @@ def test_prompt_lists_public_product_names_only():
     assert "email" not in prompt
 
 
+def test_shopee_prompt_forbids_off_platform_contact():
+    request = ChatRequest(
+        message_id="m-shopee",
+        channel="SHOPEE",
+        channel_owned=False,
+        user_id="u1",
+        text="Có Zalo không shop?",
+    )
+    prompt = system_prompt_for(request)
+    assert "Zalo" in prompt
+    assert "http" in prompt
+    assert "1000" in prompt
+
+
 def test_price_question_has_no_invented_numbers():
     body = chat("Kem chống nắng giá bao nhiêu shop?")
     assert "450.000" not in body["reply"]

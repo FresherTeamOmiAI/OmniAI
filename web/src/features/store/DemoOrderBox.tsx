@@ -18,7 +18,7 @@ export function DemoOrderBox({ product }: { product: Product }) {
   const [error, setError] = useState<string | null>(null)
 
   if (product.stock <= 0) {
-    return <p className="order-box muted">Hết hàng, tạm thời không đặt được.</p>
+    return <p className="order-box muted" role="status">Hết hàng, tạm thời không đặt được.</p>
   }
 
   const submit = async (event: React.FormEvent) => {
@@ -49,12 +49,12 @@ export function DemoOrderBox({ product }: { product: Product }) {
   }
 
   return (
-    <form className="order-box" onSubmit={submit}>
+    <form className="order-box" onSubmit={submit} aria-describedby="order-hint">
       <label htmlFor="order-qty">Số lượng</label>
-      <input id="order-qty" type="number" inputMode="numeric" min={1} max={max} step={1} value={quantity}
+      <input id="order-qty" type="number" inputMode="numeric" min={1} max={max} step={1} value={quantity} disabled={busy}
         onChange={(e) => setQuantity(Math.max(1, Math.min(max, Number(e.target.value) || 1)))} />
       <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'Đang đặt…' : 'Đặt thử'}</button>
-      <small className="muted order-hint">Cửa hàng thử nghiệm: không thanh toán, không giao hàng.</small>
+      <small className="muted order-hint" id="order-hint">Cửa hàng thử nghiệm: không thanh toán, không giao hàng.</small>
       {error && <small className="field-error order-hint" role="alert">{error}</small>}
     </form>
   )
