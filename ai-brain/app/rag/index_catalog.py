@@ -11,7 +11,7 @@ import os
 import psycopg
 
 from app.rag.embed import embed, to_literal
-from app.rag.search import ProductRow, product_text
+from app.rag.search import ProductRow, optional_price, product_text
 
 
 def index_catalog(url: str) -> int:
@@ -36,9 +36,9 @@ def index_catalog(url: str) -> int:
                     skin_types=skin_types or "",
                     skin_concerns=concerns or "",
                     usage_time=usage_time or "",
-                    price_web=int(web),
-                    price_shopee=int(shopee),
-                    price_tiktok=int(tiktok),
+                    price_web=optional_price(web),
+                    price_shopee=optional_price(shopee),
+                    price_tiktok=optional_price(tiktok),
                     description=description or "",
                 )
                 cursor.execute(

@@ -13,11 +13,12 @@ python -m pytest
 | `app/main.py` | `/health`, `/chat` |
 | `app/schemas.py` | `ChatRequest` / `ChatResponse` (khớp `BrainRequest` / `BrainResponse` bên Java) |
 | `app/llm/` | `LLMProvider`. `LLM_PROVIDER=gemini` (mặc định) hoặc `groq`. Đọc `LLM_MODEL` và `LLM_API_KEY` (bắt buộc) |
-| `app/catalog_access.py` | Đọc view `chatbot_catalog` bằng `CHATBOT_DB_URL` (bắt buộc), role chỉ đọc `chatbot_reader` |
+| `app/catalog_access.py` | `run_select`: 1 kết nối dùng lại tới `CHATBOT_DB_URL` (bắt buộc), role chỉ đọc `chatbot_reader`; mở kết nối lỗi thì ngừng thử 60 s |
+| `app/rag/search.py` | Nạp đủ catalog từ view `chatbot_catalog_search`, nhớ `CATALOG_CACHE_TTL_SECONDS` giây (mặc định 120); tìm và xếp hạng sản phẩm |
 | `app/agent/graph.py` | Điều phối 1 lượt: system prompt theo kênh, luật thành phần, gọi provider. Sprint 1–3 thay bằng agent có tool |
 | `app/rules/ingredients.py` | Luật xung đột hoạt chất tất định. **Bản mẫu, cần người có chuyên môn review** |
 | `app/rules/grounding.py` | Bỏ câu có tồn kho, khuyến mãi và giá do LLM tự nêu; giữ giá khớp catalog (T-06.6). Tất định, có pytest |
 
 Brain chỉ chạy LLM thật và database thật: thiếu `LLM_API_KEY` hoặc `CHATBOT_DB_URL` thì `uvicorn` dừng ngay với lỗi nói rõ biến nào thiếu. Không còn `LLM_PROVIDER=fake`.
 
-`python -m pytest` không cần key hay database: `tests/conftest.py` thay provider bằng `StubProvider` và thay catalog bằng một snapshot cố định (`tests/stubs.py`). Stub cố tình bịa giá, tồn kho, khuyến mãi khi được hỏi giá để kiểm tra `grounding.py`.
+`python -m pytest` không cần key hay database: `tests/conftest.py` thay provider bằng `StubProvider` (`tests/stubs.py`) và xoá cache catalog giữa các test; test cần catalog tự thay `load_search_rows`. Stub cố tình bịa giá, tồn kho, khuyến mãi khi được hỏi giá để kiểm tra `grounding.py`.
