@@ -1,6 +1,6 @@
 # Hợp đồng API
 
-> Cập nhật: 2026-11-18 · T-50.1–T-50.4 API Products của simulator TikTok, `aspect` và `/link` của đồng bộ; 2026-11-18 · T-49.1 `/api/admin/sync/**` trạng thái đồng bộ sản phẩm ra sàn; T-14.2 lọc `/api/conversations` theo ngày, vi phạm, handoff; `ConversationView` thêm số liệu; T-25.4 `MessageView.deliveryStatus`, `deliveryAttempts`; 2026-11-13 · T-04.1 ghi chú JSON sau V15; T-09.3 `/api/orders`; T-09.2 bộ lọc `GET /api/products`; T-04.1 `prices` theo kênh, `GET /api/admin/sales-channels` (decisions #32); trước đó US-11 (T-11.2), US-25, T-47.1
+> Cập nhật: 2026-11-18 · T-49.3 sửa ghi chú `/api/admin/sync/channels` (đã có SHOPEE, TIKTOK); T-50.1–T-50.4 API Products của simulator TikTok, `aspect` và `/link` của đồng bộ; 2026-11-18 · T-49.1 `/api/admin/sync/**` trạng thái đồng bộ sản phẩm ra sàn; T-14.2 lọc `/api/conversations` theo ngày, vi phạm, handoff; `ConversationView` thêm số liệu; T-25.4 `MessageView.deliveryStatus`, `deliveryAttempts`; 2026-11-13 · T-04.1 ghi chú JSON sau V15; T-09.3 `/api/orders`; T-09.2 bộ lọc `GET /api/products`; T-04.1 `prices` theo kênh, `GET /api/admin/sales-channels` (decisions #32); trước đó US-11 (T-11.2), US-25, T-47.1
 > Nguồn: `backend/.../channel/simulator/*`, `channel/web/*`, `channel/tiktok/*`, `catalog/ProductController.java`, `catalog/AdminProductController.java`, `catalog/ProductRequest.java`, `conversation/ConversationController.java`, `brain/*`, `common/*`, `ai-brain/app/main.py`, `ai-brain/app/schemas.py`, `shared/schemas/canonical-message.schema.json`, `web/src/shared/types.ts`
 
 JSON phía backend dùng **camelCase**. Riêng hợp đồng backend → ai-brain dùng **snake_case**.
@@ -61,7 +61,7 @@ Cần Basic ADMIN. Màn admin ở T-49.3.
 
 | Method | Path | Response | Ghi chú |
 |---|---|---|---|
-| GET | `/api/admin/sync/channels` | `["SHOPEE", ...]` | Kênh có connector. S3 rỗng trên app thật (connector Shopee sau T-49.2) |
+| GET | `/api/admin/sync/channels` | `["SHOPEE", ...]` | Kênh có connector: `SHOPEE` (giá, tồn sau khi liên kết), `TIKTOK` (cần shop đã ủy quyền mới gửi). Màn admin sinh cột đồng bộ theo danh sách này (T-49.3) |
 | GET | `/api/admin/sync/products/by-ids?ids=1,2,3` | `[SyncView]` | 1–100 id, cho 1 trang bảng sản phẩm. Sản phẩm/kênh chưa từng xếp hàng thì không có dòng |
 | GET | `/api/admin/sync/products?status=&channel=&page=&size=` | `PageResponse<SyncView>` | Lọc `PENDING | SYNCED | FAILED` (không phân biệt hoa thường), mới cập nhật trước. `size` 1–100. Sai thì `400` |
 | POST | `/api/admin/sync/products/{productId}/{channel}/retry` | `SyncView` | Về `PENDING`, `attempts = 0`, gửi ở lượt quét kế. Chưa có dòng thì `404` |
