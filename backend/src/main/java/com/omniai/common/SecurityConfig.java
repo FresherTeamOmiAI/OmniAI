@@ -10,10 +10,13 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.crypto.factory.PasswordEncoderFactories;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+
+import java.util.Map;
 
 /**
  * Khóa /api/admin/** và /api/conversations/** bằng HTTP Basic với 1 tài khoản admin từ biến môi trường (SRS Q-01).
@@ -42,24 +45,32 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /**
+     * Mặc định mã hoá bằng bcrypt (mật khẩu/mã lưu DB). Thêm {@code {sha256-ct}} chỉ cho tài khoản admin trong bộ nhớ:
+     * kiểm bcrypt ~90 ms mỗi request Basic là phần lớn độ trễ của API admin (US-43, xem InMemorySecretEncoder).
+     */
     @Bean
     PasswordEncoder passwordEncoder() {
-        return PasswordEncoderFactories.createDelegatingPasswordEncoder();
+        return new DelegatingPasswordEncoder("bcrypt", Map.of(
+                "bcrypt", new BCryptPasswordEncoder(),
+                InMemorySecretEncoder.ID, new InMemorySecretEncoder()));
     }
 
     @Bean
     UserDetailsService adminUser(@Value("${omniai.admin.username}") String username,
-                                 @Value("${omniai.admin.password}") String password,
-                                 PasswordEncoder encoder) {
+                                 @Value("${omniai.admin.password}") String password) {
         if (password == null || password.isBlank()) {
             throw new IllegalStateException("ADMIN_PASSWORD không được để trống");
         }
         if (DEV_DEFAULT_PASSWORD.equals(password)) {
             log.warn("Đang dùng mật khẩu admin mặc định của dev. Đặt ADMIN_PASSWORD trong .env nếu chạy ngoài máy dev.");
         }
-        return new InMemoryUserDetailsManager(User.withUsername(username)
-                .password(encoder.encode(password))
+        InMemoryUserDetailsManager manager = new InMemoryUserDetailsManager(User.withUsername(username)
+                .password("{" + InMemorySecretEncoder.ID + "}" + new InMemorySecretEncoder().encode(password))
                 .roles("ADMIN")
                 .build());
+        // Chỉ đưa ra UserDetailsService đọc: InMemoryUserDetailsManager còn là UserDetailsPasswordService nên sau lần
+        // đăng nhập đúng đầu tiên Spring "nâng cấp" {sha256-ct} thành bcrypt (id mặc định) và mọi request lại tốn ~90 ms.
+        return manager::loadUserByUsername;
     }
 }

@@ -69,4 +69,26 @@ Trên Supabase, riêng phần đọc DB đã ~11 s mỗi câu chat, trước khi
 - `/api/conversations` cần xử lý chi phí bcrypt của HTTP Basic (ví dụ đổi encoder của tài khoản admin trong bộ nhớ sang loại rẻ hơn, hoặc cache kết quả xác thực) trước khi bàn index; DB chỉ chiếm vài ms.
 
 ## Sau khi tối ưu
-_Chưa đo. Chạy lại đúng các lệnh trên sau T-43.1, T-43.4, T-43.3 và điền bảng so sánh ở đây._
+
+### Sau T-43.1 (backend catalog), đo 2026-11-18
+Cùng máy, cùng dữ liệu (10.000 tin seed), cùng lệnh `perf.load_test` (200 request, 10 luồng). Code: nhánh `feature/t-43-1-catalog-perf` trên `dev` c055380 (dev đã thêm inbox T-14: `/api/conversations` trả thêm số liệu, 4 câu SQL thay vì 2).
+
+| Kịch bản | p95 trước (ms) | p95 sau (ms) | KB/response trước → sau |
+|---|---|---|---|
+| `store_list` | 214,6 | **82,5** | 28,6 → **6,3** (gzip trên dây ~1,2) |
+| `product_detail` | 67,9 | 78,3 | 1,5 → 1,5 (không đổi, chênh trong sai số) |
+| `conversations` | 530,3 | **61,5** | 4,2 → 6,8 (T-14 thêm trường) |
+| `widget_catalog` (1 vòng) | 327,5 | 202,8 | 542,9 → **118,7** / vòng |
+
+| Câu SQL mỗi request | Trước | Sau |
+|---|---|---|
+| Store trang 0 / trang 5 / lọc | 27 / 16 / 28 | **8 / 8 / 8** (1 câu `brand … = any($1)` thay 16 câu) |
+| Chi tiết 1 SP | 7 | 7 |
+| Widget 1 trang `size=100` | 48 | **13** |
+
+- Kiểm Basic tuần tự: đúng mật khẩu 96 → **17 ms**, sai mật khẩu 90 → **4 ms**. Lần đo đầu sau sửa vẫn ~82 ms vì `InMemoryUserDetailsManager` tự "nâng cấp" hash `{sha256-ct}` về bcrypt sau lần đăng nhập đúng đầu tiên; đã chặn bằng cách chỉ đưa ra `UserDetailsService` đọc (có test).
+- `size=500` trả 100 SP. Câu `UPDATE product_channel_sync` xuất hiện xen giữa khi đếm là worker đồng bộ chạy nền (T-49.1), không thuộc request.
+- Tiêu chí đặc tả mục 2 cho phần backend: ≤ 8 câu SQL/trang ✓, `size=500` ≤ 100 ✓, sort lạ 400 ✓, gzip ✓, p95 store/chi tiết/hội thoại < 300 ms ✓.
+
+### Sau T-43.4, T-43.3
+_Chưa đo._

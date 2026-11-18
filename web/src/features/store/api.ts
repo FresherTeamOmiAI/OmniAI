@@ -1,6 +1,6 @@
 import { getJson, postJson } from '../../shared/lib/http'
 import type { OrderView, Page } from '../../shared/types'
-import type { Product } from './types'
+import type { Product, ProductCard } from './types'
 
 export const STORE_PAGE_SIZE = 20
 
@@ -13,7 +13,7 @@ export interface StoreQuery {
 }
 
 // sort=id để các trang không chồng/sót SKU (Postgres không bảo đảm thứ tự khi không ORDER BY).
-export function fetchProducts(query: StoreQuery, page: number): Promise<Page<Product>> {
+export function fetchProducts(query: StoreQuery, page: number): Promise<Page<ProductCard>> {
   const params = new URLSearchParams({ page: String(page), size: String(STORE_PAGE_SIZE), sort: 'id' })
   if (query.skinType) params.set('skinType', query.skinType)
   if (query.category) params.set('category', query.category)

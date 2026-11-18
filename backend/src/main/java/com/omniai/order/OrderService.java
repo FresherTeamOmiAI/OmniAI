@@ -12,7 +12,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Đặt hàng ảo trên web store (T-09.3, SRS UC-06, decisions #34). Owner: LucVT.
@@ -45,18 +46,20 @@ public class OrderService {
             firstIndex.putIfAbsent(line.productId(), i);
         }
 
+        // 1 câu SELECT cho cả đơn (US-43). Sản phẩm không có / đang ẩn thì vắng trong map.
+        Map<Long, Product> found = products.findAllByIdInAndActiveTrue(quantities.keySet()).stream()
+                .collect(Collectors.toMap(Product::getId, Function.identity()));
         List<FieldViolation> errors = new ArrayList<>();
         List<OrderItem> items = new ArrayList<>();
         long total = 0;
         for (Map.Entry<Long, Integer> entry : quantities.entrySet()) {
             String field = "items[" + firstIndex.get(entry.getKey()) + "]";
             int quantity = entry.getValue();
-            Optional<Product> found = products.findByIdAndActiveTrue(entry.getKey());
-            if (found.isEmpty()) {
+            Product product = found.get(entry.getKey());
+            if (product == null) {
                 errors.add(new FieldViolation(field + ".productId", "sản phẩm không tồn tại hoặc đã ngừng bán"));
                 continue;
             }
-            Product product = found.get();
             Long price = product.getPrices().get(StoreFilter.STORE_CHANNEL);
             if (price == null) {
                 errors.add(new FieldViolation(field + ".productId", "sản phẩm chưa có giá web"));

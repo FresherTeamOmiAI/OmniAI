@@ -30,6 +30,7 @@ Backend **có** phân trang ở DB: `GET /api/products` → `ProductService.stor
 - p95 API store/chi tiết/`/api/conversations` < 300 ms trên local (AC US-43), có số trước/sau.
 
 ## 3. Phần B: backend catalog (T-43.1, #149), làm đầu tiên
+> **Đã làm 18/11** (mục 1–8 và 10; mục 9 chưa). Kết quả ở [perf-US-43.md](perf-US-43.md). Khác đặc tả: chỉ cache danh mục/loại da/vấn đề da, không cache `sales_channel` (test và vận hành sửa bằng SQL); bean admin phải là `UserDetailsService` đọc, nếu không Spring nâng cấp hash về bcrypt.
 1. `application.yml`: `spring.jpa.properties.hibernate.default_batch_fetch_size: 50` → hết N+1 hãng (ghi chú trong `Product.java:50-51` đã hứa điều này).
 2. Bảng tra cứu: nạp 1 lần rồi giữ trong bộ nhớ (chỉ đổi qua migration). Ví dụ `@Cacheable("vocabulary")` + `spring-boot-starter-cache` (ConcurrentMap mặc định), hoặc nạp lười vào 1 field `volatile`. `checkStoreFilter` chỉ kiểm tham số có mặt.
 3. `spring.data.web.pageable.max-page-size: 100`. Sửa `StoreFilterApiTest.java:101,135` đang dùng `size=500` (lặp trang hoặc đếm bằng repository).

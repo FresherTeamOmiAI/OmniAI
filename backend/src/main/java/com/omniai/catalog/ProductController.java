@@ -29,15 +29,17 @@ public class ProductController {
     /**
      * Danh sách store (T-09.2): chỉ sản phẩm active. Lọc tuỳ chọn, kết hợp AND: {@code skinType} (1 loại da),
      * {@code category}, {@code minPrice}/{@code maxPrice} (giá web, VND, gồm cả mốc). Sai thì 400 ProblemDetail.
+     * Trả {@link ProductCard} (US-43), mặc định 20 SP/trang sort theo id, tối đa 100 SP/trang, sort chỉ theo
+     * id, name, createdAt.
      */
     @GetMapping
-    public PageResponse<Product> list(@RequestParam(required = false) String skinType,
-                                      @RequestParam(required = false) String category,
-                                      @RequestParam(required = false) Long minPrice,
-                                      @RequestParam(required = false) Long maxPrice,
-                                      @PageableDefault(size = 20) Pageable pageable) {
+    public PageResponse<ProductCard> list(@RequestParam(required = false) String skinType,
+                                          @RequestParam(required = false) String category,
+                                          @RequestParam(required = false) Long minPrice,
+                                          @RequestParam(required = false) Long maxPrice,
+                                          @PageableDefault(size = 20, sort = "id") Pageable pageable) {
         Page<Product> page = service.storeSearch(new StoreFilter(skinType, category, minPrice, maxPrice), pageable);
-        return PageResponse.of(page);
+        return PageResponse.of(page.map(ProductCard::of));
     }
 
     /**
