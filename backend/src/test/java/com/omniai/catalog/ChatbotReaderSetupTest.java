@@ -17,7 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Mật khẩu chatbot_reader: DB local đặt lại mỗi lần khởi động; DB dùng chung (overwrite-password=false) không ghi đè
- * khi role đã LOGIN (decisions #43). Đăng nhập thật bằng JDBC vào container để kiểm mật khẩu.
+ * khi role đã LOGIN (decisions #45). Đăng nhập thật bằng JDBC vào container để kiểm mật khẩu.
  */
 @SpringBootTest
 @Import(TestcontainersConfig.class)
