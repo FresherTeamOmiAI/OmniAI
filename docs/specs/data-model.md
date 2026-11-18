@@ -1,6 +1,6 @@
 # Mô hình dữ liệu
 
-> Cập nhật: 2026-11-18 · T-19.3 V20 hồ sơ da (`skin_profile` + 2 bảng con); T-21.5, T-21.6 simulator Shopee tách ra `simulators/shopee` (:8091, trang `/ui`); 2026-11-18 · T-50.2 V19 `aspect` cho `product_channel_sync`; 2026-11-18 · T-49.1 V18 `product_channel_sync`; T-25.4 V17 trạng thái gửi câu bot (`delivery_status`); 2026-11-13 · T-04.1 V15 chuẩn hoá product (decisions #35); T-09.3 V14 `customer_order`; T-09.2 store lọc qua Specification; T-04.1 tách giá theo kênh (V13, decisions #32) · Owner: LucVT (catalog, customer, identity, order, promotion); TuTM (channel_credential, conversation)
+> Cập nhật: 2026-11-18 · T-22.1 V21 mã liên kết (`link_code`, `link_code_attempt`); T-19.3 V20 hồ sơ da (`skin_profile` + 2 bảng con); T-21.5, T-21.6 simulator Shopee tách ra `simulators/shopee` (:8091, trang `/ui`); 2026-11-18 · T-50.2 V19 `aspect` cho `product_channel_sync`; 2026-11-18 · T-49.1 V18 `product_channel_sync`; T-25.4 V17 trạng thái gửi câu bot (`delivery_status`); 2026-11-13 · T-04.1 V15 chuẩn hoá product (decisions #35); T-09.3 V14 `customer_order`; T-09.2 store lọc qua Specification; T-04.1 tách giá theo kênh (V13, decisions #32) · Owner: LucVT (catalog, customer, identity, order, promotion); TuTM (channel_credential, conversation)
 > Nguồn: `backend/src/main/resources/db/migration/*.sql`, `backend/.../catalog/*`, `backend/.../customer/*`, `backend/.../channel/credential/*`, `backend/.../conversation/*`
 
 DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flyway** quản lý, JPA để `ddl-auto: validate`. Vì vậy mọi thay đổi bảng đều phải viết migration mới `V<n>__<mo_ta>.sql`. **Không sửa migration đã merge.**
@@ -29,6 +29,7 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 | `V18__product_channel_sync.sql` | T-49.1: bảng `product_channel_sync` (hàng đợi + trạng thái đồng bộ sản phẩm ra từng sàn, decisions #42). Owner: TuTM |
 | `V19__product_channel_sync_aspect.sql` | T-50.2: thêm cột `aspect` (`PRODUCT | PRICE | STOCK`) vào `product_channel_sync`, khoá chính thành (`product_id`, `channel_code`, `aspect`). Số V16 để trống cho PR #273. Owner: TuTM |
 | `V20__skin_profile.sql` | T-19.3: bảng `skin_profile`, `skin_profile_concern`, `skin_profile_allergy` (hồ sơ da, US-19, decisions #48). Owner: LucVT |
+| `V21__link_code.sql` | T-22.1: bảng `link_code` (mã OMNI, chỉ lưu SHA-256) và `link_code_attempt` (lần gõ mã thất bại theo danh tính kênh), US-22, decisions #49. Owner: LucVT |
 
 ## Bảng
 
@@ -80,12 +81,20 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 - `confidence`: 1.0 nếu liên kết tất định, nhỏ hơn 1 nếu đến từ gợi ý xác suất đã được khách xác nhận.
 - `consent_at`.
 - Kênh WEB (US-13): `external_id` = `customer.id` (chuỗi), `linked_by=OTP`, `confidence=1.0`, `consent_at` = lúc xác thực OTP lần đầu (khách đã tick đồng ý). Tạo bởi `identity/WebIdentityLinker`. Hội thoại web của khách đã đăng nhập có `conversation.customer_id` và `external_id = web:c<customerId>`.
+- Kênh sàn (US-22, T-22.1): `external_id` = id người mua trên sàn (`CanonicalMessage.channelUserId`), `linked_by=LINK_CODE`, `confidence=1.0`, `consent_at` = lúc khách xác nhận trên web. Tạo/gắn bởi `identity/LinkCodeService.confirm`. Danh tính đã gắn khách khác thì từ chối (409).
 - Nguyên tắc: chỉ gắn vào customer khi có bằng chứng + consent (Luật BVDLCN 91/2025). **Không bao giờ tự gộp.**
 
 **skin_profile** (`profile/SkinProfile.java`, V20, owner LucVT): hồ sơ da, 1 khách 1 dòng, dùng chung mọi kênh đã liên kết (SRS UC-13).
 - `customer_id` PK, FK `customer` ON DELETE CASCADE (xoá khách là xoá hồ sơ). `skin_type` FK `skin_type(code)`, null được.
 - `pregnant` BOOLEAN: mang thai hoặc cho con bú. `source` `FORM | CHAT` (CHECK). `health_consent_at` NOT NULL (lần đồng ý đầu), `updated_at`.
 - `skin_profile_concern` (`customer_id`, `concern_code` FK `skin_concern`), PK cả 2 cột. `skin_profile_allergy` (`customer_id`, `position` 1–10, `name` ≤ 60), PK (`customer_id`, `position`); bỏ trùng ở backend, không có unique index (Hibernate cập nhật theo vị trí). Cả 2 CASCADE theo `skin_profile`.
+
+**link_code** (`identity/LinkCode.java`, V21, owner LucVT): 1 lần khách lấy mã OMNI.
+- `customer_id` FK CASCADE, `code_hash` unique (SHA-256 hex của `OMNI-XXXXXX`, không lưu mã gốc), `created_at`, `expires_at` (+15 phút), `revoked_at` (lấy mã mới thì mã chưa ai gõ bị thu hồi).
+- `claimed_channel` (`SHOPEE | TIKTOK`), `claimed_external_id`, `claimed_at`: danh tính sàn đã gõ mã (cả 3 cùng null hoặc cùng có). Hạn xác nhận = `claimed_at` + 15 phút.
+- `resolution` (`CONFIRMED | REJECTED`) + `resolved_at`. Index (`customer_id`, `created_at` DESC).
+
+**link_code_attempt** (`identity/LinkCodeAttempt.java`, V21): 1 lần gõ mã thất bại (`channel`, `external_id`, `attempted_at`). Đủ 5 dòng trong 1 giờ thì danh tính bị khoá nhập mã. Chưa có job dọn dòng cũ.
 
 **otp_challenge** (`identity/OtpChallenge.java`, V16, owner LucVT): 1 lần gửi OTP tới 1 email.
 - `email` (đã trim + lowercase), `code_hash` (bcrypt qua `PasswordEncoder`, không lưu mã gốc), `created_at`, `expires_at` (+5 phút), `attempts` (số lần sai), `locked_until` (sai đủ 5 lần thì +15 phút), `consumed_at` (đã đăng nhập bằng mã này). Index (`email`, `created_at` DESC).
@@ -139,7 +148,7 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 - `ConversationMessageRepository`: `existsByConversationIdAndDirectionAndMessageId`, `findByConversationId` (phân trang).
 
 ## Dự kiến (chưa có)
-Mã liên kết `OMNI-XXXXXX` 6 ký tự kèm đếm số lần sai theo danh tính kênh (US-22, S4, SRS G-01), lịch sử đơn theo khách (US-23), promotion/voucher/lịch sử giá (US-33, S5, mốc giờ theo `Asia/Ho_Chi_Minh`), consent log (US-30, S7). Cho trụ E (decisions #23): trạng thái đồng bộ theo kênh (US-49, S3), đơn từ sàn (US-51, S5), trạng thái duyệt sản phẩm (US-54, S7), đánh giá sản phẩm (US-55, S8).
+Lịch sử đơn theo khách (US-23), promotion/voucher/lịch sử giá (US-33, S5, mốc giờ theo `Asia/Ho_Chi_Minh`), consent log (US-30, S7). Cho trụ E (decisions #23): trạng thái đồng bộ theo kênh (US-49, S3), đơn từ sàn (US-51, S5), trạng thái duyệt sản phẩm (US-54, S7), đánh giá sản phẩm (US-55, S8).
 
 ## Database simulator Shopee
 
