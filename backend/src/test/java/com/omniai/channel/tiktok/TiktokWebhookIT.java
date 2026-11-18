@@ -8,6 +8,10 @@ import com.omniai.channel.credential.ChannelCredentialRepository;
 import com.omniai.channel.tiktok.TiktokModels.AuthorizedShop;
 import com.omniai.channel.tiktok.TiktokModels.TokenData;
 import com.omniai.common.ChannelType;
+import com.omniai.conversation.ConversationMessage;
+import com.omniai.conversation.ConversationMessage.DeliveryStatus;
+import com.omniai.conversation.ConversationMessage.Direction;
+import com.omniai.conversation.ConversationMessageRepository;
 import com.omniai.policy.PolicyEngine;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,14 +21,17 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.web.client.ResourceAccessException;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -32,6 +39,7 @@ import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.after;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.timeout;
@@ -46,9 +54,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * Webhook TikTok qua Spring thật + Postgres (Testcontainers). Chỉ giả AI Brain và client gửi tin ra sàn.
- * Kiểm: chữ ký, chống replay, trả 200 trước khi gọi Brain, chống trùng, bỏ qua tin của shop, luật TIKTOK, OAuth.
+ * Kiểm: chữ ký, chống replay, trả 200 trước khi gọi Brain, chống trùng, bỏ qua tin của shop, luật TIKTOK, OAuth,
+ * gửi lỗi sau khi đã trả 200 thì thử lại / handoff, hàng đợi đầy trả 503 (T-25.4).
  */
-@SpringBootTest(properties = {"omniai.tiktok.app-key=test-app", "omniai.tiktok.app-secret=test-secret"})
+@SpringBootTest(properties = {"omniai.tiktok.app-key=test-app", "omniai.tiktok.app-secret=test-secret",
+        "omniai.tiktok.send-attempts=4", "omniai.tiktok.send-retry-backoff=20ms"})
 @AutoConfigureMockMvc
 @Import(TestcontainersConfig.class)
 class TiktokWebhookIT {
@@ -65,6 +75,10 @@ class TiktokWebhookIT {
     TiktokTokenManager tokenManager;
     @Autowired
     ChannelCredentialRepository credentials;
+    @Autowired
+    ConversationMessageRepository messages;
+    @MockitoSpyBean
+    TiktokWebhookQueue queue;
 
     @MockitoBean
     BrainClient brainClient;
@@ -73,7 +87,7 @@ class TiktokWebhookIT {
 
     @BeforeEach
     void setUp() {
-        reset(brainClient, shopClient);
+        reset(brainClient, shopClient, queue);
         when(brainClient.ask(any(), any())).thenReturn(new BrainResponse(REPLY, "test", List.of(), false));
     }
 
@@ -109,6 +123,19 @@ class TiktokWebhookIT {
     private String newMessage(String messageId, String conversationId, String role, String text) {
         return envelope(TiktokWebhookType.NEW_MESSAGE, id(), Instant.now().getEpochSecond(),
                 message(messageId, conversationId, role, text));
+    }
+
+    /** Câu bot đã lưu cho tin buyer {@code messageId}. */
+    private Optional<ConversationMessage> reply(String messageId) {
+        return messages.findAll().stream()
+                .filter(m -> m.getDirection() == Direction.OUT && m.getMessageId().equals(messageId))
+                .findFirst();
+    }
+
+    private ConversationMessage awaitDelivery(String messageId, DeliveryStatus status) {
+        await().atMost(Duration.ofSeconds(5)).until(() -> reply(messageId)
+                .map(m -> m.getDeliveryStatus() == status).orElse(false));
+        return reply(messageId).orElseThrow();
     }
 
     private ResultActions postSigned(String body) throws Exception {
@@ -220,6 +247,88 @@ class TiktokWebhookIT {
         postSigned(newMessage(id(), conversation, "BUYER", "hi")).andExpect(status().isOk());
         String fallback = policyEngine.policyOf(ChannelType.TIKTOK).fallbackMessage();
         verify(shopClient, timeout(3_000)).sendText(SHOP, conversation, fallback);
+    }
+
+    @Test
+    void storedReplyShowsFallbackWhenPlatformRejectsSensitiveContent() throws Exception {
+        String conversation = id();
+        String messageId = id();
+        when(shopClient.sendText(SHOP, conversation, REPLY)).thenThrow(new TiktokApiException(
+                TiktokErrorCode.CS_SENSITIVE_CONTENT.code(), "sensitive", "REQ", 200));
+        postSigned(newMessage(messageId, conversation, "BUYER", "hi")).andExpect(status().isOk());
+
+        ConversationMessage row = awaitDelivery(messageId, DeliveryStatus.SENT);
+        // DB ghi đúng câu khách nhận (fallback), câu gốc AI vẫn ở rawText.
+        assertThat(row.getText()).isEqualTo(policyEngine.policyOf(ChannelType.TIKTOK).fallbackMessage());
+        assertThat(row.getRawText()).isEqualTo(REPLY);
+        assertThat(row.isHandoff()).isFalse();
+    }
+
+    // ---------- gửi lỗi sau khi đã trả 200 (T-25.4) ----------
+
+    @Test
+    void transientSendFailureIsRetriedUntilDelivered() throws Exception {
+        String conversation = id();
+        String messageId = id();
+        when(shopClient.sendText(SHOP, conversation, REPLY))
+                .thenThrow(new TiktokApiException(TiktokErrorCode.INTERNAL_ERROR.code(), "internal", "REQ", 500))
+                .thenThrow(new ResourceAccessException("connection reset"))
+                .thenReturn("tts-msg-1");
+        postSigned(newMessage(messageId, conversation, "BUYER", "hi")).andExpect(status().isOk());
+
+        verify(shopClient, timeout(5_000).times(3)).sendText(SHOP, conversation, REPLY);
+        ConversationMessage row = awaitDelivery(messageId, DeliveryStatus.SENT);
+        assertThat(row.getDeliveryAttempts()).isEqualTo(3);
+        assertThat(row.getDeliveryError()).isNull();
+        assertThat(row.isHandoff()).isFalse();
+        verify(shopClient, after(300).times(3)).sendText(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void sendFailingEveryAttemptIsHandedOffAfterLastRetry() throws Exception {
+        String conversation = id();
+        String messageId = id();
+        when(shopClient.sendText(SHOP, conversation, REPLY)).thenThrow(new ResourceAccessException("connection refused"));
+        postSigned(newMessage(messageId, conversation, "BUYER", "hi")).andExpect(status().isOk());
+
+        ConversationMessage row = awaitDelivery(messageId, DeliveryStatus.FAILED);
+        assertThat(row.isHandoff()).isTrue();
+        assertThat(row.getDeliveryAttempts()).isEqualTo(4);
+        assertThat(row.getDeliveryError()).contains("connection refused");
+        // Lần đầu + 3 lần thử lại, rồi dừng.
+        verify(shopClient, after(300).times(4)).sendText(SHOP, conversation, REPLY);
+    }
+
+    @Test
+    void conversationRuleOrPermissionErrorsHandOffWithoutRetry() throws Exception {
+        for (TiktokErrorCode code : List.of(TiktokErrorCode.CS_CONVERSATION_RULES, TiktokErrorCode.CS_NO_PERMISSION,
+                TiktokErrorCode.SCOPE_NOT_AUTHORIZED)) {
+            String conversation = id();
+            String messageId = id();
+            when(shopClient.sendText(SHOP, conversation, REPLY))
+                    .thenThrow(new TiktokApiException(code.code(), code.name(), "REQ", 200));
+            postSigned(newMessage(messageId, conversation, "BUYER", "hi")).andExpect(status().isOk());
+
+            ConversationMessage row = awaitDelivery(messageId, DeliveryStatus.FAILED);
+            assertThat(row.isHandoff()).as(code.name()).isTrue();
+            assertThat(row.getDeliveryAttempts()).as(code.name()).isEqualTo(1);
+            verify(shopClient, after(200).times(1)).sendText(SHOP, conversation, REPLY);
+        }
+    }
+
+    @Test
+    void fullQueueReturns503AndSameNotificationIsAcceptedLater() throws Exception {
+        String conversation = id();
+        String body = newMessage(id(), conversation, "BUYER", "hi");
+        doReturn(false).when(queue).offer(any());
+
+        postSigned(body).andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.error").value("busy"));
+        verify(brainClient, after(300).never()).ask(any(), any());
+
+        // Sàn gửi lại cùng tts_notification_id khi hàng đợi đã rảnh: không bị coi là trùng.
+        reset(queue);
+        postSigned(body).andExpect(status().isOk());
+        verify(shopClient, timeout(3_000)).sendText(SHOP, conversation, REPLY);
     }
 
     // ---------- ủy quyền ----------

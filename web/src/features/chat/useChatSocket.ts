@@ -14,8 +14,8 @@ export interface ChatLine {
 export type ChatStatus = 'connecting' | 'open' | 'closed'
 
 const RECONNECT_INTERVAL_MS = 3000
-// Lớn hơn timeout gọi AI Brain của backend (omniai.brain.timeout = 10s) để server kịp trả fallback.
-const REPLY_TIMEOUT_MS = 12_000
+// Lớn hơn timeout gọi AI Brain của backend (omniai.brain.timeout = 30s) để server kịp trả câu thật hoặc fallback.
+const REPLY_TIMEOUT_MS = 35_000
 const TIMEOUT_TEXT = 'Shop đang bận, bạn thử lại sau nhé.'
 const INVALID_MESSAGE_TEXT = 'Tin nhắn không hợp lệ, bạn gửi lại giúp shop nhé.'
 

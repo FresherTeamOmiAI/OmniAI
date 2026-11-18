@@ -26,6 +26,7 @@ export function ShopLayout() {
           </nav>
           <nav className="admin-nav" aria-label="Quản trị">
             <NavLink to="/admin/products" className={tabClass}>Admin · Sản phẩm</NavLink>
+            <NavLink to="/admin/conversations" className={tabClass}>Admin · Hội thoại</NavLink>
             <NavLink to="/admin/policy" className={tabClass}>Admin · Thử luật kênh</NavLink>
           </nav>
         </div>

@@ -24,6 +24,10 @@ public class TiktokApiException extends RuntimeException {
         return requestId;
     }
 
+    public int httpStatus() {
+        return httpStatus;
+    }
+
     public Optional<TiktokErrorCode> error() {
         return TiktokErrorCode.of(code);
     }

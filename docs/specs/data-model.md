@@ -1,6 +1,6 @@
 # Mô hình dữ liệu
 
-> Cập nhật: 2026-11-17 · T-13.1 V16 `otp_challenge`, danh tính WEB khi đăng nhập OTP; trước đó 2026-11-13 · T-04.1 V15 chuẩn hoá product (decisions #35); T-09.3 V14 `customer_order`; T-09.2 store lọc qua Specification; T-04.1 tách giá theo kênh (V13, decisions #32) · Owner: LucVT (catalog, customer, identity, order, promotion); TuTM (channel_credential, conversation)
+> Cập nhật: 2026-11-18 · T-13.1 V16 `otp_challenge`, danh tính WEB khi đăng nhập OTP, đơn gắn `customer_id`; T-25.5 ghi chú số decisions cũ trong V8; T-49.1 V18 `product_channel_sync`; T-25.4 V17 trạng thái gửi câu bot (`delivery_status`); 2026-11-13 · T-04.1 V15 chuẩn hoá product (decisions #35); T-09.3 V14 `customer_order`; T-09.2 store lọc qua Specification; T-04.1 tách giá theo kênh (V13, decisions #32) · Owner: LucVT (catalog, customer, identity, order, promotion); TuTM (channel_credential, conversation)
 > Nguồn: `backend/src/main/resources/db/migration/*.sql`, `backend/.../catalog/*`, `backend/.../customer/*`, `backend/.../identity/*`, `backend/.../channel/credential/*`, `backend/.../conversation/*`
 
 DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flyway** quản lý, JPA để `ddl-auto: validate`. Vì vậy mọi thay đổi bảng đều phải viết migration mới `V<n>__<mo_ta>.sql`. **Không sửa migration đã merge.**
@@ -16,7 +16,7 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 | `V5__import_catalog_80.sql` | Nạp 80 SKU từ `shared/catalog/products.csv` (T-08.2). **Sinh tự động** bằng `tools/catalog/csv_to_sql.py`, không sửa tay. Upsert theo `sku`: 8 SKU của V2 giữ mã/giá và có thêm mô tả, vấn đề da, buổi dùng |
 | `V6__chatbot_catalog.sql` | View `chatbot_catalog` và role `chatbot_reader` NOLOGIN. Chỉ tên, thương hiệu, loại da. Không có giá, tồn kho, email |
 | `V7__chatbot_catalog_prices.sql` | Thêm `price_web`, `price_shopee`, `price_tiktok` vào view. Vẫn không có tồn kho |
-| `V8__channel_credential.sql` | Bảng `channel_credential`: token OAuth2 của shop trên kênh sàn (US-25, decisions #29). Owner: TuTM |
+| `V8__channel_credential.sql` | Bảng `channel_credential`: token OAuth2 của shop trên kênh sàn (US-25, decisions #29). Comment đầu file ghi "decisions #27" là số cũ; **không sửa file** vì đổi nội dung migration đã chạy làm Flyway báo sai checksum (T-25.5). Owner: TuTM |
 | `V9__product_source_image.sql` | T-47.1: thêm `barcode` (unique), `source_url`, `image_key`, `image_source_url`, `image_license_note` (đều cho phép NULL); **xoá cứng 80 SKU của 5 thương hiệu hư cấu** của V2/V5 (decisions #30) |
 | `V10__import_catalog_real.sql` | Nạp 366 SKU thật từ `shared/catalog/products.csv` (T-47.1). **Sinh tự động** bằng `csv_to_sql.py`, upsert theo `sku`, gồm cả cột nguồn/ảnh |
 | `V11__conversation.sql` | Bảng `conversation`, `conversation_message`, `message_violation`: lưu hội thoại mọi kênh (US-11, decisions #31). Owner: TuTM |
@@ -25,6 +25,8 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 | `V14__demo_order.sql` | T-09.3: bảng `customer_order` + `customer_order_item` (đơn mọi kênh; S2 chỉ có đơn `DEMO` trên web, không trừ tồn kho, decisions #34) |
 | `V16__otp_challenge.sql` | T-13.1: bảng `otp_challenge` (mã OTP đăng nhập người mua, chỉ lưu hash, US-13, decisions #39) |
 | `V15__normalize_product.sql` | T-04.1 sửa theo review (phần A+B, decisions #35): **chuẩn hoá bảng `product`**. Bảng tra cứu `brand`, `category`, `skin_type`, `skin_concern`, `ingredient`; bảng nối `product_skin_type`, `product_skin_concern`, `product_ingredient` (giữ thứ tự INCI); `product_image`; `use_am`/`use_pm` thay `usage_time`; `created_at`. Xoá 8 cột `brand, skin_types, skin_concerns, usage_time, ingredients_inci, image_key, image_source_url, image_license_note`. Tạo lại 2 view chatbot **giữ nguyên cột** qua view nội bộ `product_text_pivot` |
+| `V17__message_delivery.sql` | T-25.4: thêm `delivery_status`, `delivery_attempts`, `delivery_error` vào `conversation_message` (trạng thái gửi câu bot ra kênh gửi async, TikTok). Owner: TuTM |
+| `V18__product_channel_sync.sql` | T-49.1: bảng `product_channel_sync` (hàng đợi + trạng thái đồng bộ sản phẩm ra từng sàn, decisions #42). Owner: TuTM |
 
 ## Bảng
 
@@ -95,6 +97,9 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 **conversation_message** (`conversation/ConversationMessage.java`): 1 tin. `direction` `IN | OUT` (CHECK).
 - `message_id`: IN là messageId tin khách, OUT là messageId của tin mà bot trả lời. Unique (`conversation_id`, `direction`, `message_id`): kênh gửi lại cùng tin thì không thêm dòng.
 - `text`: IN = tin khách, OUT = `finalText` (câu khách nhận sau policy). `raw_text`: chỉ OUT, câu gốc của AI Brain. `blocked`, `handoff`, `created_at` (IN = `receivedAt` của kênh, OUT = lúc trả lời).
+- `delivery_status` (V17, CHECK `RETRYING | SENT | FAILED`, NULL = kênh trả lời đồng bộ như web/simulator API, hoặc tin IN), `delivery_attempts` (số lần đã gửi), `delivery_error` (lỗi lần gần nhất, ≤ 1000 ký tự). `FAILED` thì `handoff = TRUE`: hàng chờ cho nhân viên (US-35), có index một phần theo `created_at`. Sàn nhận câu khác finalText (fallback khi TikTok báo `45101006`) thì `text` được ghi đè bằng câu đó.
+
+**product_channel_sync** (`sync/ProductSyncState.java`, V18, T-49.1): PK (`product_id`, `channel_code`), FK CASCADE theo sản phẩm, FK `sales_channel`. `status` `PENDING | SYNCED | FAILED` (CHECK). `content_hash` = SHA-256 nội dung cần có trên sàn, `synced_hash` = của bản đã gửi thành công: bằng nhau thì sự kiện mới là trùng, không gửi. Hash gồm tên, mô tả, hãng, loại, INCI, dung tích, khoá ảnh, active; **không** gồm giá, tồn (US-50). `external_id` (mã phía sàn), `attempts`, `next_attempt_at` (lúc gửi/thử lại; đang gửi thì bị dời thêm `lease`), `last_error`, `synced_at`, `updated_at`. Index một phần `next_attempt_at WHERE status = 'PENDING'`. Tách khỏi `product_channel` vì bảng đó là `@ElementCollection`, Hibernate ghi lại cả bảng con khi đổi giá.
 
 **message_violation** (`@ElementCollection` `StoredViolation` của `ConversationMessage`): (`message_id`, `position`) PK, `rule_id`, `action` `BLOCK | REDACT | REPLACE` (CHECK), `matched`. Xóa tin thì xóa theo (CASCADE).
 
@@ -131,7 +136,7 @@ Mã liên kết `OMNI-XXXXXX` 6 ký tự kèm đếm số lần sai theo danh t�
 
 ## Database simulator Shopee
 
-Tách khỏi database hub. Tên database là `shopee`. Migration nằm ở `backend/src/main/resources/db/shopee`, không đánh số chung với V1–V8 của hub. Bảng: `item_shopee`, `price_list_shopee`, `seller_stock_shopee`, `order_shopee`, `order_item_shopee`, `push_shopee`, `conversation_shopee`, `message_shopee`, `webchat_push_shopee`. Giá, tồn, đơn theo field Open Platform đã đọc. Chat là bản giả lập vì trang seller chat bị khóa quyền. Chi tiết: [../channel-api/shopee.md](../channel-api/shopee.md).
+Cùng Postgres với hub khi chạy Supabase (database `postgres`). Local/test vẫn có thể dùng database `shopee`. Migration nằm ở `backend/src/main/resources/db/shopee`, lịch sử riêng `tbl_shopee_flyway_history`. Bảng: `tbl_shopee_item`, `tbl_shopee_price_list`, `tbl_shopee_seller_stock`, `tbl_shopee_order`, `tbl_shopee_order_item`, `tbl_shopee_push`, `tbl_shopee_conversation`, `tbl_shopee_message`, `tbl_shopee_webchat_push`. Giá, tồn, đơn theo field Open Platform đã đọc. Chat là bản giả lập vì trang seller chat bị khóa quyền. Chi tiết: [../channel-api/shopee.md](../channel-api/shopee.md).
 
 ## Test
 `OmniAiApplicationTests` chạy Flyway trên Postgres thật (Testcontainers) và kiểm tra: số SKU / active / hết hàng / hãng đọc từ CSV (`TestCatalog`), V9 đã xoá SKU hư cấu, extension vector, ràng buộc V4 (`usage_time` sai), và V13: không còn cột `price_*` trong `product`, `product_channel` có đúng giá CSV cho mọi SKU × 3 kênh, giá âm / kênh lạ / trùng kênh bị DB từ chối, view chatbot vẫn có `price_web/shopee/tiktok`, thêm kênh `LAZADA` chỉ bằng INSERT. Vì vậy cần Docker. `channel/tiktok/TiktokWebhookIT` lưu và đọc lại `channel_credential` (V8). `conversation/ConversationStoreIT` kiểm V11 qua `MessageRouter` thật: IN/OUT, vi phạm, chống trùng, mỗi kênh 1 hội thoại. `catalog/CatalogNormalizationTest` kiểm V15: không còn 8 cột cũ; bảng tra cứu đúng; **từng SKU** có hãng, tập loại da, tập vấn đề da, buổi dùng, INCI đúng thứ tự (bỏ trùng), ảnh chính khớp CSV; số SKU theo nhóm hoạt chất khớp CSV; view chatbot giữ cột và giá trị; DB chặn loại da lạ, thành phần trùng, 2 ảnh chính, nhóm hoạt chất lạ. `ShopeeSimulatorTest` kiểm giá, tồn, đơn và chat ghi đúng các bảng `*_shopee`.

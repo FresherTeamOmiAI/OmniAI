@@ -33,7 +33,7 @@ class TiktokApiTest {
 
     private static final TiktokProperties PROPS = new TiktokProperties("app", "secret", "http://sim", "http://cb",
             "http://hook", Duration.ofMinutes(5), 40, Duration.ofSeconds(5), 3, Duration.ofMillis(1),
-            Duration.ofMinutes(5), 10);
+            Duration.ofMinutes(5), 10, 4, Duration.ofMillis(1));
     private static final Instant NOW = Instant.parse("2026-11-11T08:00:00Z");
     private static final String SEND_PATH = "/customer_service/202606/conversations/c1/messages";
 
