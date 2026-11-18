@@ -27,7 +27,7 @@ omniai:
   policy-dir: ${OMNIAI_POLICY_DIR:../shared/policies}
   brain:
     url: ${BRAIN_URL:http://localhost:8000}
-    timeout: 10s
+    timeout: 30s
   chatbot-db-password: ${CHATBOT_DB_PASSWORD:}
   web:
     allowed-origins: ${WEB_ALLOWED_ORIGINS:http://localhost:5173}

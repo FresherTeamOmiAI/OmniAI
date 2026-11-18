@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router'
+import { channelOffer, dong } from '../marketplace'
 import { formatVnd } from '../../shared/lib/format'
 import { getJson } from '../../shared/lib/http'
 import type { Page, Product } from '../../shared/types'
@@ -33,6 +35,30 @@ function saveOpen(open: boolean) {
 
 const reduceMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
 
+const THINKING_STEPS = [
+  'Đang suy nghĩ…',
+  'Đang xem sản phẩm trong shop…',
+  'Đang lấy thông tin từ Shopee và TikTok…',
+  'Đang soạn câu trả lời…',
+]
+const THINKING_STEP_MS = [0, 1600, 3600, 6200]
+
+/** Bước đang hiện khi chờ AI. Về 0 khi hết chờ. Bước cuối giữ đến khi có câu trả lời. */
+function useThinkingStep(active: boolean) {
+  const [step, setStep] = useState(0)
+  useEffect(() => {
+    if (!active) return
+    const timers = THINKING_STEP_MS.map((delay, index) =>
+      window.setTimeout(() => setStep(index), delay),
+    )
+    return () => {
+      timers.forEach((id) => window.clearTimeout(id))
+      setStep(0)
+    }
+  }, [active])
+  return step
+}
+
 // Chat widget kênh WEB. Owner: TuTM. Từ US-56: mặc định thu nhỏ thành nút ở góc phải dưới để không che giá và nút
 // Đặt thử; Esc để thu nhỏ; danh mục sản phẩm (để ghép ảnh vào thẻ gợi ý) chỉ tải khi mở chat lần đầu. T-43.3 sẽ bỏ hẳn việc tải này.
 export function ChatWidget() {
@@ -41,6 +67,7 @@ export function ChatWidget() {
   const [draft, setDraft] = useState('')
   const [products, setProducts] = useState<Product[]>([])
   const { lines, status, isPending, send, reconnect } = useChatSocket()
+  const thinkingStep = useThinkingStep(isPending)
   const logRef = useRef<HTMLDivElement | null>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
   const closeRef = useRef<HTMLButtonElement | null>(null)
@@ -75,7 +102,7 @@ export function ChatWidget() {
   useEffect(() => {
     const log = logRef.current
     if (open && log) log.scrollTo({ top: log.scrollHeight, behavior: reduceMotion() ? 'auto' : 'smooth' })
-  }, [lines, isPending, open])
+  }, [lines, isPending, thinkingStep, open])
 
   useEffect(() => {
     if (!focusAfterToggle.current) return
@@ -169,8 +196,30 @@ export function ChatWidget() {
                           {item.sku && <span className="chat-sku-code">{item.sku}</span>}
                           <p className="chat-sku-name">{item.name}</p>
                           <p className="chat-sku-brand">{item.brand}</p>
-                          <p className="chat-sku-price">{formatVnd(item.price)}</p>
+                          {!item.product && <p className="chat-sku-price">{formatVnd(item.price)}</p>}
                         </div>
+                        {item.product && (
+                          <ul className="mkt-rows">
+                            {(['SHOPEE', 'TIKTOK'] as const).map((market) => {
+                              const offer = channelOffer(item.product!, market)
+                              const path = market === 'SHOPEE' ? 'shopee' : 'tiktok'
+                              const name = market === 'SHOPEE' ? 'Shopee' : 'TikTok Shop'
+                              return (
+                                <li key={market} className={`mkt-row mkt-row-${path}`}>
+                                  <span className="mkt-brand">{name}</span>
+                                  <span className="mkt-prices">
+                                    {offer.promo && <s>{dong(offer.listPrice)}</s>}
+                                    <strong>{dong(offer.salePrice)}</strong>
+                                    {offer.promo
+                                      ? <em>{offer.promo.label}</em>
+                                      : <em className="mkt-plain">Không giảm</em>}
+                                  </span>
+                                  <Link className="mkt-buy" to={`/mo-phong/${path}/${item.product!.sku}`}>Mua ngay</Link>
+                                </li>
+                              )
+                            })}
+                          </ul>
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -181,11 +230,9 @@ export function ChatWidget() {
             )
           })}
           {isPending && (
-            <li className="chat-line chat-line-bot chat-line-typing">
-              <span className="typing-dot" aria-hidden="true" />
-              <span className="typing-dot" aria-hidden="true" />
-              <span className="typing-dot" aria-hidden="true" />
-              <span className="sr-only">Shop đang trả lời...</span>
+            <li className="chat-line chat-line-bot chat-progress">
+              <span className="chat-progress-mark" aria-hidden="true" />
+              <span>{THINKING_STEPS[thinkingStep]}</span>
             </li>
           )}
         </ol>

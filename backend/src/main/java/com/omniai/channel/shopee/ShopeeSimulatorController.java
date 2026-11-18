@@ -431,7 +431,7 @@ public class ShopeeSimulatorController {
         return row;
     }
 
-    /** text → content.text, item → content.item_id, order → content.order_sn phải có trong order_shopee. */
+    /** text → content.text, item → content.item_id, order → content.order_sn phải có trong tbl_shopee_order. */
     private String chatContentJson(String messageType, JsonNode fields) {
         ObjectNode content = json.createObjectNode();
         switch (messageType) {

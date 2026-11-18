@@ -43,7 +43,7 @@ Hai nguồn dùng để dựng cho gần Shopee:
 
 `data.type` = `message`. `data.region` = `VN`. `data.content` gồm các field của mẫu, cộng bốn field bảng push thêm ngày 2025-04-18: `business_type` (0 = buyer–seller), `to_shop_id`, `from_shop_id` (0 vì người gửi là khách), `status` (`user_chat`).
 
-`message_type` simulator nhận: `text` (`content.text`), `item` (`content.item_id`), `order` (`content.order_sn` phải là đơn đã có trong `order_shopee`). Bảng push còn kể `video`, `image`, `faq_liveagent`; ba loại đó chưa giả lập.
+`message_type` simulator nhận: `text` (`content.text`), `item` (`content.item_id`), `order` (`content.order_sn` phải là đơn đã có trong `tbl_shopee_order`). Bảng push còn kể `video`, `image`, `faq_liveagent`; ba loại đó chưa giả lập.
 
 Phát tin:
 
@@ -78,19 +78,19 @@ Cùng một khách (`from_id` / `to_id`) nằm trong một `conversation_id`. Id
 
 ## Database riêng
 
-Simulator ghi vào database PostgreSQL tên `shopee`, cùng server với hub nhưng không dùng database `omniai`. Flyway của database này đọc `backend/src/main/resources/db/shopee`. App tự tạo database nếu chưa có, rồi migrate lúc khởi động. Biến môi trường: `SHOPEE_DB_URL`, `SHOPEE_DB_USERNAME`, `SHOPEE_DB_PASSWORD`.
+Simulator ghi vào cùng Postgres với hub. Trên Supabase đó là database `postgres` (project chỉ có một database). Local và test vẫn dùng database tên `shopee` nếu URL trỏ tới đó; app chỉ tự tạo database khi tên là `shopee` và chưa có. Flyway đọc `backend/src/main/resources/db/shopee` và ghi lịch sử vào `tbl_shopee_flyway_history`, tách khỏi lịch sử migration của hub. Biến môi trường: `SHOPEE_DB_URL`, `SHOPEE_DB_USERNAME`, `SHOPEE_DB_PASSWORD`.
 
 | Bảng | Khớp với |
 |---|---|
-| `item_shopee` | `item_id` của update_price / update_stock |
-| `price_list_shopee` | `price_list[]`: `model_id`, `original_price` |
-| `seller_stock_shopee` | `stock_list[].seller_stock[]`: `location_id`, `stock` |
-| `order_shopee` | `get_order_detail` → `order_list[]` |
-| `order_item_shopee` | `item_list[]` |
-| `push_shopee` | Push code 3. Cột `ordersn` là tên trong push; cột `order_sn` là tên trong chi tiết đơn |
-| `conversation_shopee` | Hội thoại chat. `to_id` là khách |
-| `message_shopee` | Một tin. `content` là JSON `text` / `item_id` / `order_sn` |
-| `webchat_push_shopee` | Push code 10 của tin khách gửi vào |
+| `tbl_shopee_item` | `item_id` của update_price / update_stock |
+| `tbl_shopee_price_list` | `price_list[]`: `model_id`, `original_price` |
+| `tbl_shopee_seller_stock` | `stock_list[].seller_stock[]`: `location_id`, `stock` |
+| `tbl_shopee_order` | `get_order_detail` → `order_list[]` |
+| `tbl_shopee_order_item` | `item_list[]` |
+| `tbl_shopee_push` | Push code 3. Cột `ordersn` là tên trong push; cột `order_sn` là tên trong chi tiết đơn |
+| `tbl_shopee_conversation` | Hội thoại chat. `to_id` là khách |
+| `tbl_shopee_message` | Một tin. `content` là JSON `text` / `item_id` / `order_sn` |
+| `tbl_shopee_webchat_push` | Push code 10 của tin khách gửi vào |
 
 Chưa làm các nhóm Authorization, Shop, Logistics, Payment, Promotion. `item_list` chỉ trả các field simulator đang có (`item_id`, `item_name`, `item_sku`, `model_id`, `model_name`, `model_sku`, `model_quantity_purchased`, `model_original_price`, `model_discounted_price`), không bịa ảnh, buyer hay phí vận chuyển.
 
