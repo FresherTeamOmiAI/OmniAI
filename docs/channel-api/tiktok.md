@@ -1,6 +1,6 @@
 # TikTok Shop: bảng đối chiếu API cho simulator và đồng bộ hub ↔ kênh
 
-> Cập nhật: 2026-11-18 · T-25.4 mục 6, 9: thử lại và handoff khi gửi lỗi; 2026-11-11 · commit 0821a35 · Owner: TuTM · T-25.3 (US-25)
+> Cập nhật: 2026-11-18 · T-25.5 (một phần): URL từng trang có sẵn, mục 7.1 huỷ đơn / trả hàng, 7.2 đánh giá, sửa tên test; T-25.4 mục 6, 9: thử lại và handoff khi gửi lỗi; 2026-11-11 · commit 0821a35 · Owner: TuTM · T-25.3 (US-25)
 > DTO chi tiết từng API (request, response, mã lỗi): [tiktok-dto.md](tiktok-dto.md), sinh bằng `tools/channel-api/extract_tiktok_dto.py`.
 
 ## 1. Nguồn và độ tin cậy
@@ -9,6 +9,27 @@
 |---|---|---|
 | TikTok Shop Partner Center, API Reference (`https://partner.tiktokshop.com/docv2`), các nhóm Authorization, Seller, Event, Customer Service, Products, Orders, Promotion, Fulfillment | 2026-11-11 | TuTM lưu 169 trang thành `.md` (thư mục `tịktok_api`, **không commit** vì là tài liệu của TikTok). Trang docv2 chỉ hiện khi chạy JavaScript, công cụ tự động không tải được. Path, version, scope, trường và mã lỗi trong file này lấy đúng từ các trang đó. |
 | Hiểu biết chung về TikTok Shop Open API | | Dùng cho phần **thư mục không có**. Mỗi chỗ như vậy đánh dấu **(chưa đối chiếu)**. Code gom các giá trị này vào một chỗ: `TiktokErrorCode`, `TiktokSigner`, `WebhookType` (ở cả hub lẫn simulator). |
+
+### URL từng trang (lấy 2026-11-18)
+Thư mục đã lưu không ghi URL của chính trang, nên bảng dưới chỉ gồm các trang **được link chéo** từ trang khác trong thư mục (38 id khác nhau). Nhóm chưa có dòng nào thì ghi rõ. Mở bằng trình duyệt (cần JavaScript); `curl`/công cụ tự động chỉ nhận khung HTML 99 byte (đã thử 2026-11-18).
+
+| Nhóm | Trang | URL |
+|---|---|---|
+| Authorization | Get Access Token | https://partner.tiktokshop.com/docv2/page/678e3a3292b0f40314a92d75 |
+| Authorization | Get Authorized Shops | https://partner.tiktokshop.com/docv2/page/6507ead7b99d5302be949ba9 |
+| Authorization | Partner authorization guide; hướng dẫn theo `user_type` 0 / 1 / 3 | https://partner.tiktokshop.com/docv2/page/669a301bd92cd602fd403ff9, https://partner.tiktokshop.com/docv2/page/678e3a344ddec3030b238fa0, https://partner.tiktokshop.com/docv2/page/678e3a362dccb8030ea6f98c, https://partner.tiktokshop.com/docv2/page/678e3a3978f4c20311b8b555 |
+| Products | Create Product | https://partner.tiktokshop.com/docv2/page/6502fc8da57708028b42b18a |
+| Products | Get Product | https://partner.tiktokshop.com/docv2/page/6509d85b4a0bb702c057fdda |
+| Products | Get Categories / Get Attributes / Get Category Rules / Get Brands | https://partner.tiktokshop.com/docv2/page/6509c89d0fcef602bf1acd9b, https://partner.tiktokshop.com/docv2/page/6509c5784a0bb702c0561cc8, https://partner.tiktokshop.com/docv2/page/6509c0febace3e02b74594a9, https://partner.tiktokshop.com/docv2/page/6503075656e2bb0289dd5d01 |
+| Products | Upload Product Image / Upload Product File | https://partner.tiktokshop.com/docv2/page/6509df95defece02be598a22, https://partner.tiktokshop.com/docv2/page/6509dffdc16ffe02b8dc10c5 |
+| Products | Product Pricing (giá theo vùng) | https://partner.tiktokshop.com/docv2/page/67e1288d76cfee049d9af858 |
+| Products | Webhook Product Status Change | https://partner.tiktokshop.com/docv2/page/650956aff1fd3102b90b6261 |
+| Orders | Trang trạng thái đơn (`AWAITING_SHIPMENT`) | https://partner.tiktokshop.com/docv2/page/650b1b4bbace3e02b76d1011 |
+| Orders | Danh sách lý do huỷ đơn | https://partner.tiktokshop.com/docv2/page/67e61eee427345048595487d (slug `https://partner.tiktokshop.com/docv2/page/cancel-reasons`) |
+| Fulfillment | Get Package Detail / Ship Package / Get Warehouse List | https://partner.tiktokshop.com/docv2/page/650aa39fbace3e02b75d8617, https://partner.tiktokshop.com/docv2/page/650aa4f1defece02be6e7cb1, https://partner.tiktokshop.com/docv2/page/650aa418defece02be6e66b6 |
+| Promotion | Update Activity Product | https://partner.tiktokshop.com/docv2/page/650d32c42aaa3602b86ccb5c |
+| Customer Service, Event, Seller | **Chưa có URL**: không trang nào trong thư mục link tới. Cần mở docv2 bằng trình duyệt và chép URL | |
+| Return & Refund | **Chưa có URL**, xem mục 7.1 | |
 
 Các trang **chưa có trong thư mục**, cần mở docv2 để đối chiếu (mục 9):
 - Get Access Token / Refresh Access Token (`docv2/page/678e3a3292b0f40314a92d75`)
@@ -143,13 +164,32 @@ Các enum chính:
 - Blind box, POD, External order references: không có nghiệp vụ tương ứng.
 - Get Customer Service Performance, Search Sessions, End Session: để dành cho dashboard nếu cần ở US-14.
 
+### 7.1 Huỷ đơn, trả hàng (Return & Refund, US-53) **(chưa đối chiếu)**
+Huỷ đơn **không** nằm trong nhóm Orders (Orders chỉ có danh sách lý do huỷ ở trang https://partner.tiktokshop.com/docv2/page/67e61eee427345048595487d). TikTok để huỷ đơn, trả hàng, hoàn tiền ở nhóm **Return & Refund**. Thư mục đã lưu không có nhóm này, docv2 không đọc được bằng công cụ tự động, nên bảng dưới lấy từ tài liệu tích hợp của bên thứ ba ([useresponse: Claims Handle](https://help.useresponse.com/hemi/knowledge-base/article/marketplaces-tiktok-marketplace-integration-v2-tiktok-order-management-tiktok-claims-handle), [useresponse: Cancel Order](https://help.useresponse.com/hemi/knowledge-base/article/marketplaces-tiktok-marketplace-integration-v2-tiktok-order-management-tiktok-cancel-order_1), lấy 2026-11-18). **Phải đối chiếu docv2 trước khi code US-53.**
+
+| API | Method + path | Đi/Về | Nguồn |
+|---|---|---|---|
+| Cancel Order (seller huỷ) | `POST /return_refund/202309/cancellations` | Đi: hub huỷ đơn | useresponse Cancel Order |
+| Search Cancellations | `POST /return_refund/202309/cancellations/search` | Về: yêu cầu huỷ của buyer | useresponse Claims Handle |
+| Approve Cancellation | `POST /return_refund/202309/cancellations/{cancel_id}/approve` | Đi: chấp nhận huỷ | useresponse Claims Handle |
+| Reject Cancellation | (chưa có nguồn) | Đi | |
+| Search Returns | `POST /return_refund/202309/returns/search` (suy từ Search Cancellations, chưa có nguồn) | Về: yêu cầu trả hàng | |
+| Create Return | `POST /return_refund/202309/returns` | Đi | useresponse Cancel Order |
+| Webhook trạng thái huỷ / trả | `CANCELLATION_STATUS_CHANGE`, `RETURN_STATUS_CHANGE` (số `type` chưa có nguồn) | Về | mục 8 |
+
+URL docv2 đã thử (2026-11-18, chỉ nhận khung JavaScript): `https://partner.tiktokshop.com/docv2/page/search-cancellations-202309`, `https://partner.tiktokshop.com/docv2/page/cancel-order-202309`, `https://partner.tiktokshop.com/docv2/page/search-returns-202309`, `https://partner.tiktokshop.com/docv2/page/cancel-reasons`.
+
+### 7.2 Đánh giá sản phẩm (US-55)
+**Không thấy API đánh giá** trong 10 nhóm đã lưu (Authorization, Seller, Event, Customer Service, Products, Orders, Promotion, Fulfillment, Fulfillment by TikTok, Logistics; `grep -ri review` trên 169 trang chỉ ra "review" theo nghĩa duyệt sản phẩm, duyệt yêu cầu bồi thường). Tìm web 2026-11-18: API đánh giá chính thức duy nhất thấy được là **Research API** của TikTok for Developers (`POST https://open.tiktokapis.com/v2/research/tts/review/`, scope `research.data.basic`, [trang tài liệu](https://developers.tiktok.com/docs/en/research-api-specs-query-tiktok-shop-reviews)). API này dành cho nghiên cứu, không phải API của seller, nên không dùng được cho hub. Các dịch vụ "TikTok Shop reviews API" khác là scraper không chính thức.
+**Kết luận tạm:** chưa có bằng chứng Partner API có đánh giá cho seller. Chưa kết luận "không có" vì chưa mở được mục lục docv2. Nếu đúng là không có thì US-55 (S8) đổi thành chỉ giả lập trên simulator hoặc bỏ kênh TikTok, PO quyết.
+
 ## 8. Gợi ý thêm (thiếu hoặc chưa hợp lý) và lý do
 
 | Gợi ý | Lý do |
 |---|---|
 | Bổ sung trang **Get/Refresh Access Token, Sign request, Webhooks overview + NEW_MESSAGE, Common error codes, Rate limit** | Simulator không chạy được nếu thiếu các phần này. Hiện dùng hiểu biết chung, đánh dấu chưa đối chiếu |
-| Bổ sung **Return & Refund**: Cancel Order, Search Cancellations, webhook `CANCELLATION_STATUS_CHANGE` | Trụ E cần "đơn hàng kể cả xác nhận/hủy" (US-53), nhưng hủy đơn **không nằm** trong nhóm Orders |
-| **Không có API đánh giá sản phẩm** trong các nhóm đã đọc | US-55 (đánh giá về hub, S8) cần xác minh lại. Không có API thì đổi phạm vi US-55 hoặc chỉ giả lập |
+| Bổ sung **Return & Refund**: Cancel Order, Search Cancellations, webhook `CANCELLATION_STATUS_CHANGE` | Trụ E cần "đơn hàng kể cả xác nhận/hủy" (US-53), nhưng hủy đơn **không nằm** trong nhóm Orders. Bản nháp ở mục 7.1 |
+| **Không có API đánh giá sản phẩm** trong các nhóm đã đọc | US-55 (đánh giá về hub, S8) cần xác minh lại. Không có API thì đổi phạm vi US-55 hoặc chỉ giả lập. Kết quả tra ở mục 7.2 |
 | Đăng ký `PRODUCT_AUDIT_STATUS_CHANGE`, `PRODUCT_STATUS_CHANGE` | Trạng thái duyệt/vi phạm sản phẩm về hub (US-54) mà không phải poll Search Products |
 | **Bỏ qua tin của SHOP, ROBOT, SYSTEM, CUSTOMER_SERVICE** và tin `is_visible=false` | NEW_MESSAGE bắn cả cho tin shop vừa gửi. Không lọc thì bot tự trả lời chính mình (vòng lặp vô hạn) |
 | Hub tự nhớ tin đã gửi (theo `message_id` của buyer) | Send Message không có idempotency key, nên retry sau timeout có thể làm khách nhận 2 tin |
@@ -176,7 +216,7 @@ Các enum chính:
 | Send Message lỗi mạng / 5xx / `36009003` sau khi đã trả 200 | | Thử lại tới 4 lần (backoff 2 s gấp đôi), hết lượt thì `FAILED` + handoff | `TiktokWebhookIT` |
 | Hàng đợi xử lý của hub đầy | | Trả 503 (`busy`), bỏ đánh dấu `tts_notification_id` để lần gửi lại được nhận | `TiktokWebhookIT` |
 | Vượt 50 request đồng thời | HTTP 429 | Backoff, tối đa 3 lần | sim `RateLimitTest` |
-| Webhook trùng / trễ / hub trả 5xx | Gửi lại tối đa 3 lần | Chống trùng theo `tts_notification_id` | hub `TiktokWebhookControllerTest` |
+| Webhook trùng / trễ / hub trả 5xx | Gửi lại tối đa 3 lần | Chống trùng theo `tts_notification_id` | hub `TiktokWebhookIT` |
 | Brain chậm > 3 s | | Webhook vẫn trả 200 ngay, tin gửi sau | như trên |
 
 **Xung đột tồn kho** (thiết kế cho US-50/51, chưa code ở S2):
