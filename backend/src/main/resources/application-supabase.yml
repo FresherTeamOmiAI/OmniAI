@@ -15,3 +15,8 @@ spring:
     # db/supabase/afterMigrate.sql chạy sau MỖI lần migrate: thu quyền của anon/authenticated trên schema public,
     # để Data API (REST) của Supabase không đọc được bảng customer, hội thoại, token kênh.
     locations: classpath:db/migration,classpath:db/supabase
+omniai:
+  chatbot-reader:
+    # DB dùng chung cả nhóm: role chatbot_reader đã LOGIN thì KHÔNG đặt lại mật khẩu theo CHATBOT_DB_PASSWORD của máy này.
+    # Mật khẩu do chủ project Supabase đặt; mọi người chép CHATBOT_DB_PASSWORD/CHATBOT_DB_URL của chủ project (decisions #41).
+    overwrite-password: false
