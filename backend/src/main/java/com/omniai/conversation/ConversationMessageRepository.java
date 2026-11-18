@@ -6,10 +6,14 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface ConversationMessageRepository extends JpaRepository<ConversationMessage, Long> {
 
     boolean existsByConversationIdAndDirectionAndMessageId(Long conversationId, Direction direction, String messageId);
+
+    Optional<ConversationMessage> findByConversationIdAndDirectionAndMessageId(Long conversationId, Direction direction,
+                                                                               String messageId);
 
     /** Violations nạp lazy trong transaction của service (open-in-view tắt). */
     Page<ConversationMessage> findByConversationId(Long conversationId, Pageable pageable);
