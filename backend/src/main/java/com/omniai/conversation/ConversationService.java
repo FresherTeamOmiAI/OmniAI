@@ -2,7 +2,6 @@ package com.omniai.conversation;
 
 import com.omniai.common.BotReply;
 import com.omniai.common.CanonicalMessage;
-import com.omniai.common.ChannelType;
 import com.omniai.conversation.ConversationMessage.DeliveryStatus;
 import com.omniai.conversation.ConversationMessage.Direction;
 import org.slf4j.Logger;
@@ -15,7 +14,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Lưu hội thoại mọi kênh (US-11). Mỗi lần ghi là 1 transaction ngắn riêng, không ôm transaction trong lúc
@@ -87,14 +89,15 @@ public class ConversationService implements ConversationRecorder {
         }
     }
 
-    /** Danh sách hội thoại, mới nhất trước. {@code channel} null = mọi kênh. */
+    /** Danh sách hội thoại theo bộ lọc (T-14.2), mới nhất trước, kèm số câu bị can thiệp / chuyển nhân viên. */
     @Transactional(readOnly = true)
-    public Page<ConversationView> list(ChannelType channel, int page, int size) {
+    public Page<ConversationView> list(ConversationFilter filter, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, LIST_SORT);
-        Page<Conversation> result = channel == null
-                ? conversations.findAll(pageable)
-                : conversations.findByChannel(channel, pageable);
-        return result.map(ConversationView::of);
+        Page<Conversation> result = conversations.findAll(filter.toSpecification(), pageable);
+        Map<Long, ConversationRepository.Stats> stats = result.isEmpty() ? Map.of()
+                : conversations.statsOf(result.map(Conversation::getId).getContent()).stream()
+                .collect(Collectors.toMap(ConversationRepository.Stats::getConversationId, Function.identity()));
+        return result.map(c -> ConversationView.of(c, stats.get(c.getId())));
     }
 
     /** Các tin của 1 hội thoại theo thứ tự thời gian; rỗng nếu không có hội thoại đó. */
