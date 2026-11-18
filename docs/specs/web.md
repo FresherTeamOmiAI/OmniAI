@@ -1,6 +1,6 @@
 # Web (React + Vite)
 
-> Cập nhật: 2026-11-13 · T-09.3 nút Đặt thử trên trang chi tiết; T-09.1 trang chi tiết `/products/:id`, lọc danh mục/giá trên store, `shared/vocabulary.ts`; trước đó 2026-11-13 · T-04.1 giá theo kênh `prices` (store dùng `prices.WEB`); trước đó T-09.1 store phân trang, bỏ link nguồn từng thẻ
+> Cập nhật: 2026-11-18 · US-56 (T-56.1, T-56.2) giao diện theo design system Soft UI Evolution, tokens.css, @fontsource, chat mặc định thu nhỏ (decisions #38); 2026-11-13 · T-09.3 nút Đặt thử trên trang chi tiết; T-09.1 trang chi tiết `/products/:id`, lọc danh mục/giá trên store, `shared/vocabulary.ts`; trước đó 2026-11-13 · T-04.1 giá theo kênh `prices` (store dùng `prices.WEB`); trước đó T-09.1 store phân trang, bỏ link nguồn từng thẻ
 > Nguồn: `web/src/**`, `web/vite.config.ts`, `web/package.json`
 
 React 19, Vite 8, TypeScript 7, react-router 7, lint bằng oxlint. Chưa có thư viện UI, state hay test. Chạy `npm run dev` (:5173) hoặc `run-web.bat`. Kiểm tra bằng `npm run build` (gồm `tsc -b`).
@@ -8,15 +8,15 @@ React 19, Vite 8, TypeScript 7, react-router 7, lint bằng oxlint. Chưa có th
 ## Cấu trúc (modular theo feature)
 
 ```
-src/main.tsx              mount App
+src/main.tsx              mount App (nạp font @fontsource)
 src/app/App.tsx           router
-src/app/ShopLayout.tsx    layout chung (banner demo, chat widget)
+src/app/ShopLayout.tsx    layout chung (skip link, header tên shop Lumi, banner demo, chat widget, footer)
 src/shared/types.ts       ChannelType, BotReply, PolicyViolation, Page<T>, Product, ProblemDetail: khớp backend
 src/shared/lib/http.ts    requestJson, getJson, postJson, ApiError (status + ProblemDetail), wsUrl (dùng location.host nên đi qua proxy Vite)
 src/shared/lib/format.ts  định dạng (giá...)
-src/shared/ui/            DemoBanner, global.css (có .btn, .badge dùng chung)
+src/shared/ui/            tokens.css, global.css (.btn, .chip, .badge, .table-wrap, .skeleton dùng chung), icons.tsx, DemoBanner
 src/shared/vocabulary.ts  danh mục, loại da, vấn đề da, buổi dùng + nhãn tiếng Việt (store và admin dùng chung, khớp CatalogVocabulary.java)
-src/features/<feature>/   index.ts (export public), *Page.tsx, api.ts, types.ts
+src/features/<feature>/   index.ts (export public), *Page.tsx, api.ts, types.ts, CSS riêng (<feature>.css)
 ```
 Feature chỉ import từ `shared/` hoặc qua `index.ts` của feature khác, **không** import sâu vào file bên trong feature khác.
 
@@ -28,12 +28,13 @@ Feature chỉ import từ `shared/` hoặc qua `index.ts` của feature khác, *
 | `/products/:id` | `ProductDetailPage` (T-09.1): ảnh, hãng, tên, giá web (`prices.WEB`), tồn kho, mô tả, loại sản phẩm, loại da, vấn đề da, buổi dùng, dung tích, PAO, SKU, **INCI đầy đủ**, link nguồn OBF + ghi chú giấy phép ảnh. **Đặt thử** (`DemoOrderBox`, T-09.3): chọn số lượng 1..min(10, tồn), `POST /api/orders`, hiện hộp "Đã tạo đơn thử nghiệm #id", tổng tiền, trạng thái DEMO, câu không thanh toán/không giao; lỗi `errors[]` hiện dưới nút; hết hàng thì không có nút. API `404` (sản phẩm ẩn/không có, G-06) hoặc `400` (id sai) thì báo "không tồn tại hoặc đã ngừng bán". Nút Quay lại: lùi lịch sử, vào thẳng bằng link thì về `/` | `features/store` (LucVT) |
 | `/admin/products` | `ProductAdminPage`: đăng nhập admin, bảng sản phẩm (gồm SKU ẩn, tìm, lọc trạng thái, phân trang), dialog thêm/sửa, nút ẩn/hiện. Cột giá và ô giá sinh theo `GET /api/admin/sales-channels` (không viết cứng 3 kênh, V13) | `features/product-admin` (LucVT) |
 | `/admin/policy` | `PolicyPlaygroundPage`: gửi 1 câu vào WEB/SHOPEE/TIKTOK qua simulator, so sánh rawText và finalText | `features/policy-playground` (HungDQ) |
-| mọi trang trừ `/admin/*` | `ChatWidget` + `useChatSocket` (WS `/ws/chat`, trạng thái `connecting/open/closed`), gắn trong `ShopLayout` | `features/chat` (TuTM) |
+| mọi trang trừ `/admin/*` | `ChatWidget` + `useChatSocket` (WS `/ws/chat`, trạng thái `connecting/open/closed`), gắn trong `ShopLayout`. Mặc định thu nhỏ thành nút nổi góc phải dưới (tránh che giá/đặt hàng), lưu trạng thái trong `sessionStorage`, Esc để thu nhỏ, trên điện thoại thành bottom sheet | `features/chat` (TuTM, UI HungDQ) |
 
 ## Proxy dev
 `vite.config.ts`: `/api` chuyển tới `http://localhost:8080`, `/ws` chuyển tới `ws://localhost:8080` (bật ws). Backend cho phép origin `http://localhost:5173` (`WEB_ALLOWED_ORIGINS`).
 
 ## Đã biết
+- Design system: xem chi tiết tại [design-system.md](design-system.md). Mọi màu sắc, khoảng cách, font đi qua `tokens.css`.
 - Chưa có đăng nhập khách (US-13), inbox (US-14), giỏ hàng nhiều sản phẩm (API `/api/orders` đã nhận nhiều dòng).
 
 ## Admin sản phẩm (`features/product-admin`, T-08.3)

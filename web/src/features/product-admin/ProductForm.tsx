@@ -94,10 +94,16 @@ export function ProductForm({ token, product, channels, onSaved, onClose, onUnau
   const [message, setMessage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
+  // Nút đã mở dialog, ghi lúc render đầu: đóng (Huỷ, ×, Esc, lưu xong) thì trả focus về đó, không rơi về <body> (US-56).
+  const [opener] = useState(() => (document.activeElement instanceof HTMLElement ? document.activeElement : null))
+
   useEffect(() => {
     const dialog = dialogRef.current
     if (dialog && !dialog.open) dialog.showModal()
-  }, [])
+    return () => {
+      if (opener?.isConnected) opener.focus()
+    }
+  }, [opener])
 
   // Có lỗi thì đưa con trỏ tới ô sai đầu tiên (form dài, lỗi có thể nằm dưới phải cuộn).
   useEffect(() => {
@@ -132,10 +138,14 @@ export function ProductForm({ token, product, channels, onSaved, onClose, onUnau
     <div className={`field${wide ? ' field-wide' : ''}${errors[key] ? ' field-invalid' : ''}`}>
       <label htmlFor={`pf-${key}`}>{label}</label>
       {input}
-      {hint && !errors[key] && <small className="muted">{hint}</small>}
+      {hint && !errors[key] && <small className="muted" id={`pf-${key}-hint`}>{hint}</small>}
       {errors[key] && <small className="field-error" id={`pf-${key}-error`}>{errors[key]}</small>}
     </div>
   )
+
+  /** aria-describedby cho select/textarea: đọc lỗi nếu có, không thì đọc gợi ý. */
+  const describedBy = (key: string, hasHint = false) =>
+    errors[key] ? `pf-${key}-error` : hasHint ? `pf-${key}-hint` : undefined
 
   const textInput = (key: 'sku' | 'name' | 'brand', props: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
     <input id={`pf-${key}`} value={form[key]} onChange={(e) => set(key, e.target.value)}
@@ -161,7 +171,8 @@ export function ProductForm({ token, product, channels, onSaved, onClose, onUnau
   const priceChannels = channels.filter((c) => c.active || form.prices[c.code] !== undefined)
 
   const checkboxGroup = (key: 'skinTypes' | 'skinConcerns', label: string, options: Option[], hint: string) => (
-    <fieldset className={`field field-wide checks${errors[key] ? ' field-invalid' : ''}`}>
+    <fieldset className={`field field-wide checks${errors[key] ? ' field-invalid' : ''}`}
+      aria-describedby={errors[key] ? `pf-${key}-error` : `pf-${key}-hint`}>
       <legend>{label}</legend>
       <div className="check-list">
         {options.map((o) => (
@@ -172,8 +183,8 @@ export function ProductForm({ token, product, channels, onSaved, onClose, onUnau
           </label>
         ))}
       </div>
-      {!errors[key] && <small className="muted">{hint}</small>}
-      {errors[key] && <small className="field-error">{errors[key]}</small>}
+      {!errors[key] && <small className="muted" id={`pf-${key}-hint`}>{hint}</small>}
+      {errors[key] && <small className="field-error" id={`pf-${key}-error`}>{errors[key]}</small>}
     </fieldset>
   )
 
@@ -193,13 +204,15 @@ export function ProductForm({ token, product, channels, onSaved, onClose, onUnau
             {field('brand', 'Thương hiệu', textInput('brand', { placeholder: 'CeraVe' }))}
             {field('name', 'Tên sản phẩm', textInput('name', { autoFocus: !creating }), 'Không dùng từ như thuốc: "trị mụn", "đặc trị", "chữa"…', true)}
             {field('category', 'Loại sản phẩm', (
-              <select id="pf-category" value={form.category} onChange={(e) => set('category', e.target.value)} aria-invalid={!!errors.category}>
+              <select id="pf-category" value={form.category} onChange={(e) => set('category', e.target.value)} aria-invalid={!!errors.category}
+                aria-describedby={describedBy('category')}>
                 <option value="">Chọn loại…</option>
                 {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
             ))}
             {field('usageTime', 'Buổi dùng', (
-              <select id="pf-usageTime" value={form.usageTime} onChange={(e) => set('usageTime', e.target.value)} aria-invalid={!!errors.usageTime}>
+              <select id="pf-usageTime" value={form.usageTime} onChange={(e) => set('usageTime', e.target.value)} aria-invalid={!!errors.usageTime}
+                aria-describedby={describedBy('usageTime')}>
                 {USAGE_TIMES.map((u) => <option key={u.value} value={u.value}>{u.label}</option>)}
               </select>
             ))}
@@ -207,11 +220,11 @@ export function ProductForm({ token, product, channels, onSaved, onClose, onUnau
             {checkboxGroup('skinConcerns', 'Vấn đề da', SKIN_CONCERNS, 'Không bắt buộc.')}
             {field('ingredientsInci', 'Thành phần (INCI)', (
               <textarea id="pf-ingredientsInci" rows={3} value={form.ingredientsInci} onChange={(e) => set('ingredientsInci', e.target.value)}
-                aria-invalid={!!errors.ingredientsInci} placeholder="Aqua, Niacinamide, Glycerin" />
+                aria-invalid={!!errors.ingredientsInci} aria-describedby={describedBy('ingredientsInci', true)} placeholder="Aqua, Niacinamide, Glycerin" />
             ), 'Cách nhau bằng dấu phẩy, ít nhất 2 thành phần.', true)}
             {field('description', 'Mô tả', (
               <textarea id="pf-description" rows={3} value={form.description} onChange={(e) => set('description', e.target.value)}
-                aria-invalid={!!errors.description} />
+                aria-invalid={!!errors.description} aria-describedby={describedBy('description', true)} />
             ), 'Không bắt buộc, tối đa 2000 ký tự.', true)}
             {field('sizeMl', 'Dung tích (ml)', numberInput('sizeMl', 1))}
             {field('paoMonths', 'Hạn dùng sau mở (tháng)', numberInput('paoMonths', 1))}
