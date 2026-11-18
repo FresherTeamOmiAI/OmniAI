@@ -1,4 +1,4 @@
-import { getJson, postJson } from '../../shared/lib/http'
+import { getJson, requestJson } from '../../shared/lib/http'
 import type { OrderView, Page } from '../../shared/types'
 import type { Product } from './types'
 
@@ -27,7 +27,10 @@ export function fetchProduct(id: string): Promise<Product> {
   return getJson(`/api/products/${encodeURIComponent(id)}`)
 }
 
-/** Đặt hàng ảo (T-09.3, SRS UC-06): đơn DEMO, không thanh toán, không giao, không trừ tồn kho. */
-export function createDemoOrder(items: { productId: number; quantity: number }[]): Promise<OrderView> {
-  return postJson('/api/orders', { items })
+/**
+ * Đặt hàng ảo (T-09.3, SRS UC-06): đơn DEMO, không thanh toán, không giao, không trừ tồn kho.
+ * Từ S3 cần JWT người mua, đơn gắn khách (G-04, decisions #40). Token sai/hết hạn: backend trả 401.
+ */
+export function createDemoOrder(items: { productId: number; quantity: number }[], token: string): Promise<OrderView> {
+  return requestJson('/api/orders', { method: 'POST', body: { items }, headers: { Authorization: `Bearer ${token}` } })
 }
