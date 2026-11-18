@@ -22,6 +22,40 @@
 .row-actions { text-align: right; white-space: nowrap; }
 .row-actions .btn + .btn { margin-left: var(--space-2); }
 
+/* Đồng bộ sàn (T-49.3): mỗi kênh 1 nhãn trong ô; bấm nhãn mở 1 hàng chi tiết rộng hết bảng ngay dưới sản phẩm */
+.badge-danger { border-color: var(--color-danger-border); background: var(--color-danger-soft); color: var(--color-danger); }
+.sync-cell { display: grid; gap: var(--space-1); }
+.sync-item {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
+  flex-wrap: wrap; width: 100%; padding: 2px var(--space-1); font-size: var(--text-xs); text-align: left;
+}
+.sync-toggle {
+  min-height: 0; border: 1px solid transparent; border-radius: var(--radius-sm); background: none; color: inherit; font: inherit; cursor: pointer;
+  transition: border-color var(--dur) var(--ease-out), background-color var(--dur) var(--ease-out);
+}
+.sync-toggle:hover, .sync-toggle[aria-expanded="true"] { border-color: var(--color-border); background: var(--color-surface-2); }
+.sync-toggle:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+.sync-channel { color: var(--color-muted); font-weight: 600; }
+.sync-detail-row > td { padding-top: 0; background: var(--color-surface); }
+.sync-detail {
+  display: grid; gap: var(--space-3); padding: var(--space-3) var(--space-4);
+  background: var(--color-surface-2); border: 1px solid var(--color-border); border-radius: var(--radius-md);
+}
+.sync-detail-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); font-size: var(--text-sm); }
+.sync-detail-head .btn { margin-left: auto; }
+.sync-parts { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+.sync-part {
+  display: grid; align-content: start; justify-items: start; gap: var(--space-1); padding: var(--space-3);
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm); font-size: var(--text-sm);
+}
+.sync-part-failed { border-color: var(--color-danger-border); }
+.sync-part-label { color: var(--color-muted); font-size: var(--text-xs); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+.sync-part-failed .sync-part-status { color: var(--color-danger); font-weight: 600; }
+.sync-error { color: var(--color-danger); overflow-wrap: anywhere; }
+.sync-part-value { font-size: var(--text-sm); }
+.sync-part-value strong { font-variant-numeric: tabular-nums; }
+.sync-load-error { margin-bottom: var(--space-3); font-size: var(--text-sm); }
+
 /* Đăng nhập */
 .login-form {
   display: grid; gap: var(--space-4); max-width: 420px; margin: var(--space-10) auto; padding: var(--space-8);
