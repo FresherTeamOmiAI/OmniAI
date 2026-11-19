@@ -25,7 +25,7 @@ def test_math_words_and_other_subjects_are_refused():
     assert scope_block("địa lý châu Á có những nước nào").rule_id == "geography"
     assert scope_block("thủ đô của Pháp là gì").rule_id == "geography"
     assert scope_block("hôm nay thời tiết thế nào").rule_id == "other-subject"
-    assert scope_block("kể một chuyện cười").rule_id == "outside-shop"
+    assert scope_block("kể một chuyện cười") is None
 
 
 def test_shop_questions_pass_the_scope_policy():
@@ -39,6 +39,10 @@ def test_shop_questions_pass_the_scope_policy():
         "dưới 300k có kem chống nắng không",
         "Mình đang mang thai, dùng retinol được không?",
         "xin chào",
+        "cho mình xin tư vấn",
+        "shop ơi tư vấn giúp mình",
+        "có gì phù hợp không",
+        "nên chọn gì",
     ]
     for text in allowed:
         assert scope_block(text) is None, text
