@@ -4,8 +4,8 @@ import java.time.Instant;
 import java.util.List;
 
 /** Đơn trả về cho web (POST/GET /api/orders). {@code notice} nhắc rõ đây là đơn thử nghiệm (SRS UC-06 bước 3). */
-public record OrderView(Long id, String status, String channel, List<Line> items, long total, Instant createdAt,
-                        String notice) {
+public record OrderView(Long id, String status, String channel, String externalOrderId, List<Line> items, long total,
+                        Instant createdAt, String notice) {
 
     static final String DEMO_NOTICE = "Đơn thử nghiệm: không thanh toán, không giao hàng.";
 
@@ -17,7 +17,7 @@ public record OrderView(Long id, String status, String channel, List<Line> items
                 .map(i -> new Line(i.getProductId(), i.getSku(), i.getProductName(), i.getUnitPrice(), i.getQuantity(), i.getLineTotal()))
                 .toList();
         String notice = CustomerOrder.STATUS_DEMO.equals(order.getStatus()) ? DEMO_NOTICE : null;
-        return new OrderView(order.getId(), order.getStatus(), order.getChannelCode(), lines, order.getTotalAmount(),
-                order.getCreatedAt(), notice);
+        return new OrderView(order.getId(), order.getStatus(), order.getChannelCode(), order.getExternalOrderId(), lines,
+                order.getTotalAmount(), order.getCreatedAt(), notice);
     }
 }

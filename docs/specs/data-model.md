@@ -1,6 +1,6 @@
 # Mô hình dữ liệu
 
-> Cập nhật: 2026-11-19 · job dọn `otp_challenge`, `link_code` (trừ CONFIRMED), `link_code_attempt` cũ hơn 7 ngày (decisions #51); 2026-11-18 · T-22.1 V21 mã liên kết (`link_code`, `link_code_attempt`); T-19.3 V20 hồ sơ da (`skin_profile` + 2 bảng con); T-21.5, T-21.6 simulator Shopee tách ra `simulators/shopee` (:8091, trang `/ui`); 2026-11-18 · T-50.2 V19 `aspect` cho `product_channel_sync`; 2026-11-18 · T-49.1 V18 `product_channel_sync`; T-25.4 V17 trạng thái gửi câu bot (`delivery_status`); 2026-11-13 · T-04.1 V15 chuẩn hoá product (decisions #35); T-09.3 V14 `customer_order`; T-09.2 store lọc qua Specification; T-04.1 tách giá theo kênh (V13, decisions #32) · Owner: LucVT (catalog, customer, identity, order, promotion); TuTM (channel_credential, conversation)
+> Cập nhật: 2026-11-19 · T-23.1 V22 `customer_order.buyer_external_id`, đơn sàn tra theo danh tính đã liên kết (decisions #52); 2026-11-19 · job dọn `otp_challenge`, `link_code` (trừ CONFIRMED), `link_code_attempt` cũ hơn 7 ngày (decisions #51); 2026-11-18 · T-22.1 V21 mã liên kết (`link_code`, `link_code_attempt`); T-19.3 V20 hồ sơ da (`skin_profile` + 2 bảng con); T-21.5, T-21.6 simulator Shopee tách ra `simulators/shopee` (:8091, trang `/ui`); 2026-11-18 · T-50.2 V19 `aspect` cho `product_channel_sync`; 2026-11-18 · T-49.1 V18 `product_channel_sync`; T-25.4 V17 trạng thái gửi câu bot (`delivery_status`); 2026-11-13 · T-04.1 V15 chuẩn hoá product (decisions #35); T-09.3 V14 `customer_order`; T-09.2 store lọc qua Specification; T-04.1 tách giá theo kênh (V13, decisions #32) · Owner: LucVT (catalog, customer, identity, order, promotion); TuTM (channel_credential, conversation)
 > Nguồn: `backend/src/main/resources/db/migration/*.sql`, `backend/.../catalog/*`, `backend/.../customer/*`, `backend/.../channel/credential/*`, `backend/.../conversation/*`
 
 DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flyway** quản lý, JPA để `ddl-auto: validate`. Vì vậy mọi thay đổi bảng đều phải viết migration mới `V<n>__<mo_ta>.sql`. **Không sửa migration đã merge.**
@@ -29,6 +29,7 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 | `V18__product_channel_sync.sql` | T-49.1: bảng `product_channel_sync` (hàng đợi + trạng thái đồng bộ sản phẩm ra từng sàn, decisions #42). Owner: TuTM |
 | `V19__product_channel_sync_aspect.sql` | T-50.2: thêm cột `aspect` (`PRODUCT | PRICE | STOCK`) vào `product_channel_sync`, khoá chính thành (`product_id`, `channel_code`, `aspect`). Số V16 để trống cho PR #273. Owner: TuTM |
 | `V20__skin_profile.sql` | T-19.3: bảng `skin_profile`, `skin_profile_concern`, `skin_profile_allergy` (hồ sơ da, US-19, decisions #48). Owner: LucVT |
+| `V22__customer_order_buyer.sql` | T-23.1: cột `customer_order.buyer_external_id` (người mua phía sàn), CHECK đơn WEB không có người mua sàn, index một phần (`channel_code`, `buyer_external_id`). US-23, decisions #52. Owner: LucVT |
 | `V21__link_code.sql` | T-22.1: bảng `link_code` (mã OMNI, chỉ lưu SHA-256) và `link_code_attempt` (lần gõ mã thất bại theo danh tính kênh), US-22, decisions #49. Owner: LucVT |
 
 ## Bảng
@@ -67,6 +68,8 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 
 **customer_order** (`order/CustomerOrder.java`, V14, owner LucVT): 1 đơn hàng, dùng chung mọi kênh để US-23 (lịch sử đơn) và US-51 (đơn từ sàn) dùng tiếp.
 - `channel_code` FK `sales_channel`; `external_order_id` (mã đơn sàn, web = NULL), unique (`channel_code`, `external_order_id`); `customer_id` FK `customer`, NULL ở S2 vì đặt không cần đăng nhập (G-04).
+- `buyer_external_id` (V22): người mua phía sàn (Shopee `buyer_user_id`, TikTok `user_id`); đơn WEB phải NULL (CHECK `ck_customer_order_buyer`).
+- **Sở hữu đơn (decisions #52):** đơn WEB thuộc `customer_id`. Đơn sàn để `customer_id` NULL, thuộc khách C khi `channel_identity (channel = channel_code, external_id = buyer_external_id)` đang gắn với C, tra lúc đọc (`CustomerOrderRepository.findHistoryIds`). Liên kết muộn vẫn thấy đơn cũ, gỡ liên kết thì đơn ẩn ngay.
 - `status` CHECK chỉ `DEMO` (đơn web thử nghiệm: không thanh toán, không giao, **không trừ `stock`**). US-51 mở rộng CHECK và có trừ tồn kho. `total_amount` >= 0, `created_at`.
 
 **customer_order_item** (`@ElementCollection` `OrderItem` của `CustomerOrder`): PK (`order_id`, `line_no` từ 1), FK `order_id` CASCADE, `product_id` FK `product`, unique (`order_id`, `product_id`).
