@@ -1,6 +1,6 @@
 # Đo hiệu năng US-43: trước / sau
 
-> Cập nhật: 2026-11-18 · T-43.2 số **trước** khi tối ưu · Người đo: LucVT · Đặc tả: [dac-ta-hieu-nang-catalog.md](dac-ta-hieu-nang-catalog.md)
+> Cập nhật: 2026-11-18 · T-43.2 kết quả chốt (`dev` 5098687, mọi tiêu chí trừ phần widget chờ T-43.3); số **trước** khi tối ưu · Người đo: LucVT · Đặc tả: [dac-ta-hieu-nang-catalog.md](dac-ta-hieu-nang-catalog.md)
 > Công cụ: `bench/perf/load_test.py`, `bench/perf/brain_db.py`, `bench/perf/seed_conversations.sql` (cách chạy ở [../specs/bench.md](../specs/bench.md), mục "Đo hiệu năng")
 
 ## Điều kiện đo
@@ -106,5 +106,74 @@ Cùng máy, cùng dữ liệu (10.000 tin seed), cùng lệnh `perf.load_test` (
 - Chạy thật `/chat` (Gemini, Postgres local, 5 câu): log `db_ms=149` ở câu đầu (có mở kết nối), `db_ms=0` các câu sau, `rank_ms` 0–24, `llm_ms` 2,3–6,4 s. `NIVE-SUN-02` (SKU sau vị trí 100) được gợi ý và giữ đúng giá 201.000đ, trước đây giá này luôn bị `grounding.py` xoá.
 - Tiêu chí đặc tả mục 2 cho ai-brain: 10 câu chat trong TTL chỉ đọc DB 1 lần ✓ (pytest), không mở kết nối mới mỗi câu ✓, SKU vị trí > 100 giữ giá ✓.
 
+### Kết quả chốt T-43.2, đo 2026-11-18
+Đo lại toàn bộ trên `dev` 5098687, gồm T-43.1, T-43.4 và mọi thay đổi sau đó (inbox T-14, worker đồng bộ T-49/T-50, T-19.3, T-22.1). Cùng máy, cùng 10.000 tin seed, cùng script.
+- **API backend chỉ đo trên Postgres local.** Chạy backend profile `supabase` thì Flyway sẽ áp V20–V21 lên DB Supabase dùng chung (đang ở V19). Ngoài ra Supabase chỉ có 9 hội thoại, không seed được 10.000 tin lên DB chung, nên số `/api/conversations` trên đó không so được.
+- **ai-brain đo cả local và Supabase**, dùng role `chatbot_reader` (chỉ đọc).
+
+**1. p95 API** (`perf.load_test`, 200 request, 10 luồng, 0 lỗi; chạy 2 lượt)
+| Kịch bản | Trước | Sau T-43.1 | **Chốt** lượt 1 / lượt 2 | p50 chốt | KB trước → chốt | Mục tiêu p95 |
+|---|---|---|---|---|---|---|
+| `store_list` | 214,6 | 82,5 | **65,2 / 80,1** | 49,4 | 28,6 → 6,3 | < 300 ✓ |
+| `product_detail` | 67,9 | 78,3 | **43,8 / 50,0** | 30,5 | 1,5 → 1,5 | < 300 ✓ |
+| `conversations` | 530,3 | 61,5 | **51,4 / 49,5** | 32,2 | 4,2 → 7,8 | < 300 ✓ |
+| `widget_catalog` (1 vòng) | 327,5 | 202,8 | 224,9 / 197,2 | 168,9 | 542,9 → 118,7 | widget không gọi: chờ T-43.3 |
+
+**2. Câu SQL mỗi request** (`log_statement = 'all'` bật tạm, đã trả về `none`)
+| Request | Trước | Chốt |
+|---|---|---|
+| Store trang 0 / trang 5 / lọc `oily` | 27 / 16 / 28 | **8 / 8 / 8** |
+| Chi tiết 1 SP | 7 | 7 |
+| Widget 1 trang `size=100` | 48 | 13 |
+| `/api/conversations?size=20` | 2 | 3 |
+
+Có lượt đếm trang 5 ra 9 câu. Câu dư là `UPDATE product_channel_sync` của worker đồng bộ chạy nền (35 câu trong 90 s), chen vào giữa 2 câu đánh dấu, không phải của request.
+
+**3. ai-brain, phần đọc DB** (`perf.brain_db`, 20 lượt mỗi trạng thái)
+| Chỉ số | Trước (mỗi câu chat) | Chốt, ấm | Chốt, lạnh (1 lần / 120 s) |
+|---|---|---|---|
+| Câu SELECT | 5 | **0** | 4 |
+| Dòng đọc về | 464 | 0 | 364 |
+| Dòng sản phẩm trong prompt | 100 / 364 SKU | **8** | 8 |
+| DB p50 / p95, local | 219,7 / 247,3 ms | **0 / 0** | 98,6 / 137,1 ms |
+| DB p50 / p95, Supabase | 10.876 / 11.273 ms | **0 / 0** | 1.839 / 3.995 ms |
+| Xếp hạng p50 | – | 0,7–1,0 ms | 0,7 ms |
+
+**4. 20 câu chat thật có ràng buộc** (Gemini; ràng buộc loại da, khoảng giá, loại sản phẩm, hãng; 15 câu WEB + 5 câu SHOPEE)
+Số lấy từ dòng log `chat … db_ms rank_ms llm_ms` của ai-brain; tổng `/chat` đo ở phía client.
+
+| Chỉ số (ms) | DB local | DB Supabase |
+|---|---|---|
+| Số câu có đọc DB | 2 / 20 (câu 1; câu 17 khi cache 120 s hết hạn) | 2 / 20 (câu 1, câu 16) |
+| `db_ms` p50 / p95 / max | **0** / 152 / 159 | **0** / 6.953 / 8.279 |
+| `rank_ms` p50 / p95 | 2 / 23 | 2 / 24 |
+| `llm_ms` p50 / p95 | 4.168 / 7.140 | 3.681 / 6.798 |
+| Tổng `/chat` p50 / p95 | 6.565 / 9.523 | 6.460 / 11.911 |
+
+- **Phần DB trên Supabase:** trước T-43.4 mất ~11 s ở **mọi** câu chat; nay 18/20 câu là 0 ms. Thời gian còn lại gần như toàn bộ là LLM.
+- **Câu chat rơi vào lúc cache hết hạn trên Supabase** mất 7–8 s phần DB. Con số này cao hơn `brain_db` lạnh (p50 1,8 s, p95 4,0 s); nhiều khả năng do độ trễ dao động tới pooler Sydney, chưa tách được nguyên nhân. Lần đọc này nằm ngay trên đường trả lời khách, mỗi 120 s một lần.
+  - Gợi ý việc tiếp theo, không thuộc T-43.2: nạp cache lúc khởi động và làm mới ngầm trước khi hết TTL, để không câu chat nào phải chờ DB.
+
+**5. Request khi mở trang** (Playwright, bản build qua `vite preview`, 1280 px)
+| Thao tác | Trước (review S2) | Chốt | Mục tiêu |
+|---|---|---|---|
+| Mở `/` khi chat thu nhỏ | 1 (từ US-56) | **1** request, 6,5 KB | 1 ✓ |
+| Mở chat lần đầu | +4 request, ~543 KB | +4 request, **118,7 KB** | +0: chờ T-43.3 |
+
+Chạy `npm run dev` thì thấy 2 request khi mở `/`. Đó là React `StrictMode` chạy effect 2 lần ở chế độ dev, bản build chỉ có 1.
+
+**6. Đối chiếu tiêu chí đặc tả mục 2**
+| Tiêu chí | Số đo chốt | Kết quả |
+|---|---|---|
+| Mở store và mở chat: widget không gọi `/api/products` | Mở store: 1 request của store. Mở chat: +4 | ✗ chờ T-43.3 (#264) |
+| Trang store 20 SP ≤ 8 câu SQL | 8 | ✓ |
+| `size=500` ≤ 100 SP; sort lạ trả 400 | 100 SP; `400` ProblemDetail `errors[sort]` | ✓ |
+| JSON gzip | `Content-Encoding: gzip`, 6,6 KB → 1,2 KB | ✓ |
+| ai-brain: 10 câu chat trong TTL chỉ đọc DB 1 lần, không mở kết nối mỗi câu | 18/20 câu `db_ms=0`, 2 lần đọc đúng mốc 120 s; pytest của T-43.4 | ✓ |
+| SKU vị trí > 100 giữ giá | Đã kiểm ở T-43.4 (`NIVE-SUN-02`), không đo lại | ✓ |
+| p95 store / chi tiết / hội thoại < 300 ms (local) | 80,1 / 50,0 / 51,4 (lấy lượt chậm hơn) | ✓ |
+
+Ghi chú: 7/20 câu chat có cảnh báo `grounding:price`, tức `grounding.py` đã xoá một con số giá không có trong dữ liệu. Việc này không ảnh hưởng hiệu năng; ghi lại để bench giá (US-15) xem.
+
 ### Sau T-43.3
-_Chưa đo._
+_Chưa đo._ PR của T-43.3 điền dòng "Mở chat lần đầu" (mục 5 ở trên) và tiêu chí đầu tiên của mục 6.

@@ -68,6 +68,8 @@ Backend **có** phân trang ở DB: `GET /api/products` → `ProductService.stor
 - Đụng code của ChienPX (`schemas.py`, `graph.py`) và TuTM (`BotReply`, `MessageRouter`, `WebChatAdapter`, widget): nhắn 2 bạn trước khi mở PR. PR US-56 (giao diện) cũng sửa `ChatWidget.tsx`, nên làm T-43.3 sau khi PR đó merge. PR US-56 đã tạm đổi widget thành chỉ tải catalog khi mở chat lần đầu; T-43.3 bỏ hẳn phần này.
 
 ## 6. Đo trước/sau (T-43.2, #150), làm cuối
+> 18/11: đã đo chốt trên `dev` 5098687 sau B và C. Kết quả và bảng tiêu chí ở [perf-US-43.md, mục "Kết quả chốt T-43.2"](perf-US-43.md#kết-quả-chốt-t-432-đo-2026-11-18). Phần A (widget) do PR của T-43.3 tự đo và điền.
+
 - Đo **trước** khi sửa (chạy trên `dev` hiện tại) và **sau** khi xong B, C, A. Ghi kết quả vào `docs/tracking/perf-US-43.md`.
 - Script (Python `httpx` hoặc `k6`, đặt trong `bench/perf/`): 200 request, 10 luồng, cho `GET /api/products?page=0..18&size=20`, `GET /api/products/{id}`, `GET /api/conversations?size=20` (seed 10.000 tin nhắn bằng SQL trước). In p50/p95.
 - Đếm request: DevTools → Network, lọc `/api/products`. Mở `/` khi chat thu nhỏ: 1 (đã đúng từ US-56). Mở chat lần đầu: trước +4, sau +0.
