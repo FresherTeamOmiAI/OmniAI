@@ -16,6 +16,7 @@ export function AccountMenu() {
   if (session) {
     return (
       <span className="account-menu">
+        <NavLink to="/account/link" className={tabClass}>Liên kết sàn</NavLink>
         <span className="account-email" title={session.customer.email}>{session.customer.email}</span>
         <button type="button" className="tab" onClick={logout}>Đăng xuất</button>
       </span>

@@ -7,6 +7,40 @@
 .login-actions .btn { width: auto; flex: 1 1 auto; }
 
 /* Menu tài khoản trên header */
-.account-menu { display: inline-flex; align-items: center; gap: var(--space-1); min-width: 0; }
+.account-menu { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); min-width: 0; max-width: 100%; }
 .account-email { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-sm); color: var(--color-muted); }
 .account-menu button.tab { border: 0; background: transparent; font: inherit; font-size: var(--text-sm); cursor: pointer; }
+
+/* Liên kết tài khoản sàn bằng mã OMNI (/account/link, US-22: T-22.2, T-22.4) */
+.link-page { display: grid; gap: var(--space-5); max-width: 560px; margin: var(--space-8) auto; padding: 0 var(--space-4); }
+.link-head h1 { font-size: var(--text-2xl); margin-bottom: var(--space-2); }
+.link-card {
+  display: grid; gap: var(--space-3); padding: var(--space-6);
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
+}
+.link-card h2 { font-size: var(--text-lg); }
+.link-card > .btn { justify-self: start; }
+.link-code-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.link-code {
+  padding: var(--space-3) var(--space-4); border: 1px dashed var(--color-primary); border-radius: var(--radius-md);
+  background: var(--color-primary-soft); color: var(--color-heading);
+  font-family: var(--font-mono); font-size: var(--text-3xl); font-weight: 700; letter-spacing: .08em; font-variant-numeric: tabular-nums;
+  user-select: all;
+}
+.link-timer strong { font-variant-numeric: tabular-nums; }
+.link-steps { display: grid; gap: var(--space-1); padding-left: var(--space-5); font-size: var(--text-sm); }
+.link-renew { justify-self: start; }
+.link-requests { display: grid; gap: var(--space-3); padding: 0; list-style: none; }
+.link-request {
+  display: grid; gap: var(--space-3); padding: var(--space-4);
+  border: 1px solid var(--color-border-strong); border-radius: var(--radius-md); background: var(--color-surface-2);
+}
+.link-request .login-consent { display: grid; grid-template-columns: auto 1fr; gap: var(--space-2); align-items: start; font-size: var(--text-sm); }
+.link-request .login-consent input { margin-top: 3px; }
+.link-request .login-actions .btn { width: auto; flex: 1 1 auto; }
+
+@media (max-width: 640px) {
+  .link-page { margin-top: var(--space-5); }
+  .link-card { padding: var(--space-4); }
+  .link-code { font-size: var(--text-2xl); }
+}
