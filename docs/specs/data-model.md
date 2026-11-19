@@ -1,6 +1,6 @@
 # Mô hình dữ liệu
 
-> Cập nhật: 2026-11-18 · T-22.1 V21 mã liên kết (`link_code`, `link_code_attempt`); T-19.3 V20 hồ sơ da (`skin_profile` + 2 bảng con); T-21.5, T-21.6 simulator Shopee tách ra `simulators/shopee` (:8091, trang `/ui`); 2026-11-18 · T-50.2 V19 `aspect` cho `product_channel_sync`; 2026-11-18 · T-49.1 V18 `product_channel_sync`; T-25.4 V17 trạng thái gửi câu bot (`delivery_status`); 2026-11-13 · T-04.1 V15 chuẩn hoá product (decisions #35); T-09.3 V14 `customer_order`; T-09.2 store lọc qua Specification; T-04.1 tách giá theo kênh (V13, decisions #32) · Owner: LucVT (catalog, customer, identity, order, promotion); TuTM (channel_credential, conversation)
+> Cập nhật: 2026-11-19 · job dọn `otp_challenge`, `link_code` (trừ CONFIRMED), `link_code_attempt` cũ hơn 7 ngày (decisions #51); 2026-11-18 · T-22.1 V21 mã liên kết (`link_code`, `link_code_attempt`); T-19.3 V20 hồ sơ da (`skin_profile` + 2 bảng con); T-21.5, T-21.6 simulator Shopee tách ra `simulators/shopee` (:8091, trang `/ui`); 2026-11-18 · T-50.2 V19 `aspect` cho `product_channel_sync`; 2026-11-18 · T-49.1 V18 `product_channel_sync`; T-25.4 V17 trạng thái gửi câu bot (`delivery_status`); 2026-11-13 · T-04.1 V15 chuẩn hoá product (decisions #35); T-09.3 V14 `customer_order`; T-09.2 store lọc qua Specification; T-04.1 tách giá theo kênh (V13, decisions #32) · Owner: LucVT (catalog, customer, identity, order, promotion); TuTM (channel_credential, conversation)
 > Nguồn: `backend/src/main/resources/db/migration/*.sql`, `backend/.../catalog/*`, `backend/.../customer/*`, `backend/.../channel/credential/*`, `backend/.../conversation/*`
 
 DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flyway** quản lý, JPA để `ddl-auto: validate`. Vì vậy mọi thay đổi bảng đều phải viết migration mới `V<n>__<mo_ta>.sql`. **Không sửa migration đã merge.**
@@ -93,12 +93,13 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 - `customer_id` FK CASCADE, `code_hash` unique (SHA-256 hex của `OMNI-XXXXXX`, không lưu mã gốc), `created_at`, `expires_at` (+15 phút), `revoked_at` (lấy mã mới thì mã chưa ai gõ bị thu hồi).
 - `claimed_channel` (`SHOPEE | TIKTOK`), `claimed_external_id`, `claimed_at`: danh tính sàn đã gõ mã (cả 3 cùng null hoặc cùng có). Hạn xác nhận = `claimed_at` + 15 phút.
 - `resolution` (`CONFIRMED | REJECTED`) + `resolved_at`. Index (`customer_id`, `created_at` DESC).
+- `IdentityCleanup` xoá hằng đêm các dòng `created_at` cũ hơn 7 ngày, **trừ** `CONFIRMED` (giữ làm vết liên kết, mỗi lần liên kết 1 dòng).
 
-**link_code_attempt** (`identity/LinkCodeAttempt.java`, V21): 1 lần gõ mã thất bại (`channel`, `external_id`, `attempted_at`). Đủ 5 dòng trong 1 giờ thì danh tính bị khoá nhập mã. Chưa có job dọn dòng cũ.
+**link_code_attempt** (`identity/LinkCodeAttempt.java`, V21): 1 lần gõ mã thất bại (`channel`, `external_id`, `attempted_at`). Đủ 5 dòng trong 1 giờ thì danh tính bị khoá nhập mã. `IdentityCleanup` xoá hằng đêm dòng cũ hơn 7 ngày.
 
 **otp_challenge** (`identity/OtpChallenge.java`, V16, owner LucVT): 1 lần gửi OTP tới 1 email.
 - `email` (đã trim + lowercase), `code_hash` (bcrypt qua `PasswordEncoder`, không lưu mã gốc), `created_at`, `expires_at` (+5 phút), `attempts` (số lần sai), `locked_until` (sai đủ 5 lần thì +15 phút), `consumed_at` (đã đăng nhập bằng mã này). Index (`email`, `created_at` DESC).
-- Dòng mới nhất của email là mã hiệu lực. Giới hạn gửi lại tính trên các dòng: dòng mới nhất < 60 s, hoặc ≥ 5 dòng trong 1 giờ. Chưa có job dọn dòng cũ.
+- Dòng mới nhất của email là mã hiệu lực. Giới hạn gửi lại tính trên các dòng: dòng mới nhất < 60 s, hoặc ≥ 5 dòng trong 1 giờ. `IdentityCleanup` xoá hằng đêm dòng `created_at` cũ hơn 7 ngày (đã hết hạn, hết khoá, ngoài cửa sổ 1 giờ).
 
 **channel_credential** (`channel/credential/ChannelCredential.java`, owner TuTM): ủy quyền OAuth2 của 1 shop trên 1 kênh sàn. TikTok Shop dùng từ S2, Shopee dùng chung.
 - `channel` (enum `ChannelType`), `shop_id`; unique (`channel`, `shop_id`). `shop_name`, `shop_cipher` (TikTok: tham số `shop_cipher` của mọi API dữ liệu shop).

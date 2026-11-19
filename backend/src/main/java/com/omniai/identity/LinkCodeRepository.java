@@ -29,4 +29,12 @@ interface LinkCodeRepository extends JpaRepository<LinkCode, Long> {
     @Query("UPDATE LinkCode c SET c.revokedAt = :now WHERE c.customerId = :customerId "
             + "AND c.claimedAt IS NULL AND c.revokedAt IS NULL AND c.expiresAt > :now")
     int revokeUnclaimed(@Param("customerId") Long customerId, @Param("now") Instant now);
+
+    /**
+     * Dọn mã cũ ({@link IdentityCleanup}): mã lấy trước {@code cutoff} đã quá cả hạn gõ lẫn hạn xác nhận.
+     * Giữ mã {@code keep} (CONFIRMED): đó là vết danh tính sàn nào được gắn bằng mã nào, lúc nào.
+     */
+    @Modifying
+    @Query("DELETE FROM LinkCode c WHERE c.createdAt < :cutoff AND (c.resolution IS NULL OR c.resolution <> :keep)")
+    int deleteFinishedBefore(@Param("cutoff") Instant cutoff, @Param("keep") LinkCode.Resolution keep);
 }
