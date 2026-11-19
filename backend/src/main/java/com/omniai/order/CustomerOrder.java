@@ -42,7 +42,14 @@ public class CustomerOrder {
     @Column(name = "external_order_id", length = 64)
     private String externalOrderId;
 
-    /** Khách đã đăng nhập (từ S3). S2: null. */
+    /**
+     * Người mua phía sàn (Shopee {@code buyer_user_id}, TikTok {@code user_id}), V22. Đơn web: null.
+     * Đơn sàn thuộc khách nào thì tra qua {@code channel_identity} lúc đọc (decisions #52), không qua {@link #customerId}.
+     */
+    @Column(name = "buyer_external_id")
+    private String buyerExternalId;
+
+    /** Khách đã đăng nhập (từ S3), chỉ dùng cho đơn WEB. S2: null. Đơn sàn để null (decisions #52). */
     @Column(name = "customer_id")
     private Long customerId;
 

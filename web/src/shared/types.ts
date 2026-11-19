@@ -93,11 +93,20 @@ export interface OrderView {
   id: number
   status: 'DEMO'
   channel: string
+  /** Mã đơn phía sàn (T-23.1); đơn web là null. */
+  externalOrderId: string | null
   items: OrderLine[]
   total: number
   createdAt: string
   /** Câu nhắc "không thanh toán, không giao hàng" cho đơn DEMO. */
   notice: string | null
+}
+
+/** GET /api/me/orders (T-23.1): đơn mọi kênh đã liên kết, mới nhất trước. */
+export interface OrderHistoryView {
+  orders: OrderView[]
+  linkedChannels: string[]
+  hasMore: boolean
 }
 
 // Lỗi API theo ProblemDetail (RFC 9457). `errors` chỉ có ở lỗi 400 sai dữ liệu.
