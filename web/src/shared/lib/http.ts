@@ -32,6 +32,8 @@ export async function requestJson<T>(path: string, options: RequestOptions = {})
     const fallback = method === 'GET' ? `Lỗi tải dữ liệu (HTTP ${res.status})` : `Lỗi gửi dữ liệu (HTTP ${res.status})`
     throw new ApiError(res.status, problem, fallback)
   }
+  // 204 No Content (vd. từ chối liên kết) không có body để đọc.
+  if (res.status === 204) return undefined as T
   return res.json()
 }
 
