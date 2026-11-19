@@ -8,7 +8,7 @@ import time
 
 from app.agent.followup import continues_usage, resolve_usage_targets, usage_text
 from app.agent.loop import choose_tool
-from app.agent.product_card import asks_for_image, ensure_product_cards, image_reply
+from app.agent.product_card import asks_for_image, card_products, ensure_product_cards, image_reply
 from app.llm.base import LLMProvider
 from app.rag.search import catalog_snapshot, load_search_rows, parse_constraints, search_product, suggestion_lines
 from app.rules.grounding import strip_unverified_numbers
@@ -122,4 +122,9 @@ def respond(request: ChatRequest, provider: LLMProvider) -> ChatResponse:
         llm_ms,
         len(rows),
     )
-    return ChatResponse(reply=reply, provider=provider.name, warnings=[w.code for w in warnings] + grounding)
+    return ChatResponse(
+        reply=reply,
+        provider=provider.name,
+        warnings=[w.code for w in warnings] + grounding,
+        products=card_products(reply, rows, request.channel, request.channel_owned),
+    )

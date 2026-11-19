@@ -58,6 +58,8 @@ Backend **có** phân trang ở DB: `GET /api/products` → `ProductService.stor
 - ChienPX cũng đang sửa `search.py` (T-10.4, phần `parse_constraints`) và `graph.py` (T-21.7, `system_prompt_for`). Nhắn ChienPX trước khi sửa 2 file này, merge PR của ai xong trước rồi người kia rebase.
 
 ## 5. Phần A: chat widget không tải catalog (T-43.3, #264), làm sau PR US-56
+> 19/11: đã làm theo đúng hướng dưới đây. Khác đặc tả: backend gắn nguyên `ProductCard` (có giá các kênh cho nút Mua ngay) thay vì chỉ `id` + `imageUrl`; brain lấy `products` bằng cách đọc lại dòng thẻ trong câu (`card_products`) để bắt đủ cả 3 nguồn thẻ.
+
 Đổi hợp đồng gợi ý từ "text rồi ghép tên" sang "dữ liệu có cấu trúc":
 1. ai-brain `ChatResponse` (`app/schemas.py`) thêm `products: list[SuggestedProduct] = []`, mỗi phần tử `{sku, brand, name, price, category}` (giá của kênh hiện tại). `graph.py` điền từ `hits` của `search_product`.
 2. Backend `BrainResponse` (`brain/BrainResponse.java`) đọc thêm `products`. `MessageRouter` chỉ gắn vào `BotReply` (`common/BotReply.java`) khi kênh là WEB. Tra 1 query theo danh sách SKU (`findAllBySkuInAndActiveTrue`) để thêm `id` và `imageUrl` (`ProductImages`). SKU không còn active thì bỏ.

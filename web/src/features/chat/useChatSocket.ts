@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { wsUrl } from '../../shared/lib/http'
 import { useCustomerSession } from '../account'
-import type { BotReply, WsErrorReply } from '../../shared/types'
+import type { BotReply, ProductCard, WsErrorReply } from '../../shared/types'
 
 export interface ChatLine {
   id: string
@@ -9,6 +9,8 @@ export interface ChatLine {
   text: string
   handoff?: boolean
   error?: boolean
+  /** Thẻ sản phẩm của các dòng gợi ý trong câu (T-43.3); widget không tải catalog nữa. */
+  products?: ProductCard[]
 }
 
 export type ChatStatus = 'connecting' | 'open' | 'closed'
@@ -104,6 +106,7 @@ export function useChatSocket() {
             from: 'bot',
             text: reply.finalText,
             handoff: reply.handoff,
+            products: reply.products ?? [],
           },
         ])
       } catch (err) {

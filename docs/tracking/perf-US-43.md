@@ -1,6 +1,6 @@
 # Đo hiệu năng US-43: trước / sau
 
-> Cập nhật: 2026-11-18 · T-43.5 sau khi cache làm mới ngầm: 0/19 câu chat chờ DB trên Supabase; T-43.2 kết quả chốt (`dev` 5098687, mọi tiêu chí trừ phần widget chờ T-43.3); số **trước** khi tối ưu · Người đo: LucVT · Đặc tả: [dac-ta-hieu-nang-catalog.md](dac-ta-hieu-nang-catalog.md)
+> Cập nhật: 2026-11-19 · T-43.3 mở chat không còn gọi `/api/products` (+0 request), US-43 đạt đủ tiêu chí đặc tả mục 2; 2026-11-18 · T-43.5 sau khi cache làm mới ngầm: 0/19 câu chat chờ DB trên Supabase; T-43.2 kết quả chốt (`dev` 5098687, mọi tiêu chí trừ phần widget chờ T-43.3); số **trước** khi tối ưu · Người đo: LucVT · Đặc tả: [dac-ta-hieu-nang-catalog.md](dac-ta-hieu-nang-catalog.md)
 > Công cụ: `bench/perf/load_test.py`, `bench/perf/brain_db.py`, `bench/perf/seed_conversations.sql` (cách chạy ở [../specs/bench.md](../specs/bench.md), mục "Đo hiệu năng")
 
 ## Điều kiện đo
@@ -117,7 +117,7 @@ Cùng máy, cùng dữ liệu (10.000 tin seed), cùng lệnh `perf.load_test` (
 | `store_list` | 214,6 | 82,5 | **65,2 / 80,1** | 49,4 | 28,6 → 6,3 | < 300 ✓ |
 | `product_detail` | 67,9 | 78,3 | **43,8 / 50,0** | 30,5 | 1,5 → 1,5 | < 300 ✓ |
 | `conversations` | 530,3 | 61,5 | **51,4 / 49,5** | 32,2 | 4,2 → 7,8 | < 300 ✓ |
-| `widget_catalog` (1 vòng) | 327,5 | 202,8 | 224,9 / 197,2 | 168,9 | 542,9 → 118,7 | widget không gọi: chờ T-43.3 |
+| `widget_catalog` (1 vòng) | 327,5 | 202,8 | 224,9 / 197,2 | 168,9 | 542,9 → 118,7 | widget không gọi: xong ở T-43.3 (kịch bản này giờ chỉ đo API, widget không chạy nó nữa) |
 
 **2. Câu SQL mỗi request** (`log_statement = 'all'` bật tạm, đã trả về `none`)
 | Request | Trước | Chốt |
@@ -158,14 +158,14 @@ Số lấy từ dòng log `chat … db_ms rank_ms llm_ms` của ai-brain; tổng
 | Thao tác | Trước (review S2) | Chốt | Mục tiêu |
 |---|---|---|---|
 | Mở `/` khi chat thu nhỏ | 1 (từ US-56) | **1** request, 6,5 KB | 1 ✓ |
-| Mở chat lần đầu | +4 request, ~543 KB | +4 request, **118,7 KB** | +0: chờ T-43.3 |
+| Mở chat lần đầu | +4 request, ~543 KB | +4 request, **118,7 KB**; sau T-43.3: **+0** | +0 ✓ (T-43.3) |
 
 Chạy `npm run dev` thì thấy 2 request khi mở `/`. Đó là React `StrictMode` chạy effect 2 lần ở chế độ dev, bản build chỉ có 1.
 
 **6. Đối chiếu tiêu chí đặc tả mục 2**
 | Tiêu chí | Số đo chốt | Kết quả |
 |---|---|---|
-| Mở store và mở chat: widget không gọi `/api/products` | Mở store: 1 request của store. Mở chat: +4 | ✗ chờ T-43.3 (#264) |
+| Mở store và mở chat: widget không gọi `/api/products` | Mở store: 1 request của store. Mở chat: +4; sau T-43.3: **+0**, cả lúc nhận câu gợi ý | ✓ (T-43.3, 19/11) |
 | Trang store 20 SP ≤ 8 câu SQL | 8 | ✓ |
 | `size=500` ≤ 100 SP; sort lạ trả 400 | 100 SP; `400` ProblemDetail `errors[sort]` | ✓ |
 | JSON gzip | `Content-Encoding: gzip`, 6,6 KB → 1,2 KB | ✓ |
@@ -193,5 +193,15 @@ ai-brain nối **Supabase** (role `chatbot_reader`, chỉ đọc), Gemini thật
   - `prewarm()` xong thì câu chat đầu không đọc DB;
   - 2 thread cùng nạp lúc chưa có cache chỉ đọc DB 1 lần.
 
-### Sau T-43.3
-_Chưa đo._ PR của T-43.3 điền dòng "Mở chat lần đầu" (mục 5 ở trên) và tiêu chí đầu tiên của mục 6.
+### Sau T-43.3, đo 2026-11-19
+Code nhánh `feature/t-43-3-chat-products` trên `dev` 9410a9b. Playwright (Chromium 1280 px) trên bản build `vite preview`, backend + ai-brain local (DB local, Gemini thật).
+
+| Thao tác | Trước (review S2) | Sau US-56 | **Sau T-43.3** |
+|---|---|---|---|
+| Mở `/` khi chat thu nhỏ | 1 request store | 1 | **1** (`/api/products?page=0&size=20&sort=id`, của store) |
+| Mở chat lần đầu | +4 request, ~543 KB | +4 request, 118,7 KB | **+0** |
+| Hỏi "kem chống nắng cho da dầu dưới 300k" | (dùng catalog đã tải) | (dùng catalog đã tải) | **+0**: thẻ đi kèm frame `BotReply.products` |
+
+- Thẻ hiện sau 4,1–4,6 s (gồm thời gian LLM). Thẻ có ảnh thật (Supabase Storage, `naturalWidth > 0`), SKU `NIVE-SUN-02`, giá Shopee/TikTok với 2 nút Mua ngay, tên là link `/products/403`. Bấm link mở đúng trang chi tiết.
+- Phía backend: mỗi câu gợi ý thêm **1 câu SQL** `findAllBySkuInAndActiveTrue` cho tối đa 5 SKU (cộng các câu nạp collection theo lô), thay cho 4 trang × 13 câu khi widget tải catalog.
+- Test: pytest `test_card_products.py` (6), backend `MessageRouterProductsTest` (5), `ProductSuggestionsIT` (3), `BrainResponseJsonTest` (2), `WebChatSocketIT.suggestedProductsReachTheWidgetAsCards`. Backend toàn bộ 276/276.

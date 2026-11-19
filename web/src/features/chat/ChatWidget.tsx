@@ -2,8 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { channelOffer, dong } from '../marketplace'
 import { formatVnd } from '../../shared/lib/format'
-import { getJson } from '../../shared/lib/http'
-import type { Page, ProductCard } from '../../shared/types'
 import { ChatIcon, ChevronDownIcon, SparkleIcon } from '../../shared/ui/icons'
 import { ProductThumb, splitSuggestion } from './suggestionCards'
 import { useChatSocket } from './useChatSocket'
@@ -60,12 +58,11 @@ function useThinkingStep(active: boolean) {
 }
 
 // Chat widget kênh WEB. Owner: TuTM. Từ US-56: mặc định thu nhỏ thành nút ở góc phải dưới để không che giá và nút
-// Đặt thử; Esc để thu nhỏ; danh mục sản phẩm (để ghép ảnh vào thẻ gợi ý) chỉ tải khi mở chat lần đầu. T-43.3 sẽ bỏ hẳn việc tải này.
+// Đặt thử; Esc để thu nhỏ. T-43.3: không tải catalog nữa; thẻ gợi ý (ảnh, SKU, giá các kênh, link chi tiết) lấy từ
+// `products` của chính câu trả lời (backend tra theo SKU AI Brain gợi ý).
 export function ChatWidget() {
   const [open, setOpen] = useState(readOpen)
-  const [catalogWanted, setCatalogWanted] = useState(open)
   const [draft, setDraft] = useState('')
-  const [products, setProducts] = useState<ProductCard[]>([])
   const { lines, status, isPending, send, reconnect } = useChatSocket()
   const thinkingStep = useThinkingStep(isPending)
   const logRef = useRef<HTMLDivElement | null>(null)
@@ -74,30 +71,6 @@ export function ChatWidget() {
   const launcherRef = useRef<HTMLButtonElement | null>(null)
   // Chỉ dời focus khi khách tự bấm mở/thu nhỏ, không dời lúc tải trang.
   const focusAfterToggle = useRef(false)
-
-  useEffect(() => {
-    if (!catalogWanted) return
-    let cancelled = false
-    const load = async () => {
-      const all: ProductCard[] = []
-      let page = 0
-      try {
-        for (;;) {
-          const result = await getJson<Page<ProductCard>>(`/api/products?page=${page}&size=100`)
-          all.push(...result.items)
-          if (cancelled || all.length >= result.total || result.items.length === 0) break
-          page += 1
-        }
-        if (!cancelled) setProducts(all)
-      } catch {
-        if (!cancelled) setProducts([])
-      }
-    }
-    void load()
-    return () => {
-      cancelled = true
-    }
-  }, [catalogWanted])
 
   useEffect(() => {
     const log = logRef.current
@@ -114,7 +87,6 @@ export function ChatWidget() {
 
   const toggle = (next: boolean) => {
     focusAfterToggle.current = true
-    if (next) setCatalogWanted(true)
     setOpen(next)
     saveOpen(next)
   }
@@ -178,7 +150,7 @@ export function ChatWidget() {
             </li>
           )}
           {lines.map((line) => {
-            const suggestion = line.from === 'bot' && !line.error ? splitSuggestion(line.text, products) : null
+            const suggestion = line.from === 'bot' && !line.error ? splitSuggestion(line.text, line.products ?? []) : null
             const items = suggestion?.items ?? []
             const note = suggestion && items.length > 0 ? suggestion.note : line.text
             return (
@@ -194,7 +166,11 @@ export function ChatWidget() {
                         <ProductThumb category={item.category} label={item.sku ?? item.brand} imageUrl={item.imageUrl} />
                         <div className="chat-sku-copy">
                           {item.sku && <span className="chat-sku-code">{item.sku}</span>}
-                          <p className="chat-sku-name">{item.name}</p>
+                          <p className="chat-sku-name">
+                            {item.product
+                              ? <Link to={`/products/${item.product.id}`} className="chat-sku-link">{item.name}</Link>
+                              : item.name}
+                          </p>
                           <p className="chat-sku-brand">{item.brand}</p>
                           {!item.product && <p className="chat-sku-price">{formatVnd(item.price)}</p>}
                         </div>

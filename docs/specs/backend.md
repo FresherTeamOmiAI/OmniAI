@@ -28,6 +28,7 @@ Spring Boot 4.1.2, Java 21, Maven (chưa có `mvnw`). Starter đang dùng: webmv
 
 ## MessageRouter
 - `handle(CanonicalMessage)`: kiểm tra idempotency → `recorder.inbound` (lưu tin khách) → `brainClient.ask` → `policyEngine.apply(channel, reply)` → `recorder.reply` (lưu câu bot) → trả `BotReply`.
+- Thẻ sản phẩm (T-43.3): kênh WEB, câu không bị chặn và brain có `products` thì `catalog.ProductSuggestions.cards(skus)` (1 câu `findAllBySkuInAndActiveTrue`, giữ thứ tự, bỏ SKU ẩn, tối đa 5) → `BotReply.products`. Tra lỗi chỉ ghi log. Constructor 3/4 tham số (test) không tra thẻ.
 - Idempotency key là `CHANNEL:messageId`, lưu trong LRU map 10.000 phần tử **trong bộ nhớ**. Chạy nhiều instance thì không đúng nữa; S7 (US-29) sẽ chuyển sang Redis. Trúng cache thì không lưu lại; mất cache (restart) thì DB tự bỏ dòng trùng.
 - Chống trùng nguyên tử (T-11.4): map giữ `CompletableFuture<BotReply>`, ghi bằng `putIfAbsent` trước khi gọi Brain. Request trùng đến khi lượt đầu chưa xong thì chờ future và nhận cùng `BotReply`, Brain chỉ được gọi 1 lần. Lượt ném exception thì xoá key (kênh gửi lại sẽ được xử lý lại), request đang chờ nhận cùng exception.
 - Lưu hội thoại (US-11, decisions #31): tin khách lưu **trước** khi gọi Brain để Brain treo/sập thì tin vẫn còn. Brain ném exception bất kỳ thì router đổi thành `BrainResponse.unavailable()` (handoff). Lưu lỗi (DB sập) chỉ log, khách vẫn nhận câu trả lời. Mỗi lần ghi là 1 transaction ngắn, không giữ transaction trong lúc chờ Brain.

@@ -18,5 +18,8 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
     /** Tra giá và tồn theo SKU cho tool của AI Brain (US-15). Sản phẩm ẩn coi như không có. */
     Optional<Product> findBySkuAndActiveTrue(String sku);
 
+    /** Thẻ gợi ý trong chat widget: các SKU AI Brain vừa gợi ý, 1 câu (T-43.3). */
+    List<Product> findAllBySkuInAndActiveTrue(Collection<String> skus);
+
     boolean existsBySku(String sku);
 }

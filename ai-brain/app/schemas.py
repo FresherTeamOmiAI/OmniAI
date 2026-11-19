@@ -19,8 +19,20 @@ class ChatRequest(BaseModel):
     history: list[HistoryTurn] = Field(default_factory=list)
 
 
+class SuggestedProduct(BaseModel):
+    """Một thẻ sản phẩm trong câu trả lời (dòng "1. Hãng — Tên — giá"). Backend tra theo sku để gắn id, ảnh (T-43.3)."""
+
+    sku: str
+    brand: str
+    name: str
+    price: int = Field(description="Giá của kênh hiện tại, VND")
+    category: str
+
+
 class ChatResponse(BaseModel):
     reply: str
     provider: str
     warnings: list[str] = []
     handoff: bool = False
+    # Sản phẩm có dòng thẻ trong reply, đúng thứ tự xuất hiện. Kênh nào cũng trả; backend chỉ gửi xuống widget WEB.
+    products: list[SuggestedProduct] = []
