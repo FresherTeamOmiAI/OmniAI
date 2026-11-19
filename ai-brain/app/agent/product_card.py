@@ -1,16 +1,20 @@
 """Gắn thẻ sản phẩm để web hiện ảnh. Owner: ChienPX.
 
-Widget chỉ vẽ ảnh khi câu có dòng "1. Thương hiệu — Tên — 1.290.000đ".
+Widget chỉ vẽ ảnh khi câu có dòng "1. Thương hiệu — Tên — 1.290.000đ". Từ T-43.3 brain trả thêm danh sách sản phẩm
+của các dòng đó (card_products) để widget không phải tải cả catalog.
 """
 
 import re
 
-from app.rag.search import ProductRow, suggestion_lines
-from app.schemas import HistoryTurn
+from app.rag.search import ProductRow, channel_price, suggestion_lines
+from app.schemas import HistoryTurn, SuggestedProduct
 from app.tools.price_stock import SKU
 
 _IMAGE = ("ảnh", "hình ảnh", "hình sản phẩm", "xem hình")
 _CARD_LINE = re.compile(r"(?m)^\d+\.\s+.+\s—\s+.+\s—\s+\d")
+# Cùng mẫu với PRODUCT_LINE ở web/src/features/chat/suggestionCards.tsx.
+_CARD_PARTS = re.compile(r"^\d+\.\s+(.+?)\s+—\s+(.+?)\s+—\s+\d{1,3}(?:\.\d{3})*đ$")
+MAX_CARD_PRODUCTS = 5
 ASK_WHICH = "Bạn gửi giúp shop mã hoặc tên sản phẩm để shop lấy đúng ảnh."
 NOT_ON_CHANNEL = "Sản phẩm này hiện chưa bán trên kênh này ạ."
 
@@ -71,3 +75,29 @@ def ensure_product_cards(reply: str, rows: list[ProductRow], channel: str, owned
     if not lines:
         return reply
     return "Gợi ý trong shop:\n" + "\n".join(lines) + "\n" + reply
+
+
+def card_products(reply: str, rows: list[ProductRow], channel: str, owned: bool) -> list[SuggestedProduct]:
+    """Sản phẩm của các dòng thẻ trong reply, đúng thứ tự, bỏ trùng, tối đa MAX_CARD_PRODUCTS (T-43.3).
+
+    Đọc lại chính dòng thẻ brain vừa viết nên bắt đủ mọi nguồn (gợi ý, ensure_product_cards, ảnh). Dòng không khớp
+    hãng + tên của catalog thì bỏ, không đoán.
+    """
+    by_identity = {(row.brand.casefold(), row.name.casefold()): row for row in rows}
+    found: list[SuggestedProduct] = []
+    seen: set[str] = set()
+    for raw in reply.splitlines():
+        match = _CARD_PARTS.match(raw.strip().replace("**", ""))
+        if not match:
+            continue
+        row = by_identity.get((match.group(1).strip().casefold(), match.group(2).strip().casefold()))
+        if row is None or row.sku in seen:
+            continue
+        price = channel_price(row, channel, owned)
+        if price is None:
+            continue
+        seen.add(row.sku)
+        found.append(SuggestedProduct(sku=row.sku, brand=row.brand, name=row.name, price=price, category=row.category))
+        if len(found) == MAX_CARD_PRODUCTS:
+            break
+    return found

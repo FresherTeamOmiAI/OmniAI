@@ -16,6 +16,8 @@ export interface BotReply {
   violations: PolicyViolation[]
   blocked: boolean
   handoff: boolean
+  /** Thẻ sản phẩm cho các dòng gợi ý trong câu. Chỉ kênh WEB, câu không bị chặn; thiếu = rỗng (T-43.3). */
+  products?: ProductCard[]
 }
 
 /** Frame lỗi từ /ws/chat (tin JSON hỏng hoặc text rỗng). messageId null nếu server không đọc được. */
