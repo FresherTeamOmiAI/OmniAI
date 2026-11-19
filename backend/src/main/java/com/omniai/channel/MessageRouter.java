@@ -1,10 +1,14 @@
 package com.omniai.channel;
 
 import com.omniai.brain.BrainClient;
+import com.omniai.brain.BrainProduct;
 import com.omniai.brain.BrainResponse;
 import com.omniai.brain.BrainTurn;
+import com.omniai.catalog.ProductCard;
+import com.omniai.catalog.ProductSuggestions;
 import com.omniai.common.BotReply;
 import com.omniai.common.CanonicalMessage;
+import com.omniai.common.ChannelType;
 import com.omniai.conversation.ConversationRecorder;
 import com.omniai.conversation.TurnHistory;
 import com.omniai.policy.PolicyEngine;
@@ -35,6 +39,7 @@ public class MessageRouter {
     private final PolicyEngine policyEngine;
     private final ConversationRecorder recorder;
     private final TurnHistory history;
+    private final ProductSuggestions suggestions;
 
     // Idempotency tạm trong bộ nhớ: kênh gửi lại cùng messageId (webhook retry) thì trả lại kết quả cũ.
     // Giữ future thay vì kết quả để chống trùng nguyên tử: request trùng đến khi lượt đầu chưa xong thì chờ
@@ -48,11 +53,18 @@ public class MessageRouter {
             });
 
     @Autowired
-    public MessageRouter(BrainClient brainClient, PolicyEngine policyEngine, ConversationRecorder recorder, TurnHistory history) {
+    public MessageRouter(BrainClient brainClient, PolicyEngine policyEngine, ConversationRecorder recorder, TurnHistory history,
+                         ProductSuggestions suggestions) {
         this.brainClient = brainClient;
         this.policyEngine = policyEngine;
         this.recorder = recorder;
         this.history = history;
+        this.suggestions = suggestions;
+    }
+
+    /** Test không cần thẻ sản phẩm (câu trả lời WEB có {@code products} rỗng). */
+    public MessageRouter(BrainClient brainClient, PolicyEngine policyEngine, ConversationRecorder recorder, TurnHistory history) {
+        this(brainClient, policyEngine, recorder, history, null);
     }
 
     /** Test và chỗ chưa cần các lượt trước. */
@@ -103,10 +115,27 @@ public class MessageRouter {
                 policy.finalText(),
                 policy.violations(),
                 policy.blocked(),
-                brain.handoff());
+                brain.handoff(),
+                productCards(message, brain, policy));
 
         record("câu trả lời", key, () -> recorder.reply(message, reply));
         return reply;
+    }
+
+    /**
+     * Thẻ sản phẩm cho widget WEB (T-43.3): tra các SKU AI Brain gợi ý. Kênh sàn chỉ nhận chữ nên không tra; câu bị
+     * policy chặn thì không có thẻ. Tra lỗi chỉ ghi log, câu trả lời vẫn đi.
+     */
+    private List<ProductCard> productCards(CanonicalMessage message, BrainResponse brain, PolicyResult policy) {
+        if (suggestions == null || message.channel() != ChannelType.WEB || policy.blocked() || brain.products().isEmpty()) {
+            return List.of();
+        }
+        try {
+            return suggestions.cards(brain.products().stream().map(BrainProduct::sku).toList());
+        } catch (RuntimeException e) {
+            log.warn("Không tra được thẻ sản phẩm cho {}: {}", message.messageId(), e.toString());
+            return List.of();
+        }
     }
 
     private List<BrainTurn> earlierTurns(CanonicalMessage message) {

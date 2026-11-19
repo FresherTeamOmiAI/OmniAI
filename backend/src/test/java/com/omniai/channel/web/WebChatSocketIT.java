@@ -2,13 +2,16 @@ package com.omniai.channel.web;
 
 import com.omniai.TestcontainersConfig;
 import com.omniai.brain.BrainClient;
+import com.omniai.brain.BrainProduct;
 import com.omniai.brain.BrainResponse;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
@@ -38,6 +41,9 @@ class WebChatSocketIT {
 
     @MockitoBean
     BrainClient brainClient;
+
+    @Autowired
+    JdbcTemplate jdbc;
 
     private final JsonMapper jsonMapper = JsonMapper.builder().build();
     private final BlockingQueue<String> received = new LinkedBlockingQueue<>();
@@ -80,6 +86,23 @@ class WebChatSocketIT {
         assertThat(reply.get("channel").asString()).isEqualTo("WEB");
         assertThat(reply.get("finalText").asString()).isEqualTo(FIXED_REPLY);
         assertThat(reply.has("error")).isFalse();
+    }
+
+    @Test
+    void suggestedProductsReachTheWidgetAsCards() throws Exception {
+        String sku = jdbc.queryForObject("SELECT sku FROM product WHERE active ORDER BY id LIMIT 1", String.class);
+        when(brainClient.ask(any(), any())).thenReturn(new BrainResponse(FIXED_REPLY, "test", List.of(), false,
+                List.of(new BrainProduct(sku, "Hãng", "Tên", 100_000L, "toner"))));
+
+        JsonNode reply = sendAndReceive("""
+                {"messageId": "it-products-1", "text": "toner cho da khô"}
+                """);
+
+        JsonNode products = reply.get("products");
+        assertThat(products.size()).isEqualTo(1);
+        assertThat(products.get(0).get("sku").asString()).isEqualTo(sku);
+        assertThat(products.get(0).get("id").asLong()).isPositive();
+        assertThat(products.get(0).get("prices").has("WEB")).isTrue();
     }
 
     @Test

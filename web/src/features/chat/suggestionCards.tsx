@@ -14,7 +14,10 @@ export interface SuggestedSku {
 
 const PRODUCT_LINE = /^\d+\.\s+(.+?)\s+—\s+(.+?)\s+—\s+(\d{1,3}(?:\.\d{3})*)đ$/
 
-/** Tách các dòng "1. Thương hiệu — Tên — 289.000đ" thành thẻ SKU, phần chữ còn lại giữ làm lời nhắn. */
+/**
+ * Tách các dòng "1. Thương hiệu — Tên — 289.000đ" thành thẻ SKU, phần chữ còn lại giữ làm lời nhắn.
+ * `products` là thẻ backend gửi kèm chính câu trả lời (T-43.3), không còn là cả catalog.
+ */
 export function splitSuggestion(text: string, products: ProductCard[]): { items: SuggestedSku[]; note: string } {
   const items: SuggestedSku[] = []
   const seen = new Set<string>()
@@ -55,7 +58,7 @@ export function splitSuggestion(text: string, products: ProductCard[]): { items:
 /** Số màu minh hoạ (--tone-0 … --tone-5 trong tokens.css). */
 const TONES = 6
 
-/** Câu chữ tự do vẫn hiện ảnh nếu nhắc đúng tên sản phẩm trong catalog. */
+/** Câu chữ tự do vẫn hiện ảnh nếu nhắc đúng tên một sản phẩm backend gửi kèm câu. */
 function productsMentioned(text: string, products: ProductCard[], seen: Set<string>): SuggestedSku[] {
   const folded = text.toLocaleLowerCase('vi')
   const ranked = [...products].sort((a, b) => b.name.length - a.name.length)
