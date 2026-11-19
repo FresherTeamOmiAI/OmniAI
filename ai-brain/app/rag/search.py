@@ -2,6 +2,8 @@
 
 Catalog đọc từ view chatbot_catalog_search được nhớ CATALOG_CACHE_TTL_SECONDS giây (mặc định 120) và dùng chung cho
 mọi việc của một câu chat: gợi ý, dòng sản phẩm trong prompt, cách dùng, ảnh (US-43, T-43.4).
+Hết TTL thì câu chat vẫn dùng bản cũ trong lúc catalog được làm mới ngầm, và catalog được nạp sẵn lúc khởi động,
+nên câu chat không phải chờ database (T-43.5, decisions #50).
 """
 
 import logging
@@ -45,8 +47,18 @@ _CHEAPEST = ("rẻ nhất", "giá thấp nhất")
 _PRICIEST = ("đắt nhất", "mắc nhất", "giá cao nhất")
 
 DEFAULT_CACHE_TTL_S = 120.0
-_cache_lock = threading.Lock()
+# Hết TTL vẫn trả bản cũ trong lúc làm mới ngầm, nhưng bản cũ quá STALE_LIMIT_FACTOR × TTL thì không dùng nữa
+# (DB lỗi lâu thì bot báo không có catalog, không nói giá quá cũ).
+STALE_LIMIT_FACTOR = 10
+_state_lock = threading.Lock()  # giữ _cache và _refreshing, nắm rất ngắn
+_load_lock = threading.Lock()  # chỉ 1 lần đọc database tại một thời điểm
 _cache: "tuple[float, tuple[ProductRow, ...]] | None" = None
+_refreshing = False
+
+
+def _spawn(task) -> None:
+    """Chạy task ở thread nền. pytest thay hàm này để chạy ngay hoặc chỉ ghi lại."""
+    threading.Thread(target=task, name="catalog-refresh", daemon=True).start()
 
 
 @dataclass(frozen=True)
@@ -220,24 +232,89 @@ def cache_ttl() -> float:
 
 
 def clear_cache() -> None:
-    global _cache
-    with _cache_lock:
+    global _cache, _refreshing
+    with _state_lock:
         _cache = None
+        _refreshing = False
 
 
 def load_search_rows() -> list[ProductRow] | None:
-    """Mọi SKU active của view search, nhớ cache_ttl() giây. None khi không đọc được database (lỗi không được nhớ).
+    """Mọi SKU active của view search. None khi không đọc được database (lỗi không được nhớ).
 
-    Có khoá: FastAPI chạy /chat trong threadpool, các câu chat tới cùng lúc khi cache hết hạn chờ đúng một lần đọc.
+    - Cache còn hạn: trả ngay.
+    - Hết hạn nhưng chưa quá STALE_LIMIT_FACTOR × TTL: trả ngay bản cũ, làm mới ngầm (tối đa 1 lần cùng lúc).
+    - Chưa có cache hoặc bản cũ quá giới hạn: đọc đồng bộ. FastAPI chạy /chat trong threadpool, các câu chat tới
+      cùng lúc chờ đúng một lần đọc.
+    TTL = 0 nghĩa là không cache: lần nào cũng đọc đồng bộ.
     """
-    global _cache
-    with _cache_lock:
-        if _cache is not None and time.monotonic() - _cache[0] < cache_ttl():
+    global _refreshing
+    ttl = cache_ttl()
+    with _state_lock:
+        cached = _cache
+        age = None if cached is None else time.monotonic() - cached[0]
+        if cached is not None and age < ttl:
+            return list(cached[1])
+        use_stale = cached is not None and ttl > 0 and age < ttl * STALE_LIMIT_FACTOR
+        start_refresh = use_stale and not _refreshing
+        if start_refresh:
+            _refreshing = True
+    if use_stale:
+        if start_refresh:
+            _spawn(_refresh_in_background)
+        return list(cached[1])
+    return _load_now(ttl)
+
+
+def prewarm() -> None:
+    """Nạp catalog ngầm lúc ai-brain khởi động để câu chat đầu không phải chờ database. Lỗi thì câu chat đầu tự đọc."""
+    global _refreshing
+    with _state_lock:
+        if _cache is not None or _refreshing:
+            return
+        _refreshing = True
+    _spawn(_refresh_in_background)
+
+
+def _fresh_rows(ttl: float) -> list[ProductRow] | None:
+    with _state_lock:
+        if _cache is not None and time.monotonic() - _cache[0] < ttl:
             return list(_cache[1])
-        loaded = _read_all_rows()
-        if loaded is not None:
+    return None
+
+
+def _load_now(ttl: float) -> list[ProductRow] | None:
+    with _load_lock:
+        # Luồng chờ khoá trong lúc luồng trước (hoặc lần nạp sẵn) vừa đọc xong thì dùng luôn kết quả đó.
+        fresh = _fresh_rows(ttl) if ttl > 0 else None
+        return fresh if fresh is not None else _read_and_store()
+
+
+def _read_and_store() -> list[ProductRow] | None:
+    global _cache
+    loaded = _read_all_rows()
+    if loaded is not None:
+        with _state_lock:
             _cache = (time.monotonic(), tuple(loaded))
-        return loaded
+    return loaded
+
+
+def _refresh_in_background() -> None:
+    global _refreshing
+    try:
+        with _load_lock:
+            if _fresh_rows(cache_ttl()) is not None:
+                return
+            started = time.monotonic()
+            loaded = _read_and_store()
+            if loaded is None:
+                log.warning("Làm mới catalog lỗi, tạm dùng bản cũ (nếu có)")
+            else:
+                log.info("catalog refreshed rows=%d ms=%.0f", len(loaded), (time.monotonic() - started) * 1000)
+    except Exception:  # noqa: BLE001 (thread nền: lỗi lạ không được làm kẹt cờ _refreshing)
+        log.exception("Làm mới catalog lỗi")
+    finally:
+        with _state_lock:
+            _refreshing = False
 
 
 def _read_all_rows() -> list[ProductRow] | None:
