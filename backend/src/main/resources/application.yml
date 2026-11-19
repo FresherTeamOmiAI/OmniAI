@@ -80,6 +80,11 @@ omniai:
   auth:
     jwt-secret: ${JWT_SECRET:omniai-dev-jwt-secret-change-me-32bytes!}
     token-ttl: 7d
+  # Job dọn OTP, mã liên kết (trừ CONFIRMED), lần gõ sai mã cũ hơn retention (IdentityCleanup, decisions #51).
+  identity:
+    cleanup:
+      retention: 7d
+      cron: "0 0 3 * * *"   # giờ Asia/Ho_Chi_Minh
   # Khóa test của simulator Shopee, phải trùng với simulators/shopee. Không dùng khóa sàn thật.
   channels:
     shopee:
