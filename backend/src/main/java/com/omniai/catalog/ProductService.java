@@ -143,7 +143,7 @@ public class ProductService {
         product.setSku(r.sku());
         apply(r, product, v);
         product.setActive(r.active() == null || r.active());
-        return save(product);
+        return save(product, Map.of());
     }
 
     /** Sửa toàn bộ trường. SKU không được đổi vì bench và báo cáo tham chiếu theo SKU. */
@@ -156,11 +156,12 @@ public class ProductService {
         if (!product.getSku().equals(r.sku())) {
             throw new Invalid(List.of(new FieldViolation("sku", "không được đổi SKU (đang là " + product.getSku() + ")")));
         }
+        Map<String, Long> before = Map.copyOf(product.getPrices());
         apply(r, product, v);
         if (r.active() != null) {
             product.setActive(r.active());
         }
-        return save(product);
+        return save(product, before);
     }
 
     /** Ẩn (false) hoặc hiện lại (true). Sản phẩm ẩn biến khỏi store và AI ngay (G-06). */
@@ -168,14 +169,29 @@ public class ProductService {
     public Product setActive(Long id, boolean active) {
         Product product = get(id);
         product.setActive(active);
-        return save(product);
+        return save(product, product.getPrices());
     }
 
-    /** Lưu rồi báo {@link ProductChanged} trong cùng transaction (US-49: đồng bộ ra sàn ghi hàng đợi cùng lúc). */
-    private Product save(Product product) {
+    /**
+     * Lưu rồi báo {@link ProductChanged} trong cùng transaction (US-49: đồng bộ ra sàn ghi hàng đợi cùng lúc). Giá khác
+     * {@code pricesBefore} (rỗng khi tạo mới) thì báo thêm {@link ProductPricesChanged} để ghi lịch sử giá (US-33).
+     */
+    private Product save(Product product, Map<String, Long> pricesBefore) {
         Product saved = saveAndFlush(product);
         events.publishEvent(new ProductChanged(saved.getId()));
+        List<ProductPricesChanged.Change> changes = priceChanges(pricesBefore, saved.getPrices());
+        if (!changes.isEmpty()) {
+            events.publishEvent(new ProductPricesChanged(saved.getId(), changes));
+        }
         return saved;
+    }
+
+    private static List<ProductPricesChanged.Change> priceChanges(Map<String, Long> before, Map<String, Long> after) {
+        return after.entrySet().stream()
+                .filter(e -> !e.getValue().equals(before.get(e.getKey())))
+                .sorted(Map.Entry.comparingByKey())
+                .map(e -> new ProductPricesChanged.Change(e.getKey(), before.get(e.getKey()), e.getValue()))
+                .toList();
     }
 
     private Product saveAndFlush(Product product) {

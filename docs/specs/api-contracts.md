@@ -1,7 +1,7 @@
 # Hợp đồng API
 
-> Cập nhật: 2026-11-19 · T-23.1 lịch sử đơn mọi kênh `GET /api/me/orders`, `GET /api/internal/customers/{id}/orders`, `OrderView.externalOrderId`; 2026-11-19 · T-43.3 `ChatResponse.products`, `BotReply.products` (thẻ gợi ý, chỉ WEB); 2026-11-18 · T-22.1 mã liên kết OMNI `/api/me/link-codes`, `/api/me/link-requests`, `/api/internal/link-codes/claim`; T-19.3 API hồ sơ da `/api/me/profile` (JWT) và `/api/internal/customers/{id}/profile` (`X-Internal-Token`); T-21.5, T-21.6 simulator Shopee tách ra `simulators/shopee` (:8091, trang `/ui`); bonus: API `/sim/ui/*` và trang `/ui` của simulator TikTok; T-49.3 sửa ghi chú `/api/admin/sync/channels` (đã có SHOPEE, TIKTOK); T-50.1–T-50.4 API Products của simulator TikTok, `aspect` và `/link` của đồng bộ; 2026-11-18 · T-49.1 `/api/admin/sync/**` trạng thái đồng bộ sản phẩm ra sàn; T-14.2 lọc `/api/conversations` theo ngày, vi phạm, handoff; `ConversationView` thêm số liệu; T-25.4 `MessageView.deliveryStatus`, `deliveryAttempts`; 2026-11-13 · T-04.1 ghi chú JSON sau V15; T-09.3 `/api/orders`; T-09.2 bộ lọc `GET /api/products`; T-04.1 `prices` theo kênh, `GET /api/admin/sales-channels` (decisions #32); trước đó US-11 (T-11.2), US-25, T-47.1
-> Nguồn: `backend/.../channel/simulator/*`, `channel/web/*`, `channel/tiktok/*`, `catalog/ProductController.java`, `catalog/AdminProductController.java`, `catalog/ProductRequest.java`, `conversation/ConversationController.java`, `brain/*`, `common/*`, `ai-brain/app/main.py`, `ai-brain/app/schemas.py`, `shared/schemas/canonical-message.schema.json`, `web/src/shared/types.ts`
+> Cập nhật: 2026-11-20 · T-33.1 khuyến mãi theo kênh `GET /api/promotions`, `/api/admin/promotions`, lịch sử giá `/api/admin/products/{id}/price-history` (decisions #53); 2026-11-19 · T-23.1 lịch sử đơn mọi kênh `GET /api/me/orders`, `GET /api/internal/customers/{id}/orders`, `OrderView.externalOrderId`; 2026-11-19 · T-43.3 `ChatResponse.products`, `BotReply.products` (thẻ gợi ý, chỉ WEB); 2026-11-18 · T-22.1 mã liên kết OMNI `/api/me/link-codes`, `/api/me/link-requests`, `/api/internal/link-codes/claim`; T-19.3 API hồ sơ da `/api/me/profile` (JWT) và `/api/internal/customers/{id}/profile` (`X-Internal-Token`); T-21.5, T-21.6 simulator Shopee tách ra `simulators/shopee` (:8091, trang `/ui`); bonus: API `/sim/ui/*` và trang `/ui` của simulator TikTok; T-49.3 sửa ghi chú `/api/admin/sync/channels` (đã có SHOPEE, TIKTOK); T-50.1–T-50.4 API Products của simulator TikTok, `aspect` và `/link` của đồng bộ; 2026-11-18 · T-49.1 `/api/admin/sync/**` trạng thái đồng bộ sản phẩm ra sàn; T-14.2 lọc `/api/conversations` theo ngày, vi phạm, handoff; `ConversationView` thêm số liệu; T-25.4 `MessageView.deliveryStatus`, `deliveryAttempts`; 2026-11-13 · T-04.1 ghi chú JSON sau V15; T-09.3 `/api/orders`; T-09.2 bộ lọc `GET /api/products`; T-04.1 `prices` theo kênh, `GET /api/admin/sales-channels` (decisions #32); trước đó US-11 (T-11.2), US-25, T-47.1
+> Nguồn: `backend/.../channel/simulator/*`, `channel/web/*`, `channel/tiktok/*`, `catalog/ProductController.java`, `catalog/AdminProductController.java`, `catalog/ProductRequest.java`, `promotion/PromotionController.java`, `promotion/AdminPromotionController.java`, `promotion/PromotionRequest.java`, `promotion/PromotionView.java`, `conversation/ConversationController.java`, `brain/*`, `common/*`, `ai-brain/app/main.py`, `ai-brain/app/schemas.py`, `shared/schemas/canonical-message.schema.json`, `web/src/shared/types.ts`
 
 JSON phía backend dùng **camelCase**. Riêng hợp đồng backend → ai-brain dùng **snake_case**.
 
@@ -123,6 +123,25 @@ Cần đăng nhập người mua: `Authorization: Bearer <JWT>` (cùng chuỗi f
 - `OrderView`: `id, status ("DEMO"), channel ("WEB"), externalOrderId (mã đơn sàn, web = null; T-23.1), items[{productId, sku, name, unitPrice, quantity, lineTotal}], total, createdAt, notice` (`notice` = "Đơn thử nghiệm: không thanh toán, không giao hàng."). `unitPrice`, `name`, `sku` là bản chụp lúc đặt.
 - Lỗi theo ProblemDetail như API sản phẩm: `400` có `errors[{field, message}]` (field dạng `items[0].quantity`), JSON hỏng `400`, `404`.
 
+## Khuyến mãi (`/api/promotions`, `/api/admin/promotions`, US-33, T-33.1, SRS UC-21)
+Mỗi khuyến mãi thuộc 1 kênh. **VOUCHER**: mã + giảm số tiền cố định cho đơn từ `minOrderAmount`, áp cả shop trên kênh. **FLASH_SALE**: giá sale riêng từng SKU, không có mã. Mốc giờ trả dạng `+07:00`; request nhận ISO có offset hoặc không offset (hiểu là giờ `Asia/Ho_Chi_Minh`). `status` tính lúc đọc: `SCHEDULED`, `ACTIVE` (`startsAt ≤ now < endsAt`), `EXPIRED`, `DISABLED` (decisions #53). Nguồn: `promotion/*`.
+
+| Method | Path | Body | Trả về | Ghi chú |
+|---|---|---|---|---|
+| GET | `/api/promotions?channel=*&sku=&upcomingDays=` | | `PromotionView[]` | **Công khai** (store, tool `get_promotions` US-34). Đang chạy + bắt đầu trong `upcomingDays` ngày (0–30, mặc định 0). **Hết hạn, đã tắt thì không trả.** `sku`: chỉ flash sale có SKU đó (`items` lọc còn SKU đó) cùng voucher của kênh. Bỏ dòng của sản phẩm ẩn. Kênh lạ, SKU không bán, `upcomingDays` sai → `400`; kênh tạm ngừng → `[]` |
+| GET | `/api/admin/promotions?channel=&status=&page=&size=` | | `PageResponse<PromotionView>` | Admin (Basic). Gồm cả hết hạn, đã tắt. Mặc định sort `startsAt` giảm dần |
+| GET | `/api/admin/promotions/{id}` | | `PromotionView` | Không có → `404` |
+| POST | `/api/admin/promotions` | `PromotionRequest` | `201` + `Location`, `PromotionView` | `endsAt` phải ở tương lai. Trùng `voucherCode` trong kênh → `409` |
+| PUT | `/api/admin/promotions/{id}` | `PromotionRequest` | `PromotionView` | Sửa toàn bộ, kể cả khuyến mãi đã hết hạn (gia hạn) |
+| PATCH | `/api/admin/promotions/{id}/enabled` | `{enabled*}` | `PromotionView` | Tắt / bật lại. Bật lại flash sale vẫn kiểm chồng thời gian |
+| DELETE | `/api/admin/promotions/{id}` | | `204` | Xoá cứng |
+| GET | `/api/admin/products/{id}/price-history?channel=&page=&size=` | | `PageResponse<{channel, oldPrice, newPrice, changedAt}>` | Lịch sử giá niêm yết, mới nhất trước (mặc định 50/trang). `oldPrice` null = giá đầu (mốc V23 hoặc lúc tạo). Sản phẩm không có → `404`, kênh lạ → `400` |
+
+- `PromotionRequest`: `channel*, type* (VOUCHER|FLASH_SALE), name*, startsAt*, endsAt*, enabled (mặc định true)`; VOUCHER thêm `voucherCode*` (3–20 chữ/số, tự viết hoa), `discountAmount*` (> 0), `minOrderAmount` (mặc định 0), không có `items`; FLASH_SALE thêm `items*: [{sku, salePrice}]` (1–200 dòng, SKU đang bán, không lặp, `0 < salePrice <` giá niêm yết ở kênh) và không có 3 trường của voucher. Một SKU không được nằm trong 2 flash sale đang bật cùng kênh mà giao thời gian (`400` ở `items[i].sku`, nói rõ khuyến mãi nào).
+- `PromotionView`: `id, channel, type, name, voucherCode, discountAmount, minOrderAmount, startsAt, endsAt, status, enabled, items[{productId, sku, name, listPrice, salePrice, discountPercent}]`. `listPrice` = giá niêm yết **hiện tại** ở kênh; `discountPercent` = % giảm làm tròn xuống, không âm (UC-17 so ngưỡng 10%). Voucher: `items = []`.
+- Lỗi theo ProblemDetail như API sản phẩm (`errors[{field, message}]`, field dạng `items[0].salePrice`).
+- Sự kiện `promotion.PromotionChanged(promotionId, channelCode, deleted)` phát khi tạo, sửa, bật/tắt, xoá (cho US-52). Tự hết hạn thì không có sự kiện.
+
 ## Hội thoại (`/api/conversations`, US-11, T-11.2)
 
 Cần Basic ADMIN giống `/api/admin/**` (hội thoại là dữ liệu cá nhân, decisions #31); thiếu/sai thì `401`. Dữ liệu do `MessageRouter` ghi cho mọi kênh. Màn admin xem hội thoại ở US-14 (S3).
@@ -187,6 +206,7 @@ Trang kiểm tra trực quan `GET /ui/index.html` (`/` và `/ui` chuyển hướ
 | GET | `/health` | | `{status, provider}` |
 | POST | `/chat` | `ChatRequest` | `ChatResponse` |
 
+- Khuyến mãi (US-34, tool `get_promotions`): brain gọi `GET {BACKEND_URL}/api/promotions?channel=<kênh của câu chat>&sku=&upcomingDays=7` (công khai, không cần token), mục "Khuyến mãi". Trên sàn chỉ gọi đúng kênh đó (UC-17).
 - Đơn mọi kênh của khách (T-23.2): brain gọi `GET {BACKEND_URL}/api/internal/customers/{customer_id}/orders?limit=` với header `X-Internal-Token`, trả `OrderHistoryView` (mục "Đơn hàng"). Chỉ gọi khi `customer_id` khác null.
 - Hồ sơ da của khách (T-19.2, T-19.1): brain gọi `GET/PUT {BACKEND_URL}/api/internal/customers/{customer_id}/profile` với header `X-Internal-Token: <INTERNAL_API_TOKEN>`, xem mục "Hồ sơ da". Chỉ có khi `customer_id` khác null (danh tính kênh đã liên kết).
 

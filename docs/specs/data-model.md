@@ -1,6 +1,6 @@
 # Mô hình dữ liệu
 
-> Cập nhật: 2026-11-19 · T-23.1 V22 `customer_order.buyer_external_id`, đơn sàn tra theo danh tính đã liên kết (decisions #52); 2026-11-19 · job dọn `otp_challenge`, `link_code` (trừ CONFIRMED), `link_code_attempt` cũ hơn 7 ngày (decisions #51); 2026-11-18 · T-22.1 V21 mã liên kết (`link_code`, `link_code_attempt`); T-19.3 V20 hồ sơ da (`skin_profile` + 2 bảng con); T-21.5, T-21.6 simulator Shopee tách ra `simulators/shopee` (:8091, trang `/ui`); 2026-11-18 · T-50.2 V19 `aspect` cho `product_channel_sync`; 2026-11-18 · T-49.1 V18 `product_channel_sync`; T-25.4 V17 trạng thái gửi câu bot (`delivery_status`); 2026-11-13 · T-04.1 V15 chuẩn hoá product (decisions #35); T-09.3 V14 `customer_order`; T-09.2 store lọc qua Specification; T-04.1 tách giá theo kênh (V13, decisions #32) · Owner: LucVT (catalog, customer, identity, order, promotion); TuTM (channel_credential, conversation)
+> Cập nhật: 2026-11-20 · T-33.1 V23 khuyến mãi (`promotion`, `promotion_item`) và `price_history` (decisions #53); 2026-11-19 · T-23.1 V22 `customer_order.buyer_external_id`, đơn sàn tra theo danh tính đã liên kết (decisions #52); 2026-11-19 · job dọn `otp_challenge`, `link_code` (trừ CONFIRMED), `link_code_attempt` cũ hơn 7 ngày (decisions #51); 2026-11-18 · T-22.1 V21 mã liên kết (`link_code`, `link_code_attempt`); T-19.3 V20 hồ sơ da (`skin_profile` + 2 bảng con); T-21.5, T-21.6 simulator Shopee tách ra `simulators/shopee` (:8091, trang `/ui`); 2026-11-18 · T-50.2 V19 `aspect` cho `product_channel_sync`; 2026-11-18 · T-49.1 V18 `product_channel_sync`; T-25.4 V17 trạng thái gửi câu bot (`delivery_status`); 2026-11-13 · T-04.1 V15 chuẩn hoá product (decisions #35); T-09.3 V14 `customer_order`; T-09.2 store lọc qua Specification; T-04.1 tách giá theo kênh (V13, decisions #32) · Owner: LucVT (catalog, customer, identity, order, promotion); TuTM (channel_credential, conversation)
 > Nguồn: `backend/src/main/resources/db/migration/*.sql`, `backend/.../catalog/*`, `backend/.../customer/*`, `backend/.../channel/credential/*`, `backend/.../conversation/*`
 
 DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flyway** quản lý, JPA để `ddl-auto: validate`. Vì vậy mọi thay đổi bảng đều phải viết migration mới `V<n>__<mo_ta>.sql`. **Không sửa migration đã merge.**
@@ -29,6 +29,7 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 | `V18__product_channel_sync.sql` | T-49.1: bảng `product_channel_sync` (hàng đợi + trạng thái đồng bộ sản phẩm ra từng sàn, decisions #42). Owner: TuTM |
 | `V19__product_channel_sync_aspect.sql` | T-50.2: thêm cột `aspect` (`PRODUCT | PRICE | STOCK`) vào `product_channel_sync`, khoá chính thành (`product_id`, `channel_code`, `aspect`). Số V16 để trống cho PR #273. Owner: TuTM |
 | `V20__skin_profile.sql` | T-19.3: bảng `skin_profile`, `skin_profile_concern`, `skin_profile_allergy` (hồ sơ da, US-19, decisions #48). Owner: LucVT |
+| `V23__promotion.sql` | T-33.1: bảng `promotion` (voucher, flash sale theo kênh), `promotion_item` (giá sale theo SKU), `price_history` (lịch sử giá niêm yết, chép sẵn giá hiện có làm mốc đầu). US-33, decisions #53. Owner: LucVT |
 | `V22__customer_order_buyer.sql` | T-23.1: cột `customer_order.buyer_external_id` (người mua phía sàn), CHECK đơn WEB không có người mua sàn, index một phần (`channel_code`, `buyer_external_id`). US-23, decisions #52. Owner: LucVT |
 | `V21__link_code.sql` | T-22.1: bảng `link_code` (mã OMNI, chỉ lưu SHA-256) và `link_code_attempt` (lần gõ mã thất bại theo danh tính kênh), US-22, decisions #49. Owner: LucVT |
 
@@ -63,7 +64,7 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 **product_channel** (`@ElementCollection` `prices` của `Product`, V13): giá niêm yết của 1 sản phẩm trên 1 kênh.
 - PK (`product_id`, `channel_code`). `product_id` FK `product` ON DELETE CASCADE, `channel_code` FK `sales_channel`, `price` BIGINT VND, CHECK ≥ 0. Index `channel_code`.
 - AC US-04 "có giá cho mọi kênh" **không ép bằng ràng buộc DB được** nữa: `ProductService` bắt buộc đủ giá cho mọi kênh `active` (400 ở field `prices[<mã>]`), từ chối mã kênh lạ. Kênh không active thì không bắt buộc, admin sửa không làm mất giá cũ của kênh đó.
-- Bảng sẽ có thêm cột theo kênh khi cần: mã sản phẩm phía sàn, trạng thái đồng bộ (US-49). Khuyến mãi vẫn để bảng riêng (US-33).
+- Bảng sẽ có thêm cột theo kênh khi cần: mã sản phẩm phía sàn, trạng thái đồng bộ (US-49). Khuyến mãi để bảng riêng (`promotion`, V23).
 - View nội bộ `product_text_pivot` (V15) ghép lại `brand`, `skin_types`, `skin_concerns`, `usage_time` thành chuỗi như cũ. View `product_price_pivot` (nội bộ, không cấp cho `chatbot_reader`) xoay giá thành `price_web, price_shopee, price_tiktok` cho `chatbot_catalog` và `chatbot_catalog_search`, nên ai-brain đọc như cũ.
 
 **customer_order** (`order/CustomerOrder.java`, V14, owner LucVT): 1 đơn hàng, dùng chung mọi kênh để US-23 (lịch sử đơn) và US-51 (đơn từ sàn) dùng tiếp.
@@ -99,6 +100,15 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 - `IdentityCleanup` xoá hằng đêm các dòng `created_at` cũ hơn 7 ngày, **trừ** `CONFIRMED` (giữ làm vết liên kết, mỗi lần liên kết 1 dòng).
 
 **link_code_attempt** (`identity/LinkCodeAttempt.java`, V21): 1 lần gõ mã thất bại (`channel`, `external_id`, `attempted_at`). Đủ 5 dòng trong 1 giờ thì danh tính bị khoá nhập mã. `IdentityCleanup` xoá hằng đêm dòng cũ hơn 7 ngày.
+
+**promotion** (`promotion/Promotion.java`, V23, owner LucVT): 1 khuyến mãi của 1 kênh (US-33, decisions #53).
+- `channel_code` FK `sales_channel`, `type` `VOUCHER | FLASH_SALE` (CHECK), `name`, `starts_at`, `ends_at` (TIMESTAMPTZ, CHECK `ends_at > starts_at`), `enabled` (tắt tay), `created_at`, `updated_at`. Index (`channel_code`, `ends_at`).
+- VOUCHER: `voucher_code` (UNIQUE `uq_promotion_voucher_code` theo kênh; `PromotionService` dựa vào tên này để trả 409), `discount_amount` > 0 (VND), `min_order_amount` ≥ 0. FLASH_SALE: 3 cột này NULL (CHECK `ck_promotion_voucher`).
+- Không có cột trạng thái: `Promotion.status(now)` tính `SCHEDULED | ACTIVE | EXPIRED | DISABLED`, nên hết hạn thì tự không được trả, không cần job.
+
+**promotion_item** (`@ElementCollection` `Promotion.items`, V23): PK (`promotion_id`, `product_id`), `sale_price` > 0. Chỉ flash sale có dòng. Giá sale < giá niêm yết và không chồng flash sale cùng SKU, cùng kênh, giao thời gian: kiểm ở `PromotionService`, không ép bằng DB.
+
+**price_history** (`promotion/PriceHistory.java`, V23): 1 lần đổi giá niêm yết của 1 sản phẩm ở 1 kênh. `old_price` (NULL = giá đầu tiên), `new_price`, `changed_at`. Index (`product_id`, `channel_code`, `changed_at` DESC). Ghi bởi `PriceHistoryRecorder` khi nhận `catalog.ProductPricesChanged` (cùng transaction với lần sửa giá); V23 chép giá hiện có làm mốc đầu. Sửa giá bằng SQL tay thì không có dòng.
 
 **otp_challenge** (`identity/OtpChallenge.java`, V16, owner LucVT): 1 lần gửi OTP tới 1 email.
 - `email` (đã trim + lowercase), `code_hash` (bcrypt qua `PasswordEncoder`, không lưu mã gốc), `created_at`, `expires_at` (+5 phút), `attempts` (số lần sai), `locked_until` (sai đủ 5 lần thì +15 phút), `consumed_at` (đã đăng nhập bằng mã này). Index (`email`, `created_at` DESC).
@@ -143,8 +153,9 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 - `BrandRepository` (`findByNameIgnoreCase`, `existsByCode`), `IngredientRepository` (`findByLowerNames`), `CategoryRepository` / `SkinTypeRepository` / `SkinConcernRepository` (`findAllByOrderBySortOrderAsc`), V15.
 - `ProductRepository` (+ `JpaSpecificationExecutor` cho tìm kiếm admin): `findByIdAndActiveTrue` (store, G-06); danh sách store dùng Specification `ProductService.storeSpec` (active + loại da qua join `product_skin_type` + danh mục + khoảng giá web qua join `product_channel`, T-09.2), `existsBySku`.
 - Ràng buộc unique của `sku` tên là `product_sku_key` (Postgres tự đặt ở V1). `ProductService` dựa vào tên này để trả 409 khi 2 request tạo cùng SKU một lúc.
-- `CustomerOrderRepository` (T-09.3): CRUD mặc định.
+- `CustomerOrderRepository` (T-09.3): CRUD mặc định; T-23.1 thêm `findHistoryIds` (native, đơn WEB + đơn sàn của danh tính đã liên kết) và `findWithItems` (`JOIN FETCH` dòng sản phẩm).
 - `CustomerRepository`: `findByEmail`, `findByPhone`.
+- `PromotionRepository` (+ `JpaSpecificationExecutor` cho lọc admin theo kênh, trạng thái): `findVisible` (đang bật, chưa hết hạn, bắt đầu trước mốc), `findOverlappingFlashSales`, `existsByChannelCodeAndVoucherCode[AndIdNot]`. `PriceHistoryRepository`: theo sản phẩm (và kênh), mới nhất trước.
 - `OtpChallengeRepository` (T-13.1): `findFirstByEmailOrderByCreatedAtDescIdDesc` (khoá `PESSIMISTIC_WRITE`, chống đoán mã song song), `countByEmailAndCreatedAtAfter`, `findFirstByEmailAndCreatedAtAfterOrderByCreatedAtAsc`.
 - `ChannelIdentityRepository`: `findByChannelAndExternalId`, `findByCustomerId`.
 - `ChannelCredentialRepository`: `findByChannelAndShopId`, `findByChannelOrderByShopId`.
@@ -152,11 +163,11 @@ DB: PostgreSQL 16 + pgvector (image `pgvector/pgvector:pg16`). Schema do **Flywa
 - `ConversationMessageRepository`: `existsByConversationIdAndDirectionAndMessageId`, `findByConversationId` (phân trang).
 
 ## Dự kiến (chưa có)
-Lịch sử đơn theo khách (US-23), promotion/voucher/lịch sử giá (US-33, S5, mốc giờ theo `Asia/Ho_Chi_Minh`), consent log (US-30, S7). Cho trụ E (decisions #23): trạng thái đồng bộ theo kênh (US-49, S3), đơn từ sàn (US-51, S5), trạng thái duyệt sản phẩm (US-54, S7), đánh giá sản phẩm (US-55, S8).
+Consent log (US-30, S7). Cho trụ E (decisions #23): trạng thái đồng bộ theo kênh (US-49, S3), đơn từ sàn (US-51, S5), trạng thái duyệt sản phẩm (US-54, S7), đánh giá sản phẩm (US-55, S8).
 
 ## Database simulator Shopee
 
 Cùng Postgres với hub khi chạy Supabase (database `postgres`). Local/test vẫn có thể dùng database `shopee`. Chỉ simulator `simulators/shopee` dùng (hub không kết nối, decisions #44). Migration nằm ở `simulators/shopee/src/main/resources/db/shopee`, lịch sử riêng `tbl_shopee_flyway_history`. Bảng: `tbl_shopee_item`, `tbl_shopee_price_list`, `tbl_shopee_seller_stock`, `tbl_shopee_order`, `tbl_shopee_order_item`, `tbl_shopee_push`, `tbl_shopee_conversation`, `tbl_shopee_message`, `tbl_shopee_webchat_push`. Giá, tồn, đơn theo field Open Platform đã đọc. Chat là bản giả lập vì trang seller chat bị khóa quyền. Chi tiết: [../channel-api/shopee.md](../channel-api/shopee.md).
 
 ## Test
-`OmniAiApplicationTests` chạy Flyway trên Postgres thật (Testcontainers) và kiểm tra: số SKU / active / hết hàng / hãng đọc từ CSV (`TestCatalog`), V9 đã xoá SKU hư cấu, extension vector, ràng buộc V4 (`usage_time` sai), và V13: không còn cột `price_*` trong `product`, `product_channel` có đúng giá CSV cho mọi SKU × 3 kênh, giá âm / kênh lạ / trùng kênh bị DB từ chối, view chatbot vẫn có `price_web/shopee/tiktok`, thêm kênh `LAZADA` chỉ bằng INSERT. Vì vậy cần Docker. `channel/tiktok/TiktokWebhookIT` lưu và đọc lại `channel_credential` (V8). `conversation/ConversationStoreIT` kiểm V11 qua `MessageRouter` thật: IN/OUT, vi phạm, chống trùng, mỗi kênh 1 hội thoại. `catalog/CatalogNormalizationTest` kiểm V15: không còn 8 cột cũ; bảng tra cứu đúng; **từng SKU** có hãng, tập loại da, tập vấn đề da, buổi dùng, INCI đúng thứ tự (bỏ trùng), ảnh chính khớp CSV; số SKU theo nhóm hoạt chất khớp CSV; view chatbot giữ cột và giá trị; DB chặn loại da lạ, thành phần trùng, 2 ảnh chính, nhóm hoạt chất lạ. `simulators/shopee` có test riêng: `OpenApiTest` kiểm giá, tồn, đơn và chat ghi đúng các bảng `tbl_shopee_*`, `UiTest` kiểm các API `/sim/ui/*`.
+`OmniAiApplicationTests` chạy Flyway trên Postgres thật (Testcontainers) và kiểm tra: số SKU / active / hết hàng / hãng đọc từ CSV (`TestCatalog`), V9 đã xoá SKU hư cấu, extension vector, ràng buộc V4 (`usage_time` sai), và V13: không còn cột `price_*` trong `product`, `product_channel` có đúng giá CSV cho mọi SKU × 3 kênh, giá âm / kênh lạ / trùng kênh bị DB từ chối, view chatbot vẫn có `price_web/shopee/tiktok`, thêm kênh `LAZADA` chỉ bằng INSERT. Vì vậy cần Docker. `channel/tiktok/TiktokWebhookIT` lưu và đọc lại `channel_credential` (V8). `conversation/ConversationStoreIT` kiểm V11 qua `MessageRouter` thật: IN/OUT, vi phạm, chống trùng, mỗi kênh 1 hội thoại. `catalog/CatalogNormalizationTest` kiểm V15: không còn 8 cột cũ; bảng tra cứu đúng; **từng SKU** có hãng, tập loại da, tập vấn đề da, buổi dùng, INCI đúng thứ tự (bỏ trùng), ảnh chính khớp CSV; số SKU theo nhóm hoạt chất khớp CSV; view chatbot giữ cột và giá trị; DB chặn loại da lạ, thành phần trùng, 2 ảnh chính, nhóm hoạt chất lạ. `promotion/PriceHistoryTest` kiểm mốc đầu V23 (mọi dòng `product_channel` có 1 dòng lịch sử). `simulators/shopee` có test riêng: `OpenApiTest` kiểm giá, tồn, đơn và chat ghi đúng các bảng `tbl_shopee_*`, `UiTest` kiểm các API `/sim/ui/*`.

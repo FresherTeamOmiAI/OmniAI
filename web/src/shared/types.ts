@@ -109,6 +109,60 @@ export interface OrderHistoryView {
   hasMore: boolean
 }
 
+// Khuyến mãi theo kênh (GET /api/promotions, /api/admin/promotions, T-33.1, decisions #53). Mốc giờ dạng +07:00.
+export type PromotionType = 'VOUCHER' | 'FLASH_SALE'
+export type PromotionStatus = 'SCHEDULED' | 'ACTIVE' | 'EXPIRED' | 'DISABLED'
+
+export interface PromotionItem {
+  productId: number
+  sku: string
+  name: string
+  /** Giá niêm yết hiện tại ở kênh của khuyến mãi; null nếu sản phẩm chưa có giá ở kênh đó. */
+  listPrice: number | null
+  salePrice: number
+  /** % giảm so với listPrice, làm tròn xuống. */
+  discountPercent: number | null
+}
+
+export interface Promotion {
+  id: number
+  channel: string
+  type: PromotionType
+  name: string
+  /** Chỉ VOUCHER. */
+  voucherCode: string | null
+  discountAmount: number | null
+  minOrderAmount: number | null
+  startsAt: string
+  endsAt: string
+  status: PromotionStatus
+  enabled: boolean
+  /** Chỉ FLASH_SALE; voucher là []. */
+  items: PromotionItem[]
+}
+
+/** Body POST/PUT /api/admin/promotions. Giờ không offset được hiểu là giờ Việt Nam (ô datetime-local gửi thẳng). */
+export interface PromotionRequest {
+  channel: string
+  type: PromotionType
+  name: string
+  voucherCode?: string | null
+  discountAmount?: number | null
+  minOrderAmount?: number | null
+  startsAt: string
+  endsAt: string
+  enabled?: boolean
+  items?: { sku: string; salePrice: number }[]
+}
+
+/** GET /api/admin/products/{id}/price-history. oldPrice null = giá đầu tiên. */
+export interface PriceHistoryEntry {
+  channel: string
+  oldPrice: number | null
+  newPrice: number
+  changedAt: string
+}
+
 // Lỗi API theo ProblemDetail (RFC 9457). `errors` chỉ có ở lỗi 400 sai dữ liệu.
 export interface FieldViolation {
   field: string
