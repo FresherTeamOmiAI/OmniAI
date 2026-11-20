@@ -1,5 +1,5 @@
 import { requestJson, type RequestOptions } from '../../shared/lib/http'
-import type { Page, Product, SalesChannel } from '../../shared/types'
+import type { Page, PriceHistoryEntry, Product, SalesChannel } from '../../shared/types'
 
 // API admin sản phẩm (docs/specs/api-contracts.md, mục "Admin sản phẩm").
 const BASE = '/api/admin/products'
@@ -53,6 +53,13 @@ export function createProduct(token: string, input: ProductInput): Promise<Produ
 
 export function updateProduct(token: string, id: number, input: ProductInput): Promise<Product> {
   return call(token, `${BASE}/${id}`, { method: 'PUT', body: input })
+}
+
+/** Lịch sử giá niêm yết của 1 sản phẩm, mới nhất trước (US-33). channel '' = mọi kênh. */
+export function listPriceHistory(token: string, productId: number, channel: string, page: number): Promise<Page<PriceHistoryEntry>> {
+  const params = new URLSearchParams({ page: String(page), size: '50' })
+  if (channel) params.set('channel', channel)
+  return call(token, `${BASE}/${productId}/price-history?${params}`)
 }
 
 export function setProductActive(token: string, id: number, active: boolean): Promise<Product> {

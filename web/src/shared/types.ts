@@ -152,7 +152,8 @@ export interface PromotionRequest {
   startsAt: string
   endsAt: string
   enabled?: boolean
-  items?: { sku: string; salePrice: number }[]
+  /** salePrice null = ô trống, backend báo "bắt buộc" ở items[i].salePrice. */
+  items?: { sku: string; salePrice: number | null }[]
 }
 
 /** GET /api/admin/products/{id}/price-history. oldPrice null = giá đầu tiên. */

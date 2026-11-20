@@ -8,6 +8,7 @@ import {
 } from './api'
 import { loadToken, saveToken } from './auth'
 import { LoginForm } from './LoginForm'
+import { PriceHistoryDialog } from './PriceHistoryDialog'
 import { ProductForm } from './ProductForm'
 import { SyncDetail, SyncStatusCell } from './SyncStatusCell'
 import { CATEGORIES, labelOf } from '../../shared/vocabulary'
@@ -65,6 +66,8 @@ function ProductTable({ token, onLogout, onUnauthorized }: TableProps) {
   const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState<string | null>(null)
   const [editing, setEditing] = useState<Editing>(null)
+  // Sản phẩm đang xem lịch sử giá (US-33, T-33.2).
+  const [history, setHistory] = useState<Product | null>(null)
   const [toggling, setToggling] = useState<number | null>(null)
   // Cột giá và ô giá trong form sinh theo kênh bán (V13), không viết cứng 3 kênh.
   const [channels, setChannels] = useState<SalesChannel[]>([])
@@ -264,6 +267,7 @@ function ProductTable({ token, onLogout, onUnauthorized }: TableProps) {
                     )}
                     <td className="row-actions">
                       <button type="button" className="btn btn-sm" onClick={() => setEditing({ mode: 'edit', product: p })}>Sửa</button>
+                      <button type="button" className="btn btn-sm" onClick={() => setHistory(p)}>Lịch sử giá</button>
                       <button type="button" className="btn btn-sm" disabled={toggling === p.id} onClick={() => toggleActive(p)}>
                         {p.active ? 'Ẩn' : 'Hiện'}
                       </button>
@@ -289,6 +293,11 @@ function ProductTable({ token, onLogout, onUnauthorized }: TableProps) {
           <span>Trang {query.page + 1}/{totalPages}</span>
           <button type="button" className="btn btn-sm" disabled={query.page + 1 >= totalPages} onClick={() => setQuery((q) => ({ ...q, page: q.page + 1 }))}>Sau ›</button>
         </nav>
+      )}
+
+      {history && (
+        <PriceHistoryDialog token={token} product={history} channels={channels} onClose={() => setHistory(null)}
+          onUnauthorized={onUnauthorized} />
       )}
 
       {editing && (
