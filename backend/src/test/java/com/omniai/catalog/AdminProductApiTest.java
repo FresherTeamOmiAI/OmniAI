@@ -367,6 +367,16 @@ class AdminProductApiTest {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM brand WHERE lower(name) = 'hãng thử nghiệm'", Integer.class)).isEqualTo(1);
     }
 
+    /** Tên INCI admin gõ được đổi theo bảng bí danh V24 (T-27.4): đồng nghĩa -> tên chuẩn, %, mã lô bỏ, trùng bỏ. */
+    @Test
+    void ingredientAliasesNormalizeAdminInput() throws Exception {
+        Map<String, Object> p = validProduct();
+        p.put("ingredientsInci", "Aqua/Water/Eau, glycerin 1 %, (F.I.L, Water, salicylicacid, Chiết xuất thử nghiệm XYZ");
+        mvc.perform(admin(post("/api/admin/products"), p))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.ingredientsInci").value("Aqua, Glycerin, Salicylic Acid, Chiết xuất thử nghiệm XYZ"));
+    }
+
     /** Sửa đổi thứ tự INCI và loại da: DB lưu đúng thứ tự mới, JSON trả loại da theo sort_order. */
     @Test
     void updateKeepsIngredientOrderAndSkinTypes() throws Exception {

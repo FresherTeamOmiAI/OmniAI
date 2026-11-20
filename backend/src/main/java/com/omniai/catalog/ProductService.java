@@ -53,11 +53,13 @@ public class ProductService {
     private final SkinConcernRepository skinConcerns;
     private final BrandRepository brands;
     private final IngredientRepository ingredients;
+    private final IngredientAliasRepository ingredientAliases;
     private final ApplicationEventPublisher events;
 
     public ProductService(ProductRepository repository, SalesChannelRepository channels, CategoryRepository categories,
                           SkinTypeRepository skinTypes, SkinConcernRepository skinConcerns, BrandRepository brands,
-                          IngredientRepository ingredients, ApplicationEventPublisher events) {
+                          IngredientRepository ingredients, IngredientAliasRepository ingredientAliases,
+                          ApplicationEventPublisher events) {
         this.events = events;
         this.repository = repository;
         this.channels = channels;
@@ -66,6 +68,7 @@ public class ProductService {
         this.skinConcerns = skinConcerns;
         this.brands = brands;
         this.ingredients = ingredients;
+        this.ingredientAliases = ingredientAliases;
     }
 
     /** Trường được phép sort ở danh sách store và admin (US-43). Trường khác (kể cả collection) trả 400. */
@@ -265,10 +268,26 @@ public class ProductService {
      * Thành phần theo thứ tự nhập, bỏ trùng không phân biệt hoa thường (giữ lần đầu, giống V15).
      * Thành phần chưa có trong bảng ingredient thì thêm, giữ cách viết admin nhập.
      */
+    /**
+     * Thành phần theo thứ tự nhập. Tên trùng 1 bí danh trong {@code ingredient_alias} (V24, decisions #54) được đổi sang
+     * tên chuẩn ("Aqua/Water" -> "Aqua", "glycerin 1 %" -> "Glycerin"); bí danh rác thì bỏ; tên lạ giữ như nhập.
+     * Trùng (không phân biệt hoa thường, kể cả sau khi đổi) thì giữ lần đầu.
+     */
     private List<Ingredient> ingredientsFor(String inci) {
+        List<String> typed = split(inci);
+        Map<String, List<String>> canonical = new LinkedHashMap<>();
+        for (IngredientAlias a : ingredientAliases.findByAliasLowerIn(
+                typed.stream().map(n -> n.toLowerCase(Locale.ROOT)).collect(Collectors.toSet()))) {
+            List<String> list = canonical.computeIfAbsent(a.getAliasLower(), k -> new ArrayList<>());
+            if (a.getCanonical() != null) {
+                list.add(a.getCanonical());
+            }
+        }
         Map<String, String> names = new LinkedHashMap<>();
-        for (String name : split(inci)) {
-            names.putIfAbsent(name.toLowerCase(Locale.ROOT), name);
+        for (String name : typed) {
+            for (String n : canonical.getOrDefault(name.toLowerCase(Locale.ROOT), List.of(name))) {
+                names.putIfAbsent(n.toLowerCase(Locale.ROOT), n);
+            }
         }
         Map<String, Ingredient> known = new LinkedHashMap<>();
         for (Ingredient i : ingredients.findByLowerNames(names.keySet())) {

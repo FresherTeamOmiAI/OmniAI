@@ -4,7 +4,8 @@
     python tools/catalog/validate_catalog.py path/to/x.csv
 
 Kiểm: đủ cột theo schema V4, >= 80 SKU, không trùng SKU, trường bắt buộc không rỗng, giá trị nằm trong
-bộ từ vựng ở docs/specs/data-model.md, số hợp lệ, mô tả không có claim y khoa. File có thêm cột nguồn/ảnh
+bộ từ vựng ở docs/specs/data-model.md, số hợp lệ, mô tả không có claim y khoa, mọi tên INCI là tên chuẩn trong
+shared/catalog/inci_aliases.csv (T-27.4). File có thêm cột nguồn/ảnh
 (SOURCE_COLUMNS, catalog thật của T-47.1) thì kiểm thêm barcode, image_key, URL, ghi chú giấy phép.
 Mã thoát 1 nếu có lỗi.
 Chỉ dùng thư viện chuẩn, không cần venv.
@@ -17,6 +18,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CSV = ROOT / "shared" / "catalog" / "products.csv"
+# Bảng tên INCI chuẩn (T-27.4, decisions #54), sinh bởi tools/catalog/normalize_inci.py.
+ALIASES = ROOT / "shared" / "catalog" / "inci_aliases.csv"
 MIN_SKU = 80
 
 HEADER = ["sku", "name", "brand", "category", "skin_types", "skin_concerns", "usage_time", "ingredients_inci",
@@ -37,6 +40,29 @@ SKU_PATTERN = re.compile(r"^[A-Z]{3,4}-[A-Z]{3}-\d{2}$")
 MEDICAL_CLAIM = re.compile(r"\b(điều trị|chữa khỏi|chữa|đặc trị|trị (mụn|nám|thâm|sẹo|tàn nhang))\b", re.IGNORECASE)
 
 
+def load_canonical(path: Path = ALIASES) -> dict[str, list[str]]:
+    """tên viết thường -> tên chuẩn (rỗng = token rác). Không có file thì không kiểm INCI chuẩn."""
+    if not path.exists():
+        return {}
+    with path.open(encoding="utf-8", newline="") as f:
+        return {r["alias_lower"]: [n.strip() for n in r["canonical"].split("|") if n.strip()] for r in csv.DictReader(f)}
+
+
+def inci_errors(inci: str, canonical: dict[str, list[str]]) -> list[str]:
+    """Mỗi token INCI phải đúng là 1 tên chuẩn (đúng cả cách viết hoa), không lặp trong cùng SKU."""
+    problems, seen = [], set()
+    for token in csv_set(inci):
+        expected = canonical.get(token.lower())
+        if expected is None:
+            problems.append(f"'{token}' chưa có trong inci_aliases.csv (chạy tools/catalog/normalize_inci.py)")
+        elif expected != [token]:
+            problems.append(f"'{token}' phải là {' + '.join(expected) or '(bỏ)'}")
+        if token.lower() in seen:
+            problems.append(f"'{token}' bị lặp")
+        seen.add(token.lower())
+    return problems
+
+
 def csv_set(value: str) -> list[str]:
     return [v.strip() for v in value.split(",") if v.strip()]
 
@@ -53,6 +79,7 @@ def validate(path: Path) -> list[str]:
     if len(rows) < MIN_SKU:
         errors.append(f"chỉ có {len(rows)} SKU, cần >= {MIN_SKU}")
 
+    canonical = load_canonical()
     seen: dict[str, int] = {}
     for line, row in enumerate(rows, start=2):
         sku = row["sku"]
@@ -83,6 +110,8 @@ def validate(path: Path) -> list[str]:
             errors.append(f"{where}: active phải là true/false")
         if len(csv_set(row["ingredients_inci"])) < 2:
             errors.append(f"{where}: INCI quá ít thành phần")
+        if canonical:
+            errors.extend(f"{where}: INCI {p}" for p in inci_errors(row["ingredients_inci"], canonical))
 
         for col, minimum in (("size_ml", 1), ("pao_months", 1), ("price_web", 0), ("price_shopee", 0),
                              ("price_tiktok", 0), ("stock", 0)):

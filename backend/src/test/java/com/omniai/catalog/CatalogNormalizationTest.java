@@ -109,6 +109,34 @@ class CatalogNormalizationTest {
         });
     }
 
+    // --- V24 chuẩn hoá tên INCI (T-27.4, decisions #54) ---
+
+    /** Không còn tên cũ nào đã được đổi sang tên khác: mọi ingredient đang dùng đều là tên chuẩn, đúng cách viết hoa. */
+    @Test
+    void everyIngredientInUseIsCanonical() {
+        assertThat(jdbc.queryForList("""
+                SELECT i.inci_name FROM ingredient i
+                WHERE EXISTS (SELECT 1 FROM product_ingredient p WHERE p.ingredient_id = i.id)
+                  AND NOT EXISTS (SELECT 1 FROM ingredient_alias a
+                                  WHERE a.alias_lower = lower(i.inci_name) AND a.seq = 1 AND a.canonical = i.inci_name)
+                """, String.class)).isEmpty();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM ingredient i WHERE NOT EXISTS"
+                + " (SELECT 1 FROM product_ingredient p WHERE p.ingredient_id = i.id)", Integer.class)).isZero();
+    }
+
+    @Test
+    void synonymsAndJunkAreMerged() {
+        assertThat(jdbc.queryForList("SELECT inci_name FROM ingredient WHERE lower(inci_name) IN"
+                + " ('aqua', 'water', 'aqua/water', 'water (aqua)', 'aqua/water/eau', 'parfum/fragrance', '(f.i.l')",
+                String.class)).containsExactly("Aqua");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM ingredient WHERE inci_name ~* '(f\\.i\\.l|\\d\\s*%|ppm)'",
+                Integer.class)).isZero();
+        // Mọi SKU vẫn có ít nhất 2 thành phần, position liên tục từ 1.
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM (SELECT product_id, COUNT(*) AS n, MAX(position) AS m FROM product_ingredient
+                                      GROUP BY product_id) t WHERE n < 2 OR n <> m""", Integer.class)).isZero();
+    }
+
     /** ai-brain đọc view như cũ: cùng tên cột, chuỗi CSV theo sort_order. */
     @Test
     void chatbotViewsKeepColumnsAndValues() {
