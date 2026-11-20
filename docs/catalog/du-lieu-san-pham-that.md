@@ -1,6 +1,6 @@
 # Catalog sản phẩm thật kèm ảnh (T-47.1)
 
-> Cập nhật: 2026-11-13 · V15: luồng CSV vào bảng đã chuẩn hoá; T-04.1 giá theo kênh ở product_channel (V13) · Owner: LucVT
+> Cập nhật: 2026-11-20 · T-27.4 bước `normalize_inci.py` (tên INCI chuẩn EU/ASEAN, decisions #54); 2026-11-13 · V15: luồng CSV vào bảng đã chuẩn hoá; T-04.1 giá theo kênh ở product_channel (V13) · Owner: LucVT
 > Nguồn: `shared/catalog/products.csv`, `shared/catalog/real/selection.csv`, `tools/catalog/obf_fetch.py`, `tools/catalog/obf_annotate.py`, `tools/catalog/upload_images.py`, `backend/.../db/migration/V9__product_source_image.sql`, `V10__import_catalog_real.sql`
 > Liên quan: US-47, [luu-anh-san-pham.md](luu-anh-san-pham.md) (T-47.2), [decisions #26, #27, #30](../specs/decisions.md)
 
@@ -43,7 +43,8 @@ Mỗi SKU có `barcode`, `source_url` (trang sản phẩm trên OBF), `image_sou
 obf_fetch.py dump       tải dump OBF vào shared/catalog/real/.cache/ (gitignore)
 obf_fetch.py discover   lọc dump -> THÊM dòng annotated_by=auto vào selection.csv (không sửa dòng có sẵn)
 obf_fetch.py build      selection.csv + dữ liệu OBF -> shared/catalog/products.csv + ảnh WebP
-validate_catalog.py     kiểm products.csv
+normalize_inci.py       chuẩn hoá tên INCI (T-27.4): viết lại products.csv, inci_aliases.csv, sinh V24
+validate_catalog.py     kiểm products.csv (gồm tên INCI chuẩn)
 csv_to_sql.py V<n>__... sinh migration upsert theo sku (V10 cho đợt này; lần sau đặt V<n> mới, không sửa V10)
 upload_images.py        đẩy ảnh lên Supabase (ghi đè nếu đã có)
 ```
@@ -78,7 +79,7 @@ Lệnh `search <từ khóa>` vẫn còn để tra nhanh qua API (đọc sản ph
 
 **Sửa dữ liệu:**
 - Sửa thẳng dòng tương ứng trong `selection.csv`, đổi `annotated_by` thành `manual` nếu đã duyệt.
-- Sau đó chạy `build`, rồi sinh migration **V<n> mới** bằng `csv_to_sql.py`.
+- Sau đó chạy `build`, rồi `normalize_inci.py` (thêm dòng vào `shared/catalog/inci_overrides.csv` nếu báo cáo còn token dính / lỗi OCR; script cũng in danh sách dẫn xuất hoạt chất chưa gắn nhóm), rồi sinh migration **V<n> mới** bằng `csv_to_sql.py`. Có tên INCI mới thì chạy `normalize_inci.py --migration V<n>__inci_alias_<mo_ta>.sql` để sinh migration **mới** cập nhật `ingredient_alias` và đổi dữ liệu trong DB (SQL chạy lại được; script không ghi đè V24 hay migration đã có).
 - Không sửa tay `products.csv` hay migration đã merge.
 - INCI do cộng đồng nhập nên còn lỗi chính tả. Muốn sửa INCI thì sửa trên OBF hoặc đổi barcode.
 
