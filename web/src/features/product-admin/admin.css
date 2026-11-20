@@ -109,3 +109,11 @@ fieldset.field, .price-group { min-width: 0; margin: 0; padding: 0; border: 0; }
   .dialog-header, .dialog-footer, .dialog-body { padding-inline: var(--space-4); }
   .login-form { padding: var(--space-6); }
 }
+
+/* Lịch sử giá (US-33, T-33.2): dialog chỉ xem, không có form. */
+.price-history { display: flex; flex-direction: column; max-height: calc(100dvh - 34px); }
+.ph-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.ph-time { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.price-history td.num, .price-history th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.price-up { color: var(--color-danger); }
+.price-down { color: var(--color-success); }

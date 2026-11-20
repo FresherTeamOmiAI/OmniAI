@@ -4,6 +4,7 @@ import { ConversationInboxPage } from '../features/conversation-inbox'
 import { ShopeeProductPage, TiktokProductPage } from '../features/marketplace'
 import { PolicyPlaygroundPage } from '../features/policy-playground'
 import { ProductAdminPage } from '../features/product-admin'
+import { PromotionAdminPage } from '../features/promotion-admin'
 import { ProductDetailPage, StorePage } from '../features/store'
 import { ShopLayout } from './ShopLayout'
 
@@ -29,6 +30,7 @@ export default function App() {
           <Route path="login" element={<LoginPage />} />
           <Route path="account/link" element={<LinkAccountPage />} />
           <Route path="admin/products" element={<ProductAdminPage />} />
+          <Route path="admin/promotions" element={<PromotionAdminPage />} />
           <Route path="admin/conversations" element={<ConversationInboxPage />} />
           <Route path="admin/policy" element={<PolicyPlaygroundPage />} />
           <Route path="*" element={<NotFoundPage />} />

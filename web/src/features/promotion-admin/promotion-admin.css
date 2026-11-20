@@ -1,0 +1,24 @@
+/* Admin khuyến mãi (T-33.2). Khung bảng, dialog, ô form dùng chung product-admin/admin.css; ở đây chỉ phần riêng. */
+
+.promo-toolbar { align-items: center; }
+.promo-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); flex: 1 1 320px; }
+.promo-table { min-width: 820px; }
+.promo-period { white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.badge-scheduled { border-color: var(--color-primary-soft); background: var(--color-primary-soft); color: var(--color-primary); }
+.badge-disabled { text-decoration: line-through; }
+
+.promo-items { display: grid; gap: var(--space-3); margin: 0 0 var(--space-3); padding: 0; list-style: none; }
+.promo-item {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--space-1) var(--space-3);
+}
+.promo-item-remove { margin-bottom: 2px; }
+.promo-item-hint { grid-column: 1 / -1; font-size: var(--text-xs); }
+
+@media (max-width: 560px) {
+  .promo-item { grid-template-columns: minmax(0, 1fr) auto; }
+  .promo-item > .field:first-child { grid-column: 1 / -1; }
+}
